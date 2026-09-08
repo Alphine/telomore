@@ -5,17 +5,19 @@ import streamlit as st
 import ui  # noqa: F401
 from ui import charts
 from ui.components import (
-    baseline_config, disclaimer, export_buttons, failure_banner, page_setup,
-    provenance, set_state, terminal_metric_row, weights,
+    baseline_config, current_user, disclaimer, export_buttons, failure_banner, page_setup,
+    provenance, require_login, set_state, terminal_metric_row, weights,
 )
 from ui.controls import chip_controls, model_controls
 
+from telomere_lab import db as _db
 from telomere_lab.experiments.registry import ExperimentRegistry
 from telomere_lab.experiments.runner import record_simulation, run_simulation, score
 from telomere_lab.schemas import ModelConfig
 
 page_setup("Simulate", "🔬")
 disclaimer()
+require_login()
 
 defaults = baseline_config()
 
@@ -52,6 +54,9 @@ if run:
     set_state("sim_config", config)
     if register and result.valid:
         rec = record_simulation(result, ExperimentRegistry(), weights())
+        user = current_user()
+        if user is not None:
+            _db.record_user_run(user.id, rec["run_id"])
         st.toast(f"Registered as {rec['run_id']}")
 
 result = st.session_state.get("sim_result")

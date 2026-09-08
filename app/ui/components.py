@@ -7,6 +7,7 @@ from typing import Optional
 
 import streamlit as st
 
+from telomere_lab import db as _db
 from telomere_lab.config import CONFIG_DIR, load_model_config
 from telomere_lab.experiments.artifacts import simulation_csv, simulation_json
 from telomere_lab.schemas import EvolutionConfig, FitnessWeights, ModelConfig, SimulationResult
@@ -70,6 +71,79 @@ def disclaimer() -> None:
 def demo_config() -> ModelConfig:
     path = CONFIG_DIR / "demo.yaml"
     return load_model_config(path) if path.exists() else ModelConfig()
+
+
+# ----------------------------------------------------------------- auth
+# NOTE (deliberate scope limitation): login state lives only in
+# ``st.session_state["user"]`` for the current browser session/tab - there
+# is no persistent cookie / "remember me". Closing the tab or restarting the
+# Streamlit server logs everyone out. This keeps the auth layer simple; a
+# persistent-session mechanism (signed cookies, etc.) is out of scope here.
+def current_user() -> Optional[_db.User]:
+    return st.session_state.get("user")
+
+
+def _login_register_form() -> None:
+    st.subheader("Log in required")
+    st.caption("Create a free account or log in to use this feature. Your login lasts only for "
+               "this browser tab/session.")
+    tab_login, tab_register = st.tabs(["Log in", "Register"])
+
+    with tab_login:
+        with st.form("login_form"):
+            username = st.text_input("Username", key="login_username")
+            password = st.text_input("Password", type="password", key="login_password")
+            submitted = st.form_submit_button("Log in", type="primary")
+        if submitted:
+            if not username or not password:
+                st.error("Enter both a username and a password.")
+            else:
+                user = _db.authenticate(username, password)
+                if user is None:
+                    st.error("Wrong username or password.")
+                else:
+                    st.session_state["user"] = user
+                    st.rerun()
+
+    with tab_register:
+        with st.form("register_form"):
+            new_username = st.text_input("Choose a username", key="register_username")
+            new_password = st.text_input("Choose a password", type="password", key="register_password")
+            confirm_password = st.text_input("Confirm password", type="password", key="register_confirm")
+            submitted = st.form_submit_button("Create account", type="primary")
+        if submitted:
+            if not new_username or not new_password:
+                st.error("Enter both a username and a password.")
+            elif new_password != confirm_password:
+                st.error("Passwords do not match.")
+            else:
+                try:
+                    user = _db.create_user(new_username, new_password)
+                except _db.DuplicateUsernameError:
+                    st.error(f"Username {new_username!r} is already taken.")
+                except ValueError as exc:
+                    st.error(str(exc))
+                else:
+                    st.session_state["user"] = user
+                    st.success("Account created - you are now logged in.")
+                    st.rerun()
+
+
+def require_login() -> None:
+    """Gate the rest of the current page behind login.
+
+    If no user is logged in (``st.session_state["user"] is None``), render a
+    login/register form and ``st.stop()`` so nothing below this call renders.
+    If a user is already logged in, this is a no-op and the page continues.
+    """
+    if current_user() is not None:
+        return
+    _login_register_form()
+    st.stop()
+
+
+def logout() -> None:
+    st.session_state["user"] = None
 
 
 # ------------------------------------------------------------ session state

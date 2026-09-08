@@ -8,7 +8,7 @@ import json
 import streamlit as st
 
 import ui  # noqa: F401 - puts src/ on sys.path
-from ui.components import DISCLAIMER, inject_css
+from ui.components import DISCLAIMER, current_user, inject_css, logout
 
 from telomere_lab import __version__
 from telomere_lab.adapters.published_model import available_models
@@ -38,6 +38,19 @@ FEATURES = [
 def home() -> None:
     st.set_page_config(page_title="Telomere Evolution Lab", page_icon="🧬", layout="wide")
     inject_css()
+
+    # -------------------------------------------------------------- sidebar
+    with st.sidebar:
+        user = current_user()
+        if user is not None:
+            st.markdown(f"**Logged in as** `{user.username}`")
+            if st.button("Log out", width="stretch"):
+                logout()
+                st.rerun()
+        else:
+            st.caption("Log in to save your experiment progress. The Home page is public - "
+                       "logging in is only required to use Simulate/Evolve/Pareto/Sensitivity/"
+                       "Active Learning/Compare/Experiments.")
 
     # ------------------------------------------------------------------ hero
     st.title("🧬 Telomere Evolution Lab")

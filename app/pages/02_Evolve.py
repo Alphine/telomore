@@ -6,10 +6,12 @@ import streamlit as st
 import ui  # noqa: F401
 from ui import charts
 from ui.components import (
-    baseline_config, disclaimer, evolution_defaults, page_setup, set_state, weights,
+    baseline_config, current_user, disclaimer, evolution_defaults, page_setup, require_login,
+    set_state, weights,
 )
 from ui.controls import evolution_controls, fitness_weight_controls
 
+from telomere_lab import db as _db
 from telomere_lab.evolution.engine import GenerationRecord
 from telomere_lab.experiments.artifacts import evolution_json
 from telomere_lab.experiments.registry import ExperimentRegistry
@@ -17,6 +19,7 @@ from telomere_lab.experiments.runner import run_evolution
 
 page_setup("Evolve", "🧬")
 disclaimer()
+require_login()
 
 base = baseline_config()
 st.caption(
@@ -75,6 +78,10 @@ if submitted:
     st.session_state["evo_running"] = False
     set_state("evo_result", result)
     set_state("evo_record", record)
+    if record:
+        user = current_user()
+        if user is not None:
+            _db.record_user_run(user.id, record["run_id"])
     progress.empty(); live_chart.empty(); live_text.empty()
     st.rerun()
 

@@ -7,14 +7,18 @@ import streamlit as st
 
 import ui  # noqa: F401
 from ui import charts
-from ui.components import baseline_config, disclaimer, page_setup, set_state, weights
+from ui.components import (
+    baseline_config, current_user, disclaimer, page_setup, require_login, set_state, weights,
+)
 
+from telomere_lab import db as _db
 from telomere_lab.experiments.registry import ExperimentRegistry, _json_default
 from telomere_lab.experiments.runner import run_sensitivity
 from telomere_lab.schemas import EVOLVABLE_PARAMETERS, SensitivityConfig
 
 page_setup("Sensitivity", "📐")
 disclaimer()
+require_login()
 
 base = baseline_config()
 st.markdown(
@@ -65,6 +69,10 @@ if submitted:
         result, record = run_sensitivity(base, sens, ExperimentRegistry(), callback=on_item, notes=notes)
     set_state("sensitivity_result", result)
     set_state("sensitivity_record", record)
+    if record:
+        user = current_user()
+        if user is not None:
+            _db.record_user_run(user.id, record["run_id"])
     progress.empty()
     st.rerun()
 

@@ -1,5 +1,6 @@
 """GUI smoke tests with Streamlit's AppTest (SDD §29)."""
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -8,10 +9,32 @@ st = pytest.importorskip("streamlit")
 from streamlit.testing.v1 import AppTest  # noqa: E402
 
 APP = Path(__file__).resolve().parents[1] / "app"
+SRC = Path(__file__).resolve().parents[1] / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+from telomere_lab import db as db_module  # noqa: E402
 
 
-def _run(path: str, timeout: float = 60) -> AppTest:
+@pytest.fixture(autouse=True)
+def _isolated_db(tmp_path, monkeypatch):
+    """Every AppTest run gets its own throwaway SQLite database so login
+    tests never touch the real data/local.db used by the running app."""
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setattr(db_module, "DATA_DIR", tmp_path / "data")
+    db_module.reset_engine()
+    yield
+    db_module.reset_engine()
+
+
+def _logged_in_user():
+    return db_module.create_user("test_user", "test_password")
+
+
+def _run(path: str, timeout: float = 60, logged_in: bool = False) -> AppTest:
     at = AppTest.from_file(str(APP / path), default_timeout=timeout)
+    if logged_in:
+        at.session_state["user"] = _logged_in_user()
     at.run()
     assert not at.exception, at.exception
     return at
@@ -22,8 +45,15 @@ def test_home_loads():
     assert any("Telomere Evolution Lab" in t.value for t in at.title)
 
 
-def test_simulate_page_runs_simulation_and_shows_results():
+def test_functional_page_requires_login():
+    """An unauthenticated visitor sees the login form, not the real page."""
     at = _run("pages/01_Simulate.py")
+    assert any("Log in required" in s.value for s in at.subheader)
+    assert not at.sidebar.slider  # the real Simulate page content never rendered
+
+
+def test_simulate_page_runs_simulation_and_shows_results():
+    at = _run("pages/01_Simulate.py", logged_in=True)
     # required controls
     labels = " ".join(s.label for s in at.sidebar.slider)
     for word in ("Stress", "Maintenance", "Repair", "shortening", "Initial telomere"):
@@ -40,12 +70,12 @@ def test_simulate_page_runs_simulation_and_shows_results():
 
 
 def test_evolve_page_loads():
-    at = _run("pages/02_Evolve.py")
+    at = _run("pages/02_Evolve.py", logged_in=True)
     assert any("Evolve" in t.value for t in at.title)
 
 
 def test_compare_page_loads_without_session_evolution_result():
-    at = _run("pages/03_Compare.py")
+    at = _run("pages/03_Compare.py", logged_in=True)
     assert any("Compare" in t.value for t in at.title)
     # Either the ledger is empty (warning tells the user to run Evolve) or the page fell back to
     # the most recent registered evolution run (selectbox + caption).
@@ -55,11 +85,21 @@ def test_compare_page_loads_without_session_evolution_result():
 
 
 def test_pareto_page_loads():
-    at = _run("pages/05_Pareto.py")
+    at = _run("pages/05_Pareto.py", logged_in=True)
     assert any("Pareto" in t.value for t in at.title)
     assert at.multiselect  # objectives selector present
 
 
+def test_sensitivity_page_requires_login():
+    at = _run("pages/06_Sensitivity.py")
+    assert any("Log in required" in s.value for s in at.subheader)
+
+
+def test_active_learning_page_requires_login():
+    at = _run("pages/07_ActiveLearning.py")
+    assert any("Log in required" in s.value for s in at.subheader)
+
+
 def test_experiments_page_loads():
-    at = _run("pages/04_Experiments.py")
+    at = _run("pages/04_Experiments.py", logged_in=True)
     assert any("Experiments" in t.value for t in at.title)

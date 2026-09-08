@@ -9,8 +9,11 @@ import streamlit as st
 
 import ui  # noqa: F401
 from ui import charts
-from ui.components import baseline_config, disclaimer, page_setup, set_state, weights
+from ui.components import (
+    baseline_config, current_user, disclaimer, page_setup, require_login, set_state, weights,
+)
 
+from telomere_lab import db as _db
 from telomere_lab.evolution.benchmark import run_random_search
 from telomere_lab.experiments.registry import ExperimentRegistry, _json_default
 from telomere_lab.experiments.runner import run_active_learning
@@ -18,6 +21,7 @@ from telomere_lab.schemas import EVOLVABLE_PARAMETERS, ActiveLearningConfig
 
 page_setup("Active Learning", "🧭")
 disclaimer()
+require_login()
 
 base = baseline_config()
 st.markdown(
@@ -81,6 +85,10 @@ if submitted:
     set_state("active_learning_result", result)
     set_state("active_learning_record", record)
     set_state("active_learning_random_baseline", random_baseline)
+    if record:
+        user = current_user()
+        if user is not None:
+            _db.record_user_run(user.id, record["run_id"])
     progress.empty()
     st.rerun()
 

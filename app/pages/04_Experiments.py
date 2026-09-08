@@ -5,13 +5,15 @@ import json
 import streamlit as st
 
 import ui  # noqa: F401
-from ui.components import disclaimer, page_setup
+from ui.components import current_user, disclaimer, page_setup, require_login
 
+from telomere_lab import db as _db
 from telomere_lab.experiments.artifacts import bundle_run_dir
 from telomere_lab.experiments.registry import ExperimentRegistry, environment_metadata
 
 page_setup("Experiments", "📒")
 disclaimer()
+require_login()
 
 registry = ExperimentRegistry()
 ledger = registry.ledger_frame()
@@ -22,7 +24,19 @@ if ledger.empty:
             "or use the CLI scripts.")
     st.stop()
 
-st.dataframe(ledger, hide_index=True, width="stretch", height=320)
+user = current_user()
+my_run_ids = set(_db.list_user_runs(user.id)) if user is not None else set()
+
+tab_all, tab_mine = st.tabs(["All experiments", "My experiments"])
+with tab_all:
+    st.dataframe(ledger, hide_index=True, width="stretch", height=320)
+with tab_mine:
+    my_ledger = ledger[ledger["run_id"].isin(my_run_ids)]
+    if my_ledger.empty:
+        st.info("You have not recorded any runs yet in this session. Tick *Record run* on the "
+                "Simulate page, or run Evolve/Pareto/Sensitivity/Active Learning, while logged in.")
+    else:
+        st.dataframe(my_ledger, hide_index=True, width="stretch", height=320)
 
 st.markdown("#### Inspect a run")
 run_id = st.selectbox("Run ID", ledger["run_id"].tolist())

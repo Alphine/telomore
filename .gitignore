@@ -12,3 +12,4 @@ experiments/runs/*
 experiments/reports/*.png
 experiments/reports/*.html
 .cache/
+data/

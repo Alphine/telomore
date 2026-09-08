@@ -5,7 +5,7 @@ import streamlit as st
 
 import ui  # noqa: F401
 from ui import charts
-from ui.components import baseline_config, disclaimer, page_setup, weights
+from ui.components import baseline_config, disclaimer, page_setup, require_login, weights
 from ui.controls import model_controls
 
 from telomere_lab.evolution.genome import GenomeSpec
@@ -15,6 +15,7 @@ from telomere_lab.schemas import EvolutionConfig, ModelConfig
 
 page_setup("Compare", "⚖️")
 disclaimer()
+require_login()
 
 base: ModelConfig = baseline_config()
 evo_result = st.session_state.get("evo_result")

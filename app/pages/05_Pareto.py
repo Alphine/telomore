@@ -8,8 +8,11 @@ import streamlit as st
 
 import ui  # noqa: F401
 from ui import charts
-from ui.components import baseline_config, disclaimer, page_setup, set_state, weights
+from ui.components import (
+    baseline_config, current_user, disclaimer, page_setup, require_login, set_state, weights,
+)
 
+from telomere_lab import db as _db
 from telomere_lab.evolution.genome import GenomeSpec
 from telomere_lab.experiments.registry import ExperimentRegistry, _json_default
 from telomere_lab.experiments.runner import run_pareto
@@ -17,6 +20,7 @@ from telomere_lab.schemas import EVOLVABLE_PARAMETERS, OBJECTIVES, MultiObjectiv
 
 page_setup("Pareto", "🎯")
 disclaimer()
+require_login()
 
 base = baseline_config()
 st.markdown(
@@ -78,6 +82,10 @@ if submitted:
     st.session_state["mo_running"] = False
     set_state("pareto_result", result)
     set_state("pareto_record", record)
+    if record:
+        user = current_user()
+        if user is not None:
+            _db.record_user_run(user.id, record["run_id"])
     progress.empty(); live.empty()
     st.rerun()
 

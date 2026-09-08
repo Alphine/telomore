@@ -43,6 +43,10 @@ pip install -e ".[dev]"          # or: uv pip install -e ".[dev]"
 streamlit run app/streamlit_app.py
 ```
 
+No extra setup needed for accounts/login: with no `DATABASE_URL` set, user
+accounts are stored in a local SQLite file created automatically on first
+use (see [Accounts / login](#accounts--login)).
+
 Headless (same engine, no GUI):
 
 ```bash
@@ -56,6 +60,35 @@ python scripts/benchmark.py
 python scripts/benchmark_optimizers.py                                              # GA vs NSGA-II vs random search vs active learning
 python -m pytest
 ```
+
+## Accounts / login
+
+Every functional page — **Simulate, Evolve, Pareto, Sensitivity, Active
+Learning, Compare, Experiments** — requires a logged-in account; the
+**Home** page stays public (it's the marketing/overview page, feature cards
+and page links included — only clicking through to a feature page hits the
+login gate). Auth is self-serve username + password (no OAuth), registered
+directly in the sidebar/page login form.
+
+Storage: **PostgreSQL** in production, via Railway's Postgres plugin, which
+injects a `DATABASE_URL` env var into the app service automatically.
+Locally, with no `DATABASE_URL` set, the app **transparently falls back to
+a SQLite file** under `data/local.db` (created on first use, git-ignored) —
+same schema, same code path, zero setup. This is why `pip install -e
+".[dev]"` + `streamlit run app/streamlit_app.py` (and `pytest`) keep working
+out of the box with no local database server.
+
+Login is **session-based only**: `st.session_state["user"]` holds the
+logged-in user for the current browser tab/session and is cleared on tab
+close or server restart. There is no persistent "remember me" cookie, no
+password-reset flow, and no email verification — this is a deliberate,
+stated scope limitation, not a bug.
+
+On the **Experiments** page, the reproducibility ledger is split into an
+"All experiments" tab (the full shared ledger, exactly as before) and a
+"My experiments" tab (only the run IDs recorded under your account). The
+underlying JSONL ledger itself is unchanged — the accounts database only
+tracks which run IDs belong to which user.
 
 ## GUI pages
 
@@ -126,6 +159,7 @@ recorded in `experiments/`:
 ```
 app/            Streamlit GUI (streamlit_app.py + pages/ + ui/)
 src/telomere_lab/
+  db.py         user accounts + "which run belongs to which user" (Postgres/SQLite)
   schemas.py    typed configs, bounds, result containers
   simulator/    model.py, population.py, metrics.py, stochastic.py
   evolution/    genome, mutation, crossover, selection, fitness, engine, benchmark, surrogate (active learning)
@@ -137,6 +171,7 @@ scripts/        run_simulation.py, run_evolution.py, run_sensitivity.py, run_act
 tests/          simulator, metrics, evolution, sensitivity, surrogate, benchmark, Streamlit AppTest
 docs/           SDD, MODEL, SCIENTIFIC_SCOPE, EXPERIMENT_PROTOCOL
 experiments/    runs/ (ledger + artifacts, git-ignored), reports/
+data/           local SQLite fallback DB for accounts (git-ignored; unused when DATABASE_URL is set)
 ```
 
 ## Scientific limitations

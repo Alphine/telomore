@@ -30,6 +30,8 @@ FEATURES = [
      "read the deltas.", "Compare"),
     ("📒", "Experiments", "Browse the reproducibility ledger and download complete run bundles "
      "for any past experiment.", "Experiments"),
+    ("🧭", "Active Learning", "A Gaussian-process surrogate + Expected Improvement chooses which "
+     "configuration to test next, reaching good fitness with fewer real simulator runs.", "ActiveLearning"),
 ]
 
 
@@ -137,6 +139,7 @@ _PAGE_FILES = {
     "Sensitivity": "06_Sensitivity.py",
     "Compare": "03_Compare.py",
     "Experiments": "04_Experiments.py",
+    "ActiveLearning": "07_ActiveLearning.py",
 }
 
 
@@ -147,6 +150,7 @@ pages = st.navigation(
         st.Page("pages/02_Evolve.py", title="Evolve", icon="🧬", url_path="Evolve"),
         st.Page("pages/05_Pareto.py", title="Pareto", icon="🎯", url_path="Pareto"),
         st.Page("pages/06_Sensitivity.py", title="Sensitivity", icon="📐", url_path="Sensitivity"),
+        st.Page("pages/07_ActiveLearning.py", title="Active Learning", icon="🧭", url_path="ActiveLearning"),
         st.Page("pages/03_Compare.py", title="Compare", icon="⚖️", url_path="Compare"),
         st.Page("pages/04_Experiments.py", title="Experiments", icon="📒", url_path="Experiments"),
     ]

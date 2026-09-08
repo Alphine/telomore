@@ -1,0 +1,36 @@
+# Surrogate-model active learning: a small random initial design, then a
+# Gaussian-process surrogate + Expected Improvement pick which untested
+# genome is most worth spending the next real simulator evaluation on.
+# Kept small so the whole run finishes in well under a minute on a laptop.
+model:
+  initial_length: 7500.0
+  initial_length_sd: 800.0
+  population_size: 100
+  carrying_capacity: 400
+  telomeres_per_cell: 32
+  shortening_rate: 55.0
+  stress_level: 0.60
+  stress_sensitivity: 100.0
+  maintenance_rate: 0.10
+  maintenance_max_gain: 120.0
+  repair_rate: 0.15
+  senescence_threshold: 3000.0
+  noise_sd: 30.0
+  senescent_death_rate: 0.03
+  cycles: 120
+  seed: 42
+
+active_learning:
+  n_initial: 8
+  n_iterations: 12
+  eval_seeds: [1, 2]
+  free_genes: [stress_level, maintenance_rate, repair_rate]
+  seed: 11
+  xi: 0.01
+  candidate_pool_size: 300
+  weights:
+    w_survival: 0.40
+    w_reserve: 0.30
+    w_senescence: 0.20
+    w_instability: 0.10
+    w_cost: 0.30

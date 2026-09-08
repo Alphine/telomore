@@ -1,6 +1,6 @@
-"""Budget-matched benchmark: GA vs. NSGA-II vs. random search.
+"""Budget-matched benchmark: GA vs. NSGA-II vs. random search vs. surrogate active learning.
 
-All three methods are compared on the same scalar fitness
+All four methods are compared on the same scalar fitness
 (``evolution.fitness.compute_fitness``, the GA's objective) so their
 convergence curves share one y-axis. NSGA-II does not optimise this scalar
 directly -- it keeps a whole Pareto front -- so its curve is the *best single
@@ -11,7 +11,10 @@ choice); it was not used here because it is on a different scale entirely
 and cannot share an axis with the GA's fitness without an extra normalisation
 step. Random search samples genomes uniformly from the same gene bounds used
 by the GA/NSGA-II genome encoding (``GenomeSpec``) and is budget-matched by
-total simulator calls (``budget_evaluations``).
+total simulator calls (``budget_evaluations``). Active learning (``surrogate.py``)
+is budget-matched the same way (``active_learning_config_for_budget``): it
+spends its real-simulator budget on a small random initial design plus
+surrogate-guided picks, rather than a population evolved every generation.
 """
 
 from __future__ import annotations
@@ -25,12 +28,13 @@ from typing import Dict, List, Optional, Sequence
 
 import numpy as np
 
-from ..schemas import FitnessWeights, ModelConfig, MultiObjectiveConfig
+from ..schemas import ActiveLearningConfig, FitnessWeights, ModelConfig, MultiObjectiveConfig
 from ..simulator.model import SimpleTelomereModel
 from .engine import EvolutionEngine
 from .fitness import average_breakdowns, compute_fitness
 from .genome import GenomeSpec
 from .multiobjective import NSGA2Engine
+from .surrogate import run_active_learning
 
 
 @dataclass
@@ -72,6 +76,25 @@ def budget_evaluations(population_size: int, generations: int, eval_seeds: Seque
     small savings from genome-cache hits on duplicate genomes). Used to size a matched
     random-search budget."""
     return population_size * (generations + 1) * len(eval_seeds)
+
+
+def active_learning_config_for_budget(
+    n_evaluations: int,
+    eval_seeds: Sequence[int],
+    free_genes: Sequence[str],
+    weights: Optional[FitnessWeights] = None,
+    seed: int = 0,
+    initial_fraction: float = 0.2,
+) -> ActiveLearningConfig:
+    """Split a total simulator-call budget between the random initial design and the
+    active-learning iterations, matching the ``n_evaluations`` used by random search/GA/NSGA-II."""
+    n_candidates = max(2, n_evaluations // len(eval_seeds))
+    n_initial = max(2, round(initial_fraction * n_candidates))
+    n_iterations = max(0, n_candidates - n_initial)
+    return ActiveLearningConfig(
+        n_initial=n_initial, n_iterations=n_iterations, eval_seeds=tuple(eval_seeds),
+        free_genes=tuple(free_genes), seed=seed, weights=weights or FitnessWeights(),
+    )
 
 
 # --------------------------------------------------------------- random search
@@ -159,4 +182,23 @@ def run_nsga2_benchmark(base_config: ModelConfig, mo_config: MultiObjectiveConfi
         method="NSGA-II", curve=curve, final_best_fitness=max(finite) if finite else float("nan"),
         best_genome=dict(best_candidate.genome) if best_candidate else {},
         runtime_seconds=_time.perf_counter() - t0, evaluations=result.evaluations,
+    )
+
+
+# ------------------------------------------------------------ active learning
+def run_active_learning_benchmark(
+    base_config: ModelConfig,
+    al_config: ActiveLearningConfig,
+    model: Optional[SimpleTelomereModel] = None,
+) -> BenchmarkResult:
+    """Surrogate (GP) + Expected-Improvement active learning, on the same budget-matched
+    convergence axis as GA/NSGA-II/random search (see ``surrogate.py``)."""
+    model = model or SimpleTelomereModel()
+    t0 = _time.perf_counter()
+    result = run_active_learning(base_config, al_config, model=model)
+    curve = [ConvergencePoint(r.n_real_evaluations, r.best_so_far) for r in result.records]
+    return BenchmarkResult(
+        method="Active Learning (GP-EI)", curve=curve, final_best_fitness=result.best_fitness,
+        best_genome=result.best_genome, runtime_seconds=_time.perf_counter() - t0,
+        evaluations=result.evaluations,
     )

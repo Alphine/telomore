@@ -170,6 +170,33 @@ comparable across runs. Invalid simulations are placed at a dominated
 sentinel point and never enter the front. The scalar fitness is still
 reported per front member for reference only.
 
+### 5.2 Surrogate-model active learning
+
+`evolution/surrogate.py` is a different kind of optimizer, not a rerun of
+GA/NSGA-II/random search under another name: it answers "can we reach a
+comparable fitness with *fewer* real simulator evaluations by being
+selective about which genome to test next?" (the standard "why not just
+random search" critique, made concrete and measured).
+
+A small random initial design (uniform over the same normalised gene space
+as the GA, `GenomeSpec`) is evaluated with the real simulator. A
+`sklearn.gaussian_process.GaussianProcessRegressor` (Matern kernel) is then
+fit to the (genome, fitness) pairs seen so far. A Gaussian Process is used
+rather than a Random Forest because the free-gene space is low-dimensional
+(3-6 genes) and the real-evaluation budget is small (tens of points) — a GP
+is cheap to fit at this scale and, unlike a plain regressor, gives a
+calibrated predictive mean *and* uncertainty, which the acquisition
+function needs. Each iteration scores a random pool of candidate genomes
+with the fitted surrogate, computes **Expected Improvement** (EI) against
+the best real fitness seen so far, evaluates the EI-maximising candidate
+with the real simulator, and refits. Every real evaluation, its surrogate
+belief beforehand (mean/std/EI), and the running best-so-far are recorded
+(`ActiveLearningResult`), so calibration and convergence are both visible.
+
+`scripts/benchmark_optimizers.py` includes this method as a fourth,
+budget-matched entry alongside GA/NSGA-II/random search on the same
+convergence axis (real simulator evaluations vs. best fitness so far).
+
 ## 6. Organ-on-a-chip mapping (assumption)
 
 `adapters/chip.py` converts chip conditions to model parameters:

@@ -4,3 +4,4 @@ pandas>=2.0
 pyyaml>=6.0
 streamlit>=1.35
 plotly>=5.20
+scikit-learn>=1.3

@@ -66,6 +66,16 @@ def load_sensitivity_config(path: str | Path) -> Tuple[ModelConfig, "Sensitivity
     return model, sens
 
 
+def load_active_learning_config(path: str | Path) -> Tuple[ModelConfig, "ActiveLearningConfig"]:
+    """Load ``model:`` + ``active_learning:`` blocks for the surrogate active-learning runner."""
+    from .schemas import ActiveLearningConfig
+
+    data = load_yaml(path)
+    model = ModelConfig.from_dict(data.get("model", {})).validate()
+    al = ActiveLearningConfig.from_dict(data.get("active_learning", {})).validate()
+    return model, al
+
+
 def dump_yaml(data: Dict[str, Any], path: str | Path) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as fh:

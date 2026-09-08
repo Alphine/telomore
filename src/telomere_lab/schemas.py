@@ -389,6 +389,64 @@ class EvolutionConfig:
 
 
 @dataclass
+class ActiveLearningConfig:
+    """Surrogate-model active-learning settings (GP + Expected Improvement).
+
+    Real simulator budget = ``(n_initial + n_iterations) * len(eval_seeds)``,
+    matching how the GA/NSGA-II/random-search benchmarks count evaluations
+    (SDD-adjacent choice, see ``evolution/benchmark.py``).
+    """
+
+    n_initial: int = 8            # size of the random initial design
+    n_iterations: int = 16        # real-simulator evaluations chosen by the acquisition function
+    eval_seeds: tuple = (1, 2, 3)
+    free_genes: tuple = ("stress_level", "maintenance_rate", "repair_rate")
+    seed: int = 11
+    xi: float = 0.01              # Expected Improvement exploration margin
+    candidate_pool_size: int = 500  # random candidates the acquisition function is scored over
+    weights: FitnessWeights = field(default_factory=FitnessWeights)
+
+    def validate(self) -> "ActiveLearningConfig":
+        if self.n_initial < 2:
+            raise ConfigError("n_initial must be >= 2")
+        if self.n_iterations < 0:
+            raise ConfigError("n_iterations must be >= 0")
+        if self.candidate_pool_size < 10:
+            raise ConfigError("candidate_pool_size must be >= 10")
+        if self.xi < 0:
+            raise ConfigError("xi must be >= 0")
+        for g in self.free_genes:
+            if g not in EVOLVABLE_PARAMETERS:
+                raise ConfigError(f"{g} is not an evolvable parameter")
+        if not self.free_genes:
+            raise ConfigError("at least one free gene is required")
+        if not self.eval_seeds:
+            raise ConfigError("eval_seeds must not be empty")
+        return self
+
+    def to_dict(self) -> Dict[str, Any]:
+        d = asdict(self)
+        d["eval_seeds"] = list(self.eval_seeds)
+        d["free_genes"] = list(self.free_genes)
+        return d
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ActiveLearningConfig":
+        data = dict(data)
+        weights = data.pop("weights", None)
+        allowed = {f.name for f in fields(cls)}
+        clean = {k: v for k, v in data.items() if k in allowed}
+        if "eval_seeds" in clean:
+            clean["eval_seeds"] = tuple(int(s) for s in clean["eval_seeds"])
+        if "free_genes" in clean:
+            clean["free_genes"] = tuple(clean["free_genes"])
+        cfg = cls(**clean)
+        if weights is not None:
+            cfg.weights = FitnessWeights.from_dict(weights)
+        return cfg
+
+
+@dataclass
 class SensitivityConfig:
     """One-at-a-time (OAT) sensitivity analysis settings (tornado chart)."""
 

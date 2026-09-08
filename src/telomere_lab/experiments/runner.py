@@ -196,6 +196,45 @@ def run_sensitivity(
     return result, record
 
 
+def run_active_learning(
+    base_config: ModelConfig,
+    al_config,
+    registry: Optional[ExperimentRegistry] = None,
+    callback=None,
+    model: Optional[TelomereModelAdapter] = None,
+    notes: str = "",
+    register: bool = True,
+):
+    """Run surrogate-model active learning and (optionally) register it in the ledger."""
+    from ..evolution.surrogate import run_active_learning as _run_active_learning
+    from .artifacts import write_active_learning_artifacts
+
+    registry = registry or ExperimentRegistry()
+    run_id = registry.new_run_id() if register else None
+    result = _run_active_learning(base_config, al_config, model=model, callback=callback)
+    record = None
+    if register and run_id:
+        run_dir = registry.run_dir(run_id)
+        artifacts = write_active_learning_artifacts(result, run_dir)
+        record = registry.register(
+            kind="active_learning",
+            run_id=run_id,
+            seed=al_config.seed,
+            configuration={"model": base_config.to_dict(), "active_learning": al_config.to_dict()},
+            fitness=result.best_fitness,
+            artifacts=artifacts,
+            runtime_seconds=result.runtime_seconds,
+            notes=notes,
+            extra={
+                "best_genome": result.best_genome,
+                "evaluations": result.evaluations,
+                "n_initial": al_config.n_initial,
+                "n_iterations": al_config.n_iterations,
+            },
+        )
+    return result, record
+
+
 @dataclass
 class ScenarioComparison:
     name: str

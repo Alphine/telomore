@@ -1,4 +1,4 @@
-"""CLI: budget-matched comparison of GA, NSGA-II and random search.
+"""CLI: budget-matched comparison of GA, NSGA-II, random search and surrogate active learning.
 
 Distinct from ``scripts/benchmark.py`` (which times the simulator/GA for
 *speed*). This one compares optimizer *quality* under a matched simulation
@@ -20,8 +20,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from telomere_lab.config import REPORTS_DIR, load_evolution_config  # noqa: E402
 from telomere_lab.evolution.benchmark import (  # noqa: E402
+    active_learning_config_for_budget,
     budget_evaluations,
     combined_frame,
+    run_active_learning_benchmark,
     run_ga_benchmark,
     run_nsga2_benchmark,
     run_random_search,
@@ -76,10 +78,19 @@ def main(argv=None) -> int:
     print(f"  done in {time.perf_counter() - t0:.1f}s  evaluations {rs.evaluations}  "
           f"best {rs.final_best_fitness:+.4f}")
 
+    al_config = active_learning_config_for_budget(budget, evo.eval_seeds, evo.free_genes,
+                                                  weights=evo.weights, seed=evo.seed)
+    print(f"Active learning (GP-EI): initial {al_config.n_initial}  iterations {al_config.n_iterations}  "
+          f"budget-matched to {budget} simulator calls")
+    t0 = time.perf_counter()
+    al = run_active_learning_benchmark(base, al_config)
+    print(f"  done in {time.perf_counter() - t0:.1f}s  evaluations {al.evaluations}  "
+          f"best {al.final_best_fitness:+.4f}")
+
     print("-" * 78)
-    print(f"{'method':<14}{'evaluations':>14}{'final_best_fitness':>22}{'runtime_s':>12}")
-    for r in (ga, nsga2, rs):
-        print(f"{r.method:<14}{r.evaluations:>14}{r.final_best_fitness:>22.4f}{r.runtime_seconds:>12.1f}")
+    print(f"{'method':<24}{'evaluations':>14}{'final_best_fitness':>22}{'runtime_s':>12}")
+    for r in (ga, nsga2, rs, al):
+        print(f"{r.method:<24}{r.evaluations:>14}{r.final_best_fitness:>22.4f}{r.runtime_seconds:>12.1f}")
 
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     out = REPORTS_DIR / "benchmark_optimizers.json"
@@ -94,11 +105,11 @@ def main(argv=None) -> int:
                 "curve": [{"n_evaluations": p.n_evaluations, "best_fitness_so_far": p.best_fitness_so_far}
                          for p in r.curve],
             }
-            for r in (ga, nsga2, rs)
+            for r in (ga, nsga2, rs, al)
         },
     }
     out.write_text(json.dumps(payload, indent=2, default=_json_default), encoding="utf-8")
-    combined_frame([ga, nsga2, rs]).to_csv(REPORTS_DIR / "benchmark_optimizers.csv", index=False)
+    combined_frame([ga, nsga2, rs, al]).to_csv(REPORTS_DIR / "benchmark_optimizers.csv", index=False)
     print(f"Report written to {out}")
     return 0
 

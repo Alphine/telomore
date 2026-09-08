@@ -19,8 +19,47 @@ DISCLAIMER = (
 )
 
 
+def inject_css() -> None:
+    """Light-touch, theme-adaptive CSS for cards, spacing and badges.
+
+    Uses Streamlit's own CSS variables (or structural rules with no hardcoded
+    colors) so this looks correct in both light and dark themes.
+    """
+    st.markdown(
+        """
+        <style>
+        /* Bordered containers (st.container(border=True)) read as cards */
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            border-radius: 0.75rem;
+            transition: box-shadow 0.15s ease, transform 0.15s ease;
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"]:has(.feature-card-marker):hover {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+            transform: translateY(-1px);
+        }
+        .feature-card-icon {
+            font-size: 1.8rem;
+            line-height: 1;
+            margin-bottom: 0.25rem;
+        }
+        /* Breathing room between major page sections */
+        h4 {
+            margin-top: 1.25rem;
+        }
+        /* Softer, theme-adaptive divider */
+        hr {
+            margin: 1.75rem 0;
+            opacity: 0.5;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def page_setup(title: str, icon: str = "🧬") -> None:
     st.set_page_config(page_title=f"{title} · Telomere Evolution Lab", page_icon=icon, layout="wide")
+    inject_css()
     st.title(f"{icon} {title}")
 
 

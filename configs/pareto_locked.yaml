@@ -1,0 +1,40 @@
+# Experiment C (NSGA-II): stress_level fixed at 0.60 (see evolution_locked.yaml
+# for rationale). Only maintenance_rate and repair_rate are free, so the
+# 2-D front is the true achievable trade-off between survival and
+# intervention cost under a stressor the experimenter cannot remove.
+model:
+  initial_length: 7500.0
+  initial_length_sd: 800.0
+  population_size: 100
+  carrying_capacity: 400
+  telomeres_per_cell: 32
+  shortening_rate: 55.0
+  stress_level: 0.60
+  stress_sensitivity: 100.0
+  maintenance_rate: 0.10
+  maintenance_max_gain: 120.0
+  repair_rate: 0.15
+  senescence_threshold: 3000.0
+  noise_sd: 30.0
+  senescent_death_rate: 0.03
+  cycles: 120
+  seed: 42
+
+multiobjective:
+  population_size: 40
+  generations: 25
+  mutation_rate: 0.30
+  mutation_sigma: 0.15
+  crossover_rate: 0.80
+  crossover_kind: uniform
+  seed: 7
+  eval_seeds: [42]
+  free_genes: [maintenance_rate, repair_rate]   # stress_level is NOT free
+  objectives: [survival, cost]
+  checkpoint_every: 5
+  weights:
+    w_survival: 0.40
+    w_reserve: 0.30
+    w_senescence: 0.20
+    w_instability: 0.10
+    w_cost: 0.30

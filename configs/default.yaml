@@ -1,0 +1,23 @@
+# Default model configuration (matches ModelConfig defaults).
+# Units: lengths in bp, time in cell cycles. See docs/MODEL.md.
+model:
+  # initial conditions
+  initial_length: 7500.0
+  initial_length_sd: 800.0
+  population_size: 100
+  carrying_capacity: 400
+  telomeres_per_cell: 32
+  # model parameters
+  shortening_rate: 55.0
+  stress_level: 0.40
+  stress_sensitivity: 100.0
+  maintenance_rate: 0.20
+  maintenance_max_gain: 120.0
+  repair_rate: 0.20
+  senescence_threshold: 3000.0
+  noise_sd: 30.0
+  senescent_death_rate: 0.03
+  # run control
+  cycles: 120
+  seed: 42
+  record_distribution_every: 0

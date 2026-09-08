@@ -1,0 +1,51 @@
+{
+  "environment": {
+    "python_version": "3.13.15",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "machine": "AMD64",
+    "processor": "AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD",
+    "numpy_version": "2.3.4",
+    "scipy_version": "1.18.0",
+    "pandas_version": "2.3.3",
+    "package_version": "0.1.0",
+    "model_version": "0.1.0",
+    "optimizer_version": "0.1.0",
+    "git_commit": null
+  },
+  "python_impl": "CPython",
+  "simulation_default": {
+    "config": {
+      "population_size": 100,
+      "capacity": 400,
+      "telomeres_per_cell": 32,
+      "cycles": 120
+    },
+    "repeats": 10,
+    "mean_ms": 141.9845600030385,
+    "median_ms": 140.94480000494514,
+    "max_ms": 166.30979999899864
+  },
+  "simulation_large": {
+    "config": {
+      "population_size": 200,
+      "capacity": 1000,
+      "telomeres_per_cell": 92,
+      "cycles": 200
+    },
+    "repeats": 3,
+    "mean_ms": 726.0592666571029,
+    "median_ms": 727.5851999875158,
+    "max_ms": 752.4001999991015
+  },
+  "evolution": {
+    "population_size": 32,
+    "generations": 3,
+    "evaluations": 107,
+    "total_seconds": 21.72454219998326,
+    "seconds_per_generation": 7.241514066661087,
+    "ms_per_evaluation": 203.03310467274076,
+    "baseline_fitness": -0.13528364157450778,
+    "best_fitness": 0.4777333101460268,
+    "improved": true
+  }
+}

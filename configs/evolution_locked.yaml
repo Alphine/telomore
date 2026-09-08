@@ -1,0 +1,43 @@
+# Experiment C (GA): stress_level is a FIXED chip/culture condition (0.60,
+# not evolvable) — e.g. an oxygen tension or exposure the operator cannot
+# change. The optimizer may only tune the two "intervention" genes
+# (maintenance_rate, repair_rate). Everything else identical to evolution.yaml
+# so this is directly comparable to Experiment A/B (docs/EXPERIMENT_PROTOCOL.md).
+model:
+  initial_length: 7500.0
+  initial_length_sd: 800.0
+  population_size: 100
+  carrying_capacity: 400
+  telomeres_per_cell: 32
+  shortening_rate: 55.0
+  stress_level: 0.60
+  stress_sensitivity: 100.0
+  maintenance_rate: 0.10
+  maintenance_max_gain: 120.0
+  repair_rate: 0.15
+  senescence_threshold: 3000.0
+  noise_sd: 30.0
+  senescent_death_rate: 0.03
+  cycles: 120
+  seed: 42
+
+evolution:
+  population_size: 32
+  generations: 20
+  elite_fraction: 0.10
+  mutation_rate: 0.30
+  mutation_sigma: 0.15
+  crossover_rate: 0.70
+  crossover_kind: uniform
+  tournament_size: 3
+  seed: 7
+  eval_seeds: [42]
+  free_genes: [maintenance_rate, repair_rate]   # stress_level is NOT free
+  early_stopping_patience: 0
+  checkpoint_every: 5
+  weights:
+    w_survival: 0.40
+    w_reserve: 0.30
+    w_senescence: 0.20
+    w_instability: 0.10
+    w_cost: 0.30

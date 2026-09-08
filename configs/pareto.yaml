@@ -1,0 +1,39 @@
+# Multi-objective (NSGA-II) experiment: survival vs intervention cost.
+# Same stressed baseline and fixed genes as configs/evolution.yaml so the two
+# optimisers are directly comparable.
+model:
+  initial_length: 7500.0
+  initial_length_sd: 800.0
+  population_size: 100
+  carrying_capacity: 400
+  telomeres_per_cell: 32
+  shortening_rate: 55.0
+  stress_level: 0.60
+  stress_sensitivity: 100.0
+  maintenance_rate: 0.10
+  maintenance_max_gain: 120.0
+  repair_rate: 0.15
+  senescence_threshold: 3000.0
+  noise_sd: 30.0
+  senescent_death_rate: 0.03
+  cycles: 120
+  seed: 42
+
+multiobjective:
+  population_size: 40
+  generations: 25
+  mutation_rate: 0.30
+  mutation_sigma: 0.15
+  crossover_rate: 0.80
+  crossover_kind: uniform
+  seed: 7
+  eval_seeds: [42]
+  free_genes: [stress_level, maintenance_rate, repair_rate]
+  objectives: [survival, cost]
+  checkpoint_every: 5
+  weights:            # only for the reference scalar fitness column
+    w_survival: 0.40
+    w_reserve: 0.30
+    w_senescence: 0.20
+    w_instability: 0.10
+    w_cost: 0.30

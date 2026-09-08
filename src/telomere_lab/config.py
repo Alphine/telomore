@@ -56,6 +56,16 @@ def load_multiobjective_config(path: str | Path) -> Tuple[ModelConfig, "MultiObj
     return model, mo
 
 
+def load_sensitivity_config(path: str | Path) -> Tuple[ModelConfig, "SensitivityConfig"]:
+    """Load ``model:`` + ``sensitivity:`` blocks for the OAT sensitivity runner."""
+    from .schemas import SensitivityConfig
+
+    data = load_yaml(path)
+    model = ModelConfig.from_dict(data.get("model", {})).validate()
+    sens = SensitivityConfig.from_dict(data.get("sensitivity", {})).validate()
+    return model, sens
+
+
 def dump_yaml(data: Dict[str, Any], path: str | Path) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as fh:

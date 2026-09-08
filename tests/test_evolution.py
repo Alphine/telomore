@@ -98,3 +98,31 @@ def test_invalid_config_rejected():
         EvolutionConfig(free_genes=("noise_sd",)).validate()
     with pytest.raises(ConfigError):
         EvolutionConfig(population_size=2).validate()
+
+
+def test_eval_seeds_default_is_multi_seed():
+    assert EvolutionConfig().eval_seeds == (1, 2, 3)
+
+
+def test_multi_seed_averaging_is_deterministic_and_scales_evaluations():
+    evo_single = EvolutionConfig(population_size=8, generations=2, seed=9, free_genes=GENES,
+                                 eval_seeds=(1,), checkpoint_every=0)
+    evo_multi = EvolutionConfig(population_size=8, generations=2, seed=9, free_genes=GENES,
+                                eval_seeds=(1, 2, 3), checkpoint_every=0)
+    a = EvolutionEngine(FAST, evo_multi).run()
+    b = EvolutionEngine(FAST, evo_multi).run()
+    assert a.best.genome == b.best.genome
+    assert a.best.fitness == pytest.approx(b.best.fitness)
+    assert a.evaluations == b.evaluations
+
+    single = EvolutionEngine(FAST, evo_single).run()
+    # same genomes visited (same optimizer seed) -> 3x the simulator calls per genome
+    assert a.evaluations == 3 * single.evaluations
+
+
+def test_single_seed_still_works():
+    evo_single = EvolutionConfig(population_size=8, generations=2, seed=9, free_genes=GENES,
+                                 eval_seeds=(42,), checkpoint_every=0)
+    result = EvolutionEngine(FAST, evo_single).run()
+    assert result.best.fitness >= result.baseline.fitness - 1e-6
+    assert all(in_bounds(c.genome) for c in result.final_population)

@@ -86,6 +86,25 @@ def write_pareto_artifacts(result, run_dir: str | Path) -> Dict[str, str]:
     return {k: str(v) for k, v in paths.items()}
 
 
+def write_sensitivity_artifacts(result, run_dir: str | Path) -> Dict[str, str]:
+    run_dir = Path(run_dir)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    paths = {
+        "sensitivity_json": run_dir / "sensitivity.json",
+        "sensitivity_csv": run_dir / "sensitivity.csv",
+        "config_json": run_dir / "config.json",
+    }
+    paths["sensitivity_json"].write_text(
+        json.dumps(result.to_json_dict(), indent=2, default=_json_default), encoding="utf-8")
+    result.to_frame().to_csv(paths["sensitivity_csv"], index=False)
+    paths["config_json"].write_text(
+        json.dumps({"model": result.base_config.to_dict(),
+                    "sensitivity": result.sensitivity_config.to_dict()}, indent=2),
+        encoding="utf-8",
+    )
+    return {k: str(v) for k, v in paths.items()}
+
+
 def bundle_run_dir(run_dir: str | Path) -> bytes:
     """Zip an entire run directory into memory (for a download button)."""
     run_dir = Path(run_dir)

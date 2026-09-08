@@ -333,7 +333,11 @@ class EvolutionConfig:
     crossover_kind: str = "uniform"      # "uniform" | "arithmetic"
     tournament_size: int = 3
     seed: int = 7
-    eval_seeds: tuple = (42,)            # simulator seeds averaged per candidate
+    #: Simulator seeds averaged per candidate (SDD §14). Multiple seeds are the
+    #: default so a candidate's fitness is not a single stochastic draw; earlier
+    #: recorded experiments (docs/EXPERIMENT_PROTOCOL.md A/B/C) used a single
+    #: seed (42) for reproducibility and are not directly comparable in noise.
+    eval_seeds: tuple = (1, 2, 3)
     free_genes: tuple = ("stress_level", "maintenance_rate", "repair_rate")
     early_stopping_patience: int = 0     # 0 = disabled
     early_stopping_tol: float = 1e-4
@@ -378,6 +382,49 @@ class EvolutionConfig:
             clean["eval_seeds"] = tuple(int(s) for s in clean["eval_seeds"])
         if "free_genes" in clean:
             clean["free_genes"] = tuple(clean["free_genes"])
+        cfg = cls(**clean)
+        if weights is not None:
+            cfg.weights = FitnessWeights.from_dict(weights)
+        return cfg
+
+
+@dataclass
+class SensitivityConfig:
+    """One-at-a-time (OAT) sensitivity analysis settings (tornado chart)."""
+
+    parameters: tuple = EVOLVABLE_PARAMETERS
+    perturbation_fraction: float = 0.10  # +/- fraction of the PARAMETER_BOUNDS range
+    eval_seeds: tuple = (1, 2, 3)
+    weights: FitnessWeights = field(default_factory=FitnessWeights)
+
+    def validate(self) -> "SensitivityConfig":
+        if not (0.0 < self.perturbation_fraction <= 0.5):
+            raise ConfigError("perturbation_fraction must be in (0, 0.5]")
+        if not self.parameters:
+            raise ConfigError("at least one parameter is required")
+        for p in self.parameters:
+            if p not in EVOLVABLE_PARAMETERS:
+                raise ConfigError(f"{p} is not an evolvable parameter")
+        if not self.eval_seeds:
+            raise ConfigError("eval_seeds must not be empty")
+        return self
+
+    def to_dict(self) -> Dict[str, Any]:
+        d = asdict(self)
+        d["parameters"] = list(self.parameters)
+        d["eval_seeds"] = list(self.eval_seeds)
+        return d
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "SensitivityConfig":
+        data = dict(data)
+        weights = data.pop("weights", None)
+        allowed = {f.name for f in fields(cls)}
+        clean = {k: v for k, v in data.items() if k in allowed}
+        if "parameters" in clean:
+            clean["parameters"] = tuple(clean["parameters"])
+        if "eval_seeds" in clean:
+            clean["eval_seeds"] = tuple(int(s) for s in clean["eval_seeds"])
         cfg = cls(**clean)
         if weights is not None:
             cfg.weights = FitnessWeights.from_dict(weights)

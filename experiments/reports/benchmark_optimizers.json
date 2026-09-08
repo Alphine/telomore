@@ -1,0 +1,233 @@
+{
+  "environment": {
+    "python_version": "3.13.15",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "machine": "AMD64",
+    "processor": "AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD",
+    "numpy_version": "2.3.4",
+    "scipy_version": "1.18.0",
+    "pandas_version": "2.3.3",
+    "package_version": "0.1.0",
+    "model_version": "0.1.0",
+    "optimizer_version": "0.1.0",
+    "git_commit": "3a9cae2-dirty"
+  },
+  "base_config": {
+    "initial_length": 7500.0,
+    "initial_length_sd": 800.0,
+    "population_size": 100,
+    "carrying_capacity": 400,
+    "telomeres_per_cell": 32,
+    "shortening_rate": 55.0,
+    "stress_level": 0.6,
+    "stress_sensitivity": 100.0,
+    "maintenance_rate": 0.1,
+    "maintenance_max_gain": 120.0,
+    "repair_rate": 0.15,
+    "senescence_threshold": 3000.0,
+    "noise_sd": 30.0,
+    "senescent_death_rate": 0.03,
+    "cycles": 120,
+    "seed": 42,
+    "record_distribution_every": 0
+  },
+  "budget_evaluations": 96,
+  "results": {
+    "GA": {
+      "evaluations": 81,
+      "final_best_fitness": 0.5400507032596749,
+      "runtime_seconds": 10.667394200048875,
+      "best_genome": {
+        "stress_level": 0.010558331864795843,
+        "maintenance_rate": 0.8212284183827663,
+        "repair_rate": 0.5936165947645933
+      },
+      "curve": [
+        {
+          "n_evaluations": 24,
+          "best_fitness_so_far": 0.4976256587037562
+        },
+        {
+          "n_evaluations": 45,
+          "best_fitness_so_far": 0.5045356085386495
+        },
+        {
+          "n_evaluations": 63,
+          "best_fitness_so_far": 0.5316818292348823
+        },
+        {
+          "n_evaluations": 81,
+          "best_fitness_so_far": 0.5400507032596749
+        }
+      ]
+    },
+    "NSGA-II": {
+      "evaluations": 72,
+      "final_best_fitness": 0.6039285660475312,
+      "runtime_seconds": 8.778131099999882,
+      "best_genome": {
+        "stress_level": 0.2548695876541246,
+        "maintenance_rate": 0.6125396042730308,
+        "repair_rate": 0.0
+      },
+      "curve": [
+        {
+          "n_evaluations": 24,
+          "best_fitness_so_far": 0.4976256587037562
+        },
+        {
+          "n_evaluations": 42,
+          "best_fitness_so_far": 0.6039285660475312
+        },
+        {
+          "n_evaluations": 63,
+          "best_fitness_so_far": 0.4757446303780927
+        },
+        {
+          "n_evaluations": 72,
+          "best_fitness_so_far": 0.4757446303780927
+        }
+      ]
+    },
+    "random_search": {
+      "evaluations": 96,
+      "final_best_fitness": 0.5463885838907071,
+      "runtime_seconds": 11.326597199949902,
+      "best_genome": {
+        "stress_level": 0.03805728669123909,
+        "maintenance_rate": 0.876218808109271,
+        "repair_rate": 0.4677302168140961
+      },
+      "curve": [
+        {
+          "n_evaluations": 3,
+          "best_fitness_so_far": 0.4829003226865675
+        },
+        {
+          "n_evaluations": 6,
+          "best_fitness_so_far": 0.4829003226865675
+        },
+        {
+          "n_evaluations": 9,
+          "best_fitness_so_far": 0.4976256587037562
+        },
+        {
+          "n_evaluations": 12,
+          "best_fitness_so_far": 0.4976256587037562
+        },
+        {
+          "n_evaluations": 15,
+          "best_fitness_so_far": 0.4976256587037562
+        },
+        {
+          "n_evaluations": 18,
+          "best_fitness_so_far": 0.4976256587037562
+        },
+        {
+          "n_evaluations": 21,
+          "best_fitness_so_far": 0.4976256587037562
+        },
+        {
+          "n_evaluations": 24,
+          "best_fitness_so_far": 0.4976256587037562
+        },
+        {
+          "n_evaluations": 27,
+          "best_fitness_so_far": 0.4976256587037562
+        },
+        {
+          "n_evaluations": 30,
+          "best_fitness_so_far": 0.4976256587037562
+        },
+        {
+          "n_evaluations": 33,
+          "best_fitness_so_far": 0.4976256587037562
+        },
+        {
+          "n_evaluations": 36,
+          "best_fitness_so_far": 0.5247226102783998
+        },
+        {
+          "n_evaluations": 39,
+          "best_fitness_so_far": 0.5247226102783998
+        },
+        {
+          "n_evaluations": 42,
+          "best_fitness_so_far": 0.5247226102783998
+        },
+        {
+          "n_evaluations": 45,
+          "best_fitness_so_far": 0.5247226102783998
+        },
+        {
+          "n_evaluations": 48,
+          "best_fitness_so_far": 0.5247226102783998
+        },
+        {
+          "n_evaluations": 51,
+          "best_fitness_so_far": 0.5247226102783998
+        },
+        {
+          "n_evaluations": 54,
+          "best_fitness_so_far": 0.5247226102783998
+        },
+        {
+          "n_evaluations": 57,
+          "best_fitness_so_far": 0.5247226102783998
+        },
+        {
+          "n_evaluations": 60,
+          "best_fitness_so_far": 0.5247226102783998
+        },
+        {
+          "n_evaluations": 63,
+          "best_fitness_so_far": 0.5247226102783998
+        },
+        {
+          "n_evaluations": 66,
+          "best_fitness_so_far": 0.5247226102783998
+        },
+        {
+          "n_evaluations": 69,
+          "best_fitness_so_far": 0.5247226102783998
+        },
+        {
+          "n_evaluations": 72,
+          "best_fitness_so_far": 0.5247226102783998
+        },
+        {
+          "n_evaluations": 75,
+          "best_fitness_so_far": 0.5247226102783998
+        },
+        {
+          "n_evaluations": 78,
+          "best_fitness_so_far": 0.5247226102783998
+        },
+        {
+          "n_evaluations": 81,
+          "best_fitness_so_far": 0.5247226102783998
+        },
+        {
+          "n_evaluations": 84,
+          "best_fitness_so_far": 0.5247226102783998
+        },
+        {
+          "n_evaluations": 87,
+          "best_fitness_so_far": 0.5247226102783998
+        },
+        {
+          "n_evaluations": 90,
+          "best_fitness_so_far": 0.5247226102783998
+        },
+        {
+          "n_evaluations": 93,
+          "best_fitness_so_far": 0.5463885838907071
+        },
+        {
+          "n_evaluations": 96,
+          "best_fitness_so_far": 0.5463885838907071
+        }
+      ]
+    }
+  }
+}

@@ -180,6 +180,42 @@ def hypervolume_chart(history) -> go.Figure:
     return fig
 
 
+# -------------------------------------------------------------- sensitivity
+def tornado_chart(frame) -> go.Figure:
+    """Horizontal bar per parameter, diverging from baseline fitness, sorted by |swing|."""
+    if frame is None or len(frame) == 0:
+        return go.Figure()
+    df = frame.iloc[::-1]  # largest |swing| at the top
+    baseline = df["fitness_baseline"].iloc[0]
+    low = df["fitness_low"] - baseline
+    high = df["fitness_high"] - baseline
+    fig = go.Figure()
+    fig.add_trace(go.Bar(y=df["parameter"], x=low, orientation="h", name="-10%",
+                         marker_color=PALETTE[1], base=baseline))
+    fig.add_trace(go.Bar(y=df["parameter"], x=high, orientation="h", name="+10%",
+                         marker_color=PALETTE[2], base=baseline))
+    fig.add_vline(x=baseline, line=dict(color="gray", dash="dash"))
+    fig.update_layout(title="Fitness sensitivity (one-at-a-time perturbation)", barmode="overlay",
+                      xaxis_title="fitness", yaxis_title="parameter",
+                      **{**_LAYOUT, "height": max(280, 60 + 40 * len(df))})
+    return fig
+
+
+# -------------------------------------------------------------- benchmark
+def convergence_comparison_chart(frame) -> go.Figure:
+    """One line per optimizer method: n_evaluations vs. best_fitness_so_far."""
+    fig = go.Figure()
+    if frame is None or len(frame) == 0:
+        return fig
+    for i, method in enumerate(frame["method"].unique()):
+        sub = frame[frame["method"] == method].sort_values("n_evaluations")
+        fig.add_trace(go.Scatter(x=sub["n_evaluations"], y=sub["best_fitness_so_far"], name=method,
+                                 mode="lines+markers", line=dict(color=PALETTE[i % len(PALETTE)], width=2)))
+    fig.update_layout(title="Optimizer convergence (budget-matched)", xaxis_title="simulator evaluations",
+                      yaxis_title="best fitness so far", **_LAYOUT)
+    return fig
+
+
 # ----------------------------------------------------------------- compare
 def overlay(results: Dict[str, SimulationResult], metric: str, title: str, ylabel: str,
             kb: bool = False, hline: float | None = None) -> go.Figure:

@@ -29,7 +29,12 @@ evolution:
   crossover_kind: uniform
   tournament_size: 3
   seed: 7
-  eval_seeds: [42]
+  # Multi-seed averaging: each candidate's fitness is the mean over these simulator
+  # seeds, reducing stochastic noise in the search compared to a single draw. Experiment
+  # A (docs/EXPERIMENT_PROTOCOL.md) was originally recorded with eval_seeds: [42]
+  # (single-seed) for reproducibility transparency; re-running this file now searches
+  # with multi-seed fitness by default and will not reproduce those exact numbers.
+  eval_seeds: [1, 2, 3]
   free_genes: [stress_level, maintenance_rate, repair_rate]
   early_stopping_patience: 0
   checkpoint_every: 5

@@ -157,6 +157,45 @@ def run_pareto(
     return result, record
 
 
+def run_sensitivity(
+    base_config: ModelConfig,
+    sensitivity_config,
+    registry: Optional[ExperimentRegistry] = None,
+    callback=None,
+    model: Optional[TelomereModelAdapter] = None,
+    notes: str = "",
+    register: bool = True,
+):
+    """Run OAT sensitivity analysis and (optionally) register it in the ledger."""
+    from ..analysis.sensitivity import run_sensitivity_analysis
+    from .artifacts import write_sensitivity_artifacts
+
+    registry = registry or ExperimentRegistry()
+    run_id = registry.new_run_id() if register else None
+    result = run_sensitivity_analysis(base_config, sensitivity_config, model=model, callback=callback)
+    record = None
+    if register and run_id:
+        run_dir = registry.run_dir(run_id)
+        artifacts = write_sensitivity_artifacts(result, run_dir)
+        top = max(result.items, key=lambda it: abs(it.swing)) if result.items else None
+        record = registry.register(
+            kind="sensitivity",
+            run_id=run_id,
+            seed=next(iter(sensitivity_config.eval_seeds)),
+            configuration={"model": base_config.to_dict(), "sensitivity": sensitivity_config.to_dict()},
+            fitness=result.baseline_fitness,
+            artifacts=artifacts,
+            runtime_seconds=result.runtime_seconds,
+            notes=notes,
+            extra={
+                "most_sensitive_parameter": top.parameter if top else None,
+                "max_swing": top.swing if top else None,
+                "evaluations": result.evaluations,
+            },
+        )
+    return result, record
+
+
 @dataclass
 class ScenarioComparison:
     name: str

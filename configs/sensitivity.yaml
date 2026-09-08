@@ -1,0 +1,31 @@
+# One-at-a-time (OAT) sensitivity analysis: how much does each evolvable
+# parameter move fitness, +/- 10% of its PARAMETER_BOUNDS range, around the
+# same stressed baseline used by configs/evolution.yaml?
+model:
+  initial_length: 7500.0
+  initial_length_sd: 800.0
+  population_size: 100
+  carrying_capacity: 400
+  telomeres_per_cell: 32
+  shortening_rate: 55.0
+  stress_level: 0.60
+  stress_sensitivity: 100.0
+  maintenance_rate: 0.10
+  maintenance_max_gain: 120.0
+  repair_rate: 0.15
+  senescence_threshold: 3000.0
+  noise_sd: 30.0
+  senescent_death_rate: 0.03
+  cycles: 120
+  seed: 42
+
+sensitivity:
+  parameters: [initial_length, shortening_rate, stress_level, maintenance_rate, repair_rate, senescence_threshold]
+  perturbation_fraction: 0.10
+  eval_seeds: [1, 2, 3]
+  weights:
+    w_survival: 0.40
+    w_reserve: 0.30
+    w_senescence: 0.20
+    w_instability: 0.10
+    w_cost: 0.30

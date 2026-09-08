@@ -96,6 +96,7 @@ pages = st.navigation(
         st.Page("pages/01_Simulate.py", title="Simulate", icon="🔬", url_path="Simulate"),
         st.Page("pages/02_Evolve.py", title="Evolve", icon="🧬", url_path="Evolve"),
         st.Page("pages/05_Pareto.py", title="Pareto", icon="🎯", url_path="Pareto"),
+        st.Page("pages/06_Sensitivity.py", title="Sensitivity", icon="📐", url_path="Sensitivity"),
         st.Page("pages/03_Compare.py", title="Compare", icon="⚖️", url_path="Compare"),
         st.Page("pages/04_Experiments.py", title="Experiments", icon="📒", url_path="Experiments"),
     ]

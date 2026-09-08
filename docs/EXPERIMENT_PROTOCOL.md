@@ -33,6 +33,12 @@ Environment: Windows 11, AMD64 (AMD family 25), Python 3.13.15,
 NumPy 2.3.4; no GPU. Git commit: none at time of run (repository
 initialised, first commit pending — the ledger records `null`).
 
+Multi-seed fitness averaging (`eval_seeds`) is now the schema default
+(`docs/MODEL.md`) to reduce stochastic noise per candidate; Experiments
+A, B and C below were all recorded with a single simulator seed (42) for
+reproducibility transparency, so re-running the same config files today
+searches with multi-seed fitness and will not reproduce these exact numbers.
+
 ## 3. Experiment A — Result of run `TEL-20260907-001`
 
 Ledger: `experiments/runs/TEL-20260907-001/record.json`

@@ -31,7 +31,10 @@ evolution:
   crossover_kind: uniform
   tournament_size: 3
   seed: 7
-  eval_seeds: [42]
+  # See configs/evolution.yaml: multi-seed averaging is now the default search setting.
+  # Experiment C was originally recorded with eval_seeds: [42] (single-seed) for
+  # reproducibility transparency; re-running this file now averages over these seeds.
+  eval_seeds: [1, 2, 3]
   free_genes: [maintenance_rate, repair_rate]   # stress_level is NOT free
   early_stopping_patience: 0
   checkpoint_every: 5

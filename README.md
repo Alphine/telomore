@@ -50,7 +50,9 @@ python scripts/run_simulation.py --config configs/demo.yaml --seed 42
 python scripts/run_evolution.py  --config configs/evolution.yaml --seed 7
 python scripts/run_pareto.py     --config configs/pareto.yaml --seed 7      # NSGA-II
 python scripts/run_evolution.py  --config configs/evolution_locked.yaml --seed 7  # stress locked
+python scripts/run_sensitivity.py --config configs/sensitivity.yaml                 # OAT tornado
 python scripts/benchmark.py
+python scripts/benchmark_optimizers.py                                              # GA vs NSGA-II vs random search
 python -m pytest
 ```
 
@@ -61,6 +63,7 @@ python -m pytest
 | **Simulate** | Sliders for every model parameter (plus an optional organ-on-chip condition mapper). Four interactive Plotly charts: length trajectories, length distribution, senescence, population. JSON/CSV export and reproduction command. |
 | **Evolve** | Configure the objective weights and the genetic algorithm, press *Evolve*, watch best/mean fitness, diversity and the best candidate's parameter trajectory generation by generation. Every run is registered. |
 | **Pareto** | NSGA-II multi-objective search. Choose two or more objectives (e.g. survival vs. intervention cost) and get the **Pareto front** instead of one weighted winner; hypervolume by generation; send any front point to Compare. |
+| **Sensitivity** | One-at-a-time (OAT) sensitivity analysis: perturb each evolvable parameter +/- a fraction of its range around the baseline, one at a time, and read off the fitness swing as a tornado chart — which single knob matters most, holding everything else fixed. |
 | **Compare** | Overlay baseline vs. best evolved vs. a user-selected scenario (from the GA population, the Pareto front, or manual sliders) with common random numbers; read the deltas and each scenario's fitness composition. |
 | **Experiments** | Reproducibility ledger (run ID, timestamp, git commit, versions, seed, config hash, fitness, artifacts) with one-click bundle download. |
 
@@ -88,6 +91,13 @@ it is the experimenter's objective under the model's assumptions.
 Because any weighting is a choice, the **Pareto** page runs NSGA-II on the
 raw objectives and returns the whole trade-off front (`docs/MODEL.md` §5.1).
 
+Every candidate's fitness is averaged over multiple simulator seeds
+(`eval_seeds`, default `(1, 2, 3)`) rather than a single stochastic draw, so
+the GA/NSGA-II/sensitivity analysis are all comparing candidates on a less
+noisy estimate of fitness. `scripts/benchmark_optimizers.py` compares GA,
+NSGA-II and a budget-matched random search on this same scalar fitness to
+sanity-check that evolution is actually beating undirected search.
+
 ## Reproducible experiment
 
 See [`docs/EXPERIMENT_PROTOCOL.md`](docs/EXPERIMENT_PROTOCOL.md) for three
@@ -114,12 +124,13 @@ app/            Streamlit GUI (streamlit_app.py + pages/ + ui/)
 src/telomere_lab/
   schemas.py    typed configs, bounds, result containers
   simulator/    model.py, population.py, metrics.py, stochastic.py
-  evolution/    genome, mutation, crossover, selection, fitness, engine
+  evolution/    genome, mutation, crossover, selection, fitness, engine, benchmark
+  analysis/     sensitivity (OAT tornado analysis)
   experiments/  registry (ledger), runner (service layer), artifacts
   adapters/     model protocol, published-model stub, organ-on-chip mapping
-configs/        default.yaml, demo.yaml, evolution.yaml
-scripts/        run_simulation.py, run_evolution.py, benchmark.py
-tests/          simulator, metrics, evolution, Streamlit AppTest
+configs/        default.yaml, demo.yaml, evolution.yaml, sensitivity.yaml
+scripts/        run_simulation.py, run_evolution.py, run_sensitivity.py, benchmark.py, benchmark_optimizers.py
+tests/          simulator, metrics, evolution, sensitivity, benchmark, Streamlit AppTest
 docs/           SDD, MODEL, SCIENTIFIC_SCOPE, EXPERIMENT_PROTOCOL
 experiments/    runs/ (ledger + artifacts, git-ignored), reports/
 ```

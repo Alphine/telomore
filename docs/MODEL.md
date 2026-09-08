@@ -96,6 +96,11 @@ Evolvable genes (SDD §12): `initial_length`, `shortening_rate`,
 `stress_level`, `maintenance_rate`, `repair_rate`, `senescence_threshold`.
 The default experiment frees only the three "culture-condition" genes.
 
+Each candidate's fitness is now averaged over multiple simulator seeds
+(`eval_seeds`, default `(1, 2, 3)`) rather than a single draw, to reduce
+stochastic noise in the search; Experiments A/B/C in
+`docs/EXPERIMENT_PROTOCOL.md` were recorded with a single seed (42).
+
 Order-of-magnitude anchors (used only to choose defaults, not fitted):
 human somatic telomeres of roughly 5–15 kb; replication-associated loss on
 the order of 50–100 bp per division; critically short telomeres in the

@@ -12,8 +12,8 @@ Storage backend selection (dev vs. production):
 * If ``DATABASE_URL`` is not set (local dev machine, CI, ``pytest``), a
   SQLite file under ``<repo>/data/local.db`` is created and used instead,
   with exactly the same schema/interface. This fallback is what lets
-  ``pytest`` and ``streamlit run app/streamlit_app.py`` work with zero setup
-  on a machine that has no Postgres server at all.
+  ``pytest`` and ``uvicorn backend.main:app`` work with zero setup on a
+  machine that has no Postgres server at all.
 
 This module intentionally does **not** touch the existing JSONL experiment
 ledger (``telomere_lab.experiments.registry``) — that stays file-based

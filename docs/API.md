@@ -30,7 +30,7 @@ Environment variables the Railway service needs:
 | Variable | Required | Notes |
 |---|---|---|
 | `SECRET_KEY` | **yes — set before the first deploy** | Signs JWTs. Without it the app generates a random per-process secret, so every login is invalidated on each restart/redeploy. Any long random string. |
-| `DATABASE_URL` | yes (already set) | Injected by the Railway Postgres plugin. The first request that touches the DB auto-creates the tables (`db.init_db()`); no migration step. |
+| `DATABASE_URL` | yes (already set) | Injected by the Railway Postgres plugin. On engine init the app runs `create_all()` for missing tables **and** an additive column sync (`db._add_missing_columns`): any model column absent from an existing table is added via `ALTER TABLE … ADD COLUMN` (nullable, with the model's scalar default, unique index where declared). Existing rows are kept. Column removals/renames/type changes are still manual — there is no full migration framework. |
 | `RESEND_API_KEY` | yes for real emails (already set) | Without it registration/forgot-password return `dev_*_link` fields instead of sending mail. |
 | `PORT` | set by Railway | The `CMD` reads it (`${PORT:-8000}`); the service currently has `PORT=8080`. |
 | `FRONTEND_BASE_URL` | optional | Absolute base for verification/reset links in emails (e.g. `https://telomore-production.up.railway.app`); empty → relative `/?token=...` links, which only work when the email is opened on the same origin. Recommended in production. |

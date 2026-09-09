@@ -39,7 +39,9 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     create_engine,
+    inspect as sa_inspect,
     select,
+    text,
 )
 from sqlalchemy.orm import (
     DeclarativeBase,
@@ -130,6 +132,43 @@ def _normalized_database_url() -> str:
     return f"sqlite:///{db_path.as_posix()}"
 
 
+def _add_missing_columns(engine) -> List[str]:
+    """Additive schema sync: add model columns missing from existing tables.
+
+    ``create_all`` only creates tables that do not exist yet, so a database
+    created by an older release keeps its old column set (this bit the
+    production Postgres when email verification was added). New columns are
+    added nullable (existing rows cannot satisfy NOT NULL), with the model's
+    scalar default when it has one, plus a unique index where the model asks
+    for one. Returns the ``table.column`` names that were added.
+    """
+    inspector = sa_inspect(engine)
+    added: List[str] = []
+    with engine.begin() as conn:
+        for table in Base.metadata.sorted_tables:
+            if not inspector.has_table(table.name):
+                continue
+            existing = {c["name"] for c in inspector.get_columns(table.name)}
+            for col in table.columns:
+                if col.name in existing:
+                    continue
+                ddl = f"ALTER TABLE {table.name} ADD COLUMN {col.name} {col.type.compile(dialect=engine.dialect)}"
+                default = col.default.arg if col.default is not None else None
+                if default is not None and not callable(default):
+                    ddl += " DEFAULT " + ("TRUE" if default is True else "FALSE" if default is False else repr(default))
+                conn.execute(text(ddl))
+                if col.unique or col.index:
+                    kind = "UNIQUE INDEX" if col.unique else "INDEX"
+                    conn.execute(text(f"CREATE {kind} IF NOT EXISTS ix_{table.name}_{col.name} ON {table.name} ({col.name})"))
+                added.append(f"{table.name}.{col.name}")
+    return added
+
+
+def _init_schema(engine) -> None:
+    Base.metadata.create_all(engine)
+    _add_missing_columns(engine)
+
+
 _engine = None
 _SessionLocal: Optional[sessionmaker] = None
 
@@ -141,13 +180,13 @@ def get_engine(database_url: Optional[str] = None):
     global _engine, _SessionLocal
     if database_url is not None:
         engine = create_engine(database_url, future=True)
-        Base.metadata.create_all(engine)
+        _init_schema(engine)
         return engine
     if _engine is None:
         url = _normalized_database_url()
         connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
         _engine = create_engine(url, future=True, connect_args=connect_args)
-        Base.metadata.create_all(_engine)
+        _init_schema(_engine)
         _SessionLocal = sessionmaker(bind=_engine, expire_on_commit=False, future=True)
     return _engine
 

@@ -17,7 +17,10 @@ Built for **Kaggle — AI4S Open Innovation: AI for Life Science**
 > **Migration in progress.** This project is moving from the Streamlit GUI
 > below to a React frontend backed by a new FastAPI REST API, for richer,
 > live-updating simulation UX. The Streamlit app remains the live production
-> UI for now; see [`docs/API.md`](docs/API.md) for the new backend (Phase 1).
+> UI for now; see [`docs/API.md`](docs/API.md) for the new backend (Phase 1)
+> and [`frontend/README.md`](frontend/README.md) for the React scaffold
+> (Phase 2: auth pages, landing page, protected shell) and how to run both
+> locally.
 
 ---
 

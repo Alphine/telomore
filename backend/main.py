@@ -15,9 +15,12 @@ run locally for React frontend development in a later phase.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from .routers import (
     active_learning,
@@ -30,6 +33,36 @@ from .routers import (
     sensitivity,
     simulate,
 )
+
+# Built React frontend (Phase 2): ``cd frontend && npm run build`` writes
+# here. Served by this app when present so ONE Railway service can host API +
+# frontend (docs/ROADMAP.md). Absent in tests / API-only dev runs -> no-op.
+FRONTEND_DIST = Path(__file__).resolve().parents[1] / "frontend" / "dist"
+
+
+def _mount_frontend(app: FastAPI, dist: Path) -> None:
+    dist = dist.resolve()
+    index_html = dist / "index.html"
+    if not index_html.is_file():
+        return
+
+    assets = dist / "assets"
+    if assets.is_dir():
+        app.mount("/assets", StaticFiles(directory=str(assets)), name="frontend-assets")
+
+    # SPA fallback: any non-/api GET falls through to index.html so the React
+    # router handles client-side routes (/login, /simulate, ...). Registered
+    # AFTER the API routers, so real endpoints win; unknown /api/... paths
+    # still get FastAPI's own JSON 404 rather than the HTML shell.
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def spa_fallback(full_path: str) -> FileResponse:
+        if full_path == "api" or full_path.startswith("api/"):
+            raise HTTPException(404, "Not Found")
+        candidate = dist / full_path
+        # Top-level static files in dist/ (favicon.svg etc.), no traversal.
+        if full_path and candidate.is_file() and dist in candidate.resolve().parents:
+            return FileResponse(candidate)
+        return FileResponse(index_html)
 
 
 def create_app() -> FastAPI:
@@ -70,6 +103,8 @@ def create_app() -> FastAPI:
     app.include_router(benchmark.router, prefix="/api")
     app.include_router(experiments.router, prefix="/api")
     app.include_router(jobs.router, prefix="/api")
+
+    _mount_frontend(app, FRONTEND_DIST)
 
     return app
 

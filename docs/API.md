@@ -148,3 +148,23 @@ today — benchmarking has never been ledger-backed in this codebase).
 * The live Railway deploy is **not** changed — `Procfile`/`railway.json`
   still start Streamlit. Wiring `uvicorn backend.main:app` into a real
   deployment is a later-phase decision.
+
+## Phase 2 — frontend serving
+
+`backend/main.py` now optionally serves the built React app
+(`frontend/`, see `frontend/README.md`). After all `/api` routers are
+included, `create_app()` checks for `frontend/dist/index.html`; if present it
+mounts `frontend/dist/assets` at `/assets` (`StaticFiles`) and registers a
+catch-all `GET /{path}` that returns `index.html` for any path not starting
+with `/api` (SPA fallback so client-side routes like `/login` or `/simulate`
+work on reload), plus top-level static files in `dist/` (e.g. `favicon.svg`).
+Unknown `/api/...` paths still return FastAPI's own JSON `404`. If there is no
+build, nothing is mounted and the app behaves exactly as in Phase 1 — tests
+and API-only dev runs are unaffected (`tests/test_api_static.py`).
+
+`FRONTEND_ORIGIN` is unchanged for now: when FastAPI serves the build the
+frontend is same-origin, so no extra CORS origin is needed in production; the
+env var stays available for a separately hosted frontend, and the Vite dev
+server (`http://localhost:5173`) proxies `/api` to uvicorn rather than
+relying on CORS. The Railway start command still launches Streamlit — running
+`uvicorn backend.main:app` in production is a Phase 5 decision.

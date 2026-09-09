@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+/* Inter for body, Sora for headings -- carried over from the Streamlit
+   polish pass (app/ui/components.py::inject_css). `dark:` variants follow
+   prefers-color-scheme (Tailwind v4 default), no manual toggle. */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-heading: "Sora", "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    color-scheme: light dark;
+  }
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-200;
+  }
+  h1, h2, h3, h4 {
+    @apply font-heading tracking-tight text-slate-900 dark:text-slate-50;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-slate-200 bg-white shadow-sm transition
+      dark:border-slate-800 dark:bg-slate-900;
+  }
+  .card-hover {
+    @apply hover:-translate-y-px hover:shadow-md dark:hover:shadow-black/40;
+  }
+  /* Tailwind v4 cannot @apply a custom component class, so the shared
+     button base is repeated in each variant. */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium
+      transition disabled:cursor-not-allowed disabled:opacity-60
+      bg-teal-600 text-white hover:bg-teal-700 hover:shadow-md
+      dark:bg-teal-500 dark:text-slate-950 dark:hover:bg-teal-400;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium
+      transition disabled:cursor-not-allowed disabled:opacity-60
+      border border-slate-200 bg-transparent text-slate-700 hover:bg-slate-100
+      dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800;
+  }
+  .input {
+    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900
+      placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/30
+      dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100;
+  }
+  .label {
+    @apply mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300;
+  }
+  .link {
+    @apply font-medium text-teal-700 underline-offset-2 hover:underline dark:text-teal-400;
+  }
+  .prose-muted {
+    @apply text-sm text-slate-600 dark:text-slate-400;
+  }
+  .mono-block {
+    @apply overflow-x-auto rounded-lg border border-slate-200 bg-slate-100 p-4 font-mono text-sm
+      leading-relaxed text-slate-800 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200;
+  }
+}

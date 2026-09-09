@@ -32,8 +32,11 @@ live-updating charts during a long optimization run) feel limiting.
   concurrent-agent file-clobbering problems seen earlier in this project):
   1. FastAPI backend — auth (JWT) + all simulate/evolve/pareto/sensitivity/
      active-learning/benchmark/experiments endpoints, async job-polling
-     pattern for long-running operations. **In progress.**
+     pattern for long-running operations. **Done 2026-09-09** (`backend/`,
+     `docs/API.md`).
   2. React scaffold — routing, auth pages, landing page, API client.
+     **Done 2026-09-09** (`frontend/`, Vite + React 18 + TS + Tailwind v4;
+     FastAPI serves the build when present — see `frontend/README.md`).
   3. Migrate the highest-interactivity pages first: Simulate, Evolve.
   4. Migrate the rest: Pareto, Sensitivity, Active Learning, Compare,
      Experiments.

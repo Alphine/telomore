@@ -13,3 +13,5 @@ experiments/reports/*.png
 experiments/reports/*.html
 .cache/
 data/
+frontend/node_modules/
+frontend/dist/

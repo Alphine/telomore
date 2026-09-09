@@ -18,8 +18,8 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from .. import __version__
-from ..config import PROJECT_ROOT, RUNS_DIR
+from .. import __version__, config as _config
+from ..config import PROJECT_ROOT
 from ..schemas import MODEL_VERSION, OPTIMIZER_VERSION
 
 
@@ -63,8 +63,11 @@ def configuration_hash(configuration: Dict[str, Any]) -> str:
 
 
 class ExperimentRegistry:
-    def __init__(self, runs_dir: str | Path = RUNS_DIR):
-        self.runs_dir = Path(runs_dir)
+    def __init__(self, runs_dir: str | Path | None = None):
+        # Resolved at call time (not bound as a default at import) so that
+        # ``telomere_lab.config.RUNS_DIR`` can be redirected, e.g. by test
+        # fixtures pointing the ledger at a temporary directory.
+        self.runs_dir = Path(runs_dir if runs_dir is not None else _config.RUNS_DIR)
         self.runs_dir.mkdir(parents=True, exist_ok=True)
         self.index_path = self.runs_dir.parent / "registry.jsonl"
 

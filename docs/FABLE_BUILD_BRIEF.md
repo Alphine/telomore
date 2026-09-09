@@ -6,7 +6,7 @@ first message of that session. The rest of this file (above the `---`) is
 context for whoever hands the prompt over, not part of the prompt itself.
 
 This exists because the account owner wants a long, multi-week build
-(React migration + LLM agentic layers + new simulation features) to
+(React migration — done; LLM agentic layers + new simulation features) to
 proceed without the session hallucinating APIs that don't exist,
 re-deciding things already decided, or shipping bugs that a stricter
 process would have caught. Update this file's `---` section whenever a
@@ -68,9 +68,13 @@ history — follow them exactly, they are not stylistic preferences.
    validated scientific core (tested against a published reference
    model). Changes here need to be the explicit point of the task, not
    incidental.
-7. **The Streamlit app (`app/`) must keep working and stay the deployed
-   production UI until the React migration's final phase explicitly
-   replaces it.** Don't break it as a side effect of backend changes.
+7. **The deployed UI is the React app served by FastAPI (`Dockerfile`).**
+   Any backend change must keep `python -m pytest` green AND the frontend
+   checks green (`cd frontend && npx tsc -b && npm run lint && npx vitest
+   run && npm run build`); an API contract change needs the matching
+   `frontend/src/api/types.ts` + page change and a `docs/API.md` update in
+   the same commit. (The Streamlit app that this rule used to protect was
+   removed in Phase 5, 2026-09-10.)
 8. **No hardcoded secrets, ever.** API keys (LLM BYOK, `RESEND_API_KEY`,
    `DATABASE_URL`, `SECRET_KEY`) are environment variables with a
    documented dev-mode fallback (see `src/telomere_lab/db.py` and
@@ -98,37 +102,43 @@ history — follow them exactly, they are not stylistic preferences.
   `db.py` (SQLAlchemy, Postgres via `DATABASE_URL` / SQLite fallback,
   bcrypt auth, email verification, password reset), `email.py` (Resend,
   dev-mode on-screen-link fallback when `RESEND_API_KEY` unset).
-- Streamlit GUI `app/` — still the live production UI, being replaced.
-- Deploy: Railway project `earnest-vibrancy`, services `telomore` (app)
-  + `Postgres`. Railway CLI is available and authenticated in the dev
-  environment this was built in — reuse it for env vars / deploy status
-  rather than asking the human to click through the dashboard, unless
-  you're in a different environment where it isn't set up.
+- FastAPI backend `backend/` (`main.py` app factory, `auth.py` JWT,
+  `jobs.py` in-memory threaded job store with polling, `routers/` one per
+  page) — contract in `docs/API.md`. Serves `frontend/dist` when present.
+- React frontend `frontend/` (Vite + React 18 + TypeScript + Tailwind v4,
+  Plotly charts, WebGL particle canvas) — all seven pages + auth + landing;
+  `frontend/README.md`. Tests: Vitest (58), `npx tsc -b`, `oxlint`.
+- Deploy: one Railway service built from the repo-root `Dockerfile`
+  (node build → `python:3.13-slim` + `uvicorn backend.main:app`),
+  `railway.json` on the `DOCKERFILE` builder, healthcheck `/api/health`.
+  Env vars: `SECRET_KEY`, `DATABASE_URL`, `RESEND_API_KEY`, `PORT`,
+  optional `FRONTEND_BASE_URL` — see `docs/API.md` "Deployment". Railway
+  project `earnest-vibrancy`, services `telomore` (app) + `Postgres`.
+  Railway CLI is available and authenticated in the dev environment this
+  was built in — reuse it for env vars / deploy status rather than asking
+  the human to click through the dashboard, unless you're in a different
+  environment where it isn't set up.
+- The Streamlit GUI (`app/`) is gone (removed 2026-09-10, Phase 5). Docs
+  such as `docs/SDD.md` still describe it as history; ROADMAP wins.
 
 ## The plan, in order (see `docs/ROADMAP.md` for full rationale on each)
 
-1. **FastAPI backend** (`backend/`) wrapping `src/telomere_lab/` — auth
-   (JWT, BYOK-ready), all simulate/evolve/pareto/sensitivity/
-   active-learning/benchmark/experiments endpoints, async job-polling for
-   long operations. Check `git log` — this may already be committed;
-   read `backend/` if it exists rather than re-building it.
-2. **React frontend scaffold** (Vite + TypeScript) — routing, auth pages,
-   landing page, API client against the FastAPI backend above.
-3. **Migrate Simulate + Evolve pages** — these get the highest
-   interactivity priority, including a WebGPU/WebGL particle-viz layer
-   (client-side rendering only — the simulation itself stays computed in
-   Python server-side; do not reimplement the model in WGSL/JS, see
-   ROADMAP.md's GPU strategy section for the full reasoning).
-4. **Migrate remaining pages**: Pareto, Sensitivity, Active Learning,
-   Compare, Experiments.
-5. **Remove Streamlit (`app/`) entirely**, update Railway start command
-   and all docs.
+Items 1–5 (FastAPI backend, React scaffold, Simulate + Evolve, remaining
+pages, Streamlit removal + Docker/Railway deploy) are **done** — see the
+"Completed: Streamlit → React migration" section of `docs/ROADMAP.md`.
+Do not re-build them; read `backend/` and `frontend/` instead.
+
+Next, in order:
+
 6. **New simulation feature: time-varying/scheduled intervention
    protocols** (ROADMAP.md candidate-feature #1) — needed both for its
    own narrative value and as a prerequisite for LLM Layer 2 below.
+   Touches `schemas.py`, the simulator loop and the optimizers' gene
+   encoding, so it is the explicit point of that task (rule 6), plus the
+   matching API/React form changes (rule 7).
 7. **LLM Layer 1: results interpreter** (read-only narrator over existing
    experiment data — see ROADMAP.md's LLM section for the exact scope and
-   the language-policy requirement).
+   the language-policy requirement). BYOK: the key is session-only.
 8. **LLM Layer 2: protocol-designing agent** (constrained to proposing
    configs that must pass the same `ModelConfig.validate()` gate as
    everything else — see ROADMAP.md for the full safety-boundary

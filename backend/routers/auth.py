@@ -1,7 +1,8 @@
 """Auth endpoints: register / verify / login / forgot-password / reset-password / me.
 
-Behavior mirrors ``app/ui/components.py`` (the Streamlit auth flow) exactly,
-adapted to return JSON instead of rendering ``st.info``/``st.success``: same
+Behavior mirrors the former Streamlit auth flow (``app/ui/components.py``,
+removed in Phase 5) exactly, adapted to return JSON instead of rendering
+``st.info``/``st.success``: same
 dev-mode-fallback philosophy for verification + password-reset links (show
 the raw link in the response when Resend is not configured, per
 ``telomere_lab.email.send_email``'s documented contract), same

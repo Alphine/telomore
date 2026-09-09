@@ -6,23 +6,26 @@ personal project ("private lab"). This file is a decision log, not a
 committed spec — entries are dated and should be revisited as the project
 evolves. Build sessions going forward may use Claude Fable 5.1.
 
-## Status as of 2026-09-09
+## Status as of 2026-09-10
 
 Live at `telomore-production.up.railway.app` (Railway project
-`earnest-vibrancy`, services `telomore` + `Postgres`). Streamlit GUI +
-Python backend (`src/telomere_lab/`), 82 tests passing. Features shipped:
+`earnest-vibrancy`, services `telomore` + `Postgres`). React frontend
+(`frontend/`) + FastAPI backend (`backend/`) + Python science package
+(`src/telomere_lab/`), deployed as one Docker image (`Dockerfile`,
+`railway.json`); 124 pytest + 58 Vitest tests passing. Features shipped:
 core simulator, GA, NSGA-II Pareto, sensitivity analysis (OAT + tornado),
 multi-seed fitness, optimizer benchmark (GA/NSGA-II/random search),
 surrogate-model active learning (GP + Expected Improvement), reference-model
-comparison (`anais-rat/telomeres`), user accounts (Postgres + bcrypt),
+comparison (`anais-rat/telomeres`), user accounts (Postgres + bcrypt, JWT),
 email verification + forgot-password (Resend, dev-mode fallback), landing
-page + CSS polish.
+page, WebGL particle visualization of the culture on Simulate.
 
-## In progress: Streamlit → React migration
+## Completed: Streamlit → React migration (2026-09-09 → 2026-09-10)
 
 Decision (2026-09-09): fully replace the Streamlit GUI with a React
 frontend, because Streamlit's UX and simulation-interactivity (no smooth
 live-updating charts during a long optimization run) feel limiting.
+Completed 2026-09-10 with Phase 5 below; the Streamlit app is gone.
 
 - **Stack**: FastAPI backend (thin wrapper reusing `src/telomere_lab/` as a
   dependency, not a rewrite of the science) + React (Vite + TypeScript)
@@ -48,7 +51,15 @@ live-updating charts during a long optimization run) feel limiting.
      `GET /api/experiments/{run_id}/artifacts[/{name}]`, `objectives` on
      `GET /api/meta/bounds` — see `frontend/README.md`, `docs/API.md`).
   5. Remove `app/` (Streamlit) entirely, update Railway start command +
-     docs. Streamlit stays the live production UI until this step.
+     docs. **Done 2026-09-10**: `app/`, `tests/test_app.py`, `Procfile`
+     and the `streamlit`/`plotly` Python dependencies removed; new
+     multi-stage `Dockerfile` (node build of `frontend/` → `python:3.13-slim`
+     running `uvicorn backend.main:app`) with `railway.json` on the
+     `DOCKERFILE` builder + `/api/health` healthcheck (see `docs/API.md`
+     "Deployment" for the required env vars — `SECRET_KEY` must be set
+     before the first deploy); `ExperimentRegistry` now resolves
+     `config.RUNS_DIR` at call time so the API tests write their ledger into
+     `tmp_path` instead of the real `experiments/` tree.
 
 ## GPU strategy (decided 2026-09-09)
 

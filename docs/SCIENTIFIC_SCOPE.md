@@ -61,13 +61,14 @@ parameter-compatible with `SimpleTelomereModel`, which it is not.
 
 ## Fitness ≠ biological truth
 
-The fitness function is printed on the Evolve page with its weights. It is
-a design choice. Changing weights changes which configurations "win". The
-Compare page shows the composition of every scenario's fitness so that
-the trade-off the optimiser exploited is visible.
+The fitness function is printed on the Evolve page (`/evolve`) with its
+weights. It is a design choice. Changing weights changes which
+configurations "win". The Compare page (`/compare`) shows the composition of
+every scenario's fitness so that the trade-off the optimiser exploited is
+visible.
 
-The multi-objective (NSGA-II) page removes the weights altogether and
-reports the Pareto front. That answers "which trade-offs does the model
+The multi-objective (NSGA-II) Pareto page (`/pareto`) removes the weights
+altogether and reports the Pareto front. That answers "which trade-offs does the model
 permit?" — it still does not say which trade-off is biologically right.
 
 ## Language policy

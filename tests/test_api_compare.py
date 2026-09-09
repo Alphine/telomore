@@ -43,14 +43,10 @@ def _isolated_db(tmp_path, monkeypatch):
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
     from telomere_lab import config as config_module
-    from telomere_lab.experiments.registry import ExperimentRegistry
 
-    runs = tmp_path / "runs"
-    monkeypatch.setattr(config_module, "RUNS_DIR", runs)
-    # See tests/test_api_artifacts.py::runs_dir -- the registry binds its
-    # default runs_dir at import time. Compare records nothing, but the
-    # registration tests share this process, so keep the isolation real.
-    monkeypatch.setattr(ExperimentRegistry.__init__, "__defaults__", (runs,))
+    # Compare records nothing, but keep the ledger isolated like every other
+    # API test (ExperimentRegistry() reads config.RUNS_DIR at call time).
+    monkeypatch.setattr(config_module, "RUNS_DIR", tmp_path / "runs")
 
     from backend.main import create_app
 

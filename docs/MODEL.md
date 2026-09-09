@@ -15,7 +15,8 @@ mechanistic reconstruction of human telomere biology. See
 * A culture is a set of cells. Each cell carries `telomeres_per_cell`
   telomere lengths `L_ij` in base pairs (bp).
   * Human diploid cells have 92 telomere ends; the MVP default is 32 to
-    keep evolution runs interactive. The GUI allows up to 92.
+    keep evolution runs interactive. The Simulate page (`/simulate`)
+    allows up to 92.
 * Each cell has a boolean state: **proliferative** or **senescent**.
 * Time advances in discrete **cell cycles** (one division of every
   proliferative cell per cycle). No wall-clock mapping is assumed except the
@@ -212,7 +213,8 @@ cycles           = culture_days / 1 day per doubling
 ```
 
 Coefficients are round numbers chosen to keep outputs in bounds. They are
-**not calibrated to any dataset** and the GUI labels them as derived
+**not calibrated to any dataset** and the Simulate page's organ-on-chip
+mapper labels them as derived
 simulation parameters.
 
 ## 7. Known simplifications

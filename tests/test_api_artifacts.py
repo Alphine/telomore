@@ -45,15 +45,12 @@ def _isolated_db(tmp_path, monkeypatch):
 @pytest.fixture()
 def runs_dir(tmp_path, monkeypatch):
     from telomere_lab import config as config_module
-    from telomere_lab.experiments.registry import ExperimentRegistry
 
+    # ExperimentRegistry() resolves config.RUNS_DIR at call time, so this is
+    # enough for the routers' bare ExperimentRegistry() calls: the runs (and
+    # the files the artifact routes serve) really live under tmp_path.
     runs = tmp_path / "runs"
     monkeypatch.setattr(config_module, "RUNS_DIR", runs)
-    # ExperimentRegistry(runs_dir=RUNS_DIR) binds its default at import time,
-    # so the module attribute above is not enough for the routers' bare
-    # ExperimentRegistry() calls: pin the default itself so this test's runs
-    # (and the files the artifact routes serve) really live under tmp_path.
-    monkeypatch.setattr(ExperimentRegistry.__init__, "__defaults__", (runs,))
     return runs
 
 

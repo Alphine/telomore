@@ -1,7 +1,7 @@
 """Application service layer (SDD §5.4): run / compare / evolve / export.
 
-Used identically by the CLI scripts and the Streamlit pages so both paths
-produce the same artifacts and registry records.
+Used identically by the CLI scripts and the FastAPI routers (``backend/``)
+so both paths produce the same artifacts and registry records.
 """
 
 from __future__ import annotations

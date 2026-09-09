@@ -1,19 +1,22 @@
-# React frontend (Phases 2–4 of the Streamlit → React migration)
+# React frontend
 
 Vite + React 18 + TypeScript + Tailwind CSS v4 + React Router v6, built
 against the FastAPI backend in `../backend/` (contract: `../docs/API.md`).
+This is the production UI; it replaced the Streamlit app (`app/`, removed
+2026-09-10) over Phases 2–5 of the migration in `../docs/ROADMAP.md`.
 
 Phase 2 delivered the scaffold: routing, auth pages (login / register /
 verify / forgot- and reset-password), the public landing page ported from
-`app/streamlit_app.py`, and a protected shell. Phase 3 replaced the
-**Simulate** and **Evolve** placeholders with full ports of
-`app/pages/01_Simulate.py` / `02_Evolve.py`, added the job-polling hook and
-the WebGL particle visualization. Phase 4 ported the remaining five pages —
-**Pareto**, **Sensitivity**, **Active Learning**, **Compare**,
-**Experiments** — so all seven `FEATURES` pages are now real; the
+the Streamlit `app/streamlit_app.py`, and a protected shell. Phase 3
+replaced the **Simulate** and **Evolve** placeholders with full ports of
+the Streamlit `01_Simulate.py` / `02_Evolve.py` pages, added the
+job-polling hook and the WebGL particle visualization. Phase 4 ported the
+remaining five pages — **Pareto**, **Sensitivity**, **Active Learning**,
+**Compare**, **Experiments** — so all seven `FEATURES` pages are real; the
 `Placeholder` component only renders if a feature path is ever added without
-a page. **The Streamlit app in `../app/` is still the live production UI** —
-Railway keeps starting it until Phase 5.
+a page. The `app/...` file references throughout this document name the
+Streamlit pages each React page was ported from; those files are gone (see
+git history before Phase 5 if you need them).
 
 ## Run locally
 
@@ -39,11 +42,26 @@ npm run lint           # oxlint
 npm run typecheck      # tsc -b
 ```
 
+## Production
+
 `frontend/dist/` is git-ignored. When it exists, `backend/main.py` serves it
 (static `/assets` + SPA fallback to `index.html` for every non-`/api` GET),
 so a single `uvicorn backend.main:app` process hosts API + frontend on one
-origin — the production shape planned in `docs/ROADMAP.md`. Without a build
-the backend behaves exactly as before (API only).
+origin. Without a build the backend behaves exactly as before (API only).
+
+That is how production runs: the repo-root `Dockerfile` builds this app in a
+`node:22-alpine` stage (`npm ci && npm run build`) and copies `dist/` into
+the `python:3.13-slim` runtime image at `frontend/dist`, next to `backend/`
+— the same relative path as in a checkout. Railway builds that image
+(`railway.json`, `DOCKERFILE` builder) and starts uvicorn on `$PORT`; there
+is no separate static host, no CORS configuration and no base-path setting
+(the app is served from `/`). Required env vars are in `../docs/API.md`
+"Deployment". To reproduce locally without Docker:
+
+```bash
+cd frontend && npm ci && npm run build && cd ..
+uvicorn backend.main:app --port 8000     # http://127.0.0.1:8000 serves API + UI
+```
 
 **Bundle shape.** `plotly.js-dist-min` (pinned `4.1.0`, with
 `react-plotly.js` `4.1.0`) is ~4 MB minified / ~1.25 MB gzipped. It lives in

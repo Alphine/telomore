@@ -1,20 +1,49 @@
-# FastAPI backend (Phase 1 of the Streamlit → React migration)
+# FastAPI backend
 
-This is **Phase 1** of a deliberate, multi-session migration off the
-Streamlit GUI (`app/`) to a React frontend backed by this REST API. It
-exists because Streamlit's UX and simulation-interactivity (live-updating
-charts during a long-running optimization) feel limited for this project.
-
-**The Streamlit app in `app/` remains the live production UI** throughout
-this migration and is untouched by this phase — it keeps running exactly as
-it does today, deployed via the existing `Procfile`/`railway.json`. This API
-is not wired into that start command yet; it only needs to run locally for
-React frontend development in a later phase. Later phases will build the
-React app against the contract documented here while Streamlit stays live.
+The REST API behind the React frontend (`frontend/`), and the production
+server: one `uvicorn backend.main:app` process serves the `/api` routes and
+the built frontend (`frontend/dist`) on a single origin. It was built in
+Phase 1 of the Streamlit → React migration (`docs/ROADMAP.md`, completed
+2026-09-10; the Streamlit app in `app/` no longer exists) and this document
+keeps the per-phase notes since they explain several contract decisions.
 
 The API is a thin wrapper around `telomere_lab.experiments.runner` (the
-existing service layer already shared by the CLI scripts and the Streamlit
-pages) — no simulation/optimization logic was reimplemented or restructured.
+service layer shared with the CLI scripts) — no simulation/optimization
+logic was reimplemented or restructured.
+
+## Deployment (Railway, Docker)
+
+The repo-root `Dockerfile` is a two-stage build — `node:22-alpine` runs
+`npm ci && npm run build` in `frontend/`, then `python:3.13-slim` installs
+`requirements.txt`, `pip install -e .` for `src/telomere_lab`, copies
+`backend/` + `configs/`, copies the built frontend to `frontend/dist` (the
+path `backend/main.py` serves) and starts
+`uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000}`.
+`railway.json` selects `"builder": "DOCKERFILE"` with
+`healthcheckPath: /api/health`; there is no `Procfile` — the Dockerfile
+`CMD` is the single start command. `.dockerignore` keeps `node_modules`,
+`frontend/dist`, `data/`, `experiments/runs/`, tests and docs out of the
+build context.
+
+Environment variables the Railway service needs:
+
+| Variable | Required | Notes |
+|---|---|---|
+| `SECRET_KEY` | **yes — set before the first deploy** | Signs JWTs. Without it the app generates a random per-process secret, so every login is invalidated on each restart/redeploy. Any long random string. |
+| `DATABASE_URL` | yes (already set) | Injected by the Railway Postgres plugin. The first request that touches the DB auto-creates the tables (`db.init_db()`); no migration step. |
+| `RESEND_API_KEY` | yes for real emails (already set) | Without it registration/forgot-password return `dev_*_link` fields instead of sending mail. |
+| `PORT` | set by Railway | The `CMD` reads it (`${PORT:-8000}`); the service currently has `PORT=8080`. |
+| `FRONTEND_BASE_URL` | optional | Absolute base for verification/reset links in emails (e.g. `https://telomore-production.up.railway.app`); empty → relative `/?token=...` links, which only work when the email is opened on the same origin. Recommended in production. |
+| `FRONTEND_ORIGIN` | optional | Extra CORS origin; not needed when this process serves the frontend (same origin). |
+
+Notes: the experiment ledger (`experiments/runs/` + `experiments/registry.jsonl`)
+lives on the container filesystem and is **ephemeral** — it is empty after
+every deploy (same as under Streamlit). Jobs are in-memory and single-process
+(see below), so run one replica.
+
+Local equivalent without Docker: `cd frontend && npm ci && npm run build`,
+then `uvicorn backend.main:app --port 8000` from the repo root serves API +
+frontend at <http://127.0.0.1:8000>.
 
 ## Running it locally
 
@@ -30,7 +59,7 @@ env-var-with-dev-fallback pattern already used by `DATABASE_URL` in
 
 | Variable | Purpose | Dev fallback |
 |---|---|---|
-| `SECRET_KEY` | Signs JWTs | random per-process secret (logged as a loud warning); **must** be set as a real Railway env var before this API is ever deployed, otherwise every issued token is invalidated on each restart/redeploy |
+| `SECRET_KEY` | Signs JWTs | random per-process secret (logged as a loud warning); **must** be set as a real Railway env var in production (see Deployment above), otherwise every issued token is invalidated on each restart/redeploy |
 | `DATABASE_URL` | Postgres connection (Railway) | SQLite file at `data/local.db` |
 | `RESEND_API_KEY` | Transactional email | emails are not sent; `dev_verification_link` / `dev_reset_link` are returned in the JSON response instead |
 | `FRONTEND_ORIGIN` | Extra allowed CORS origin for the deployed React app | not set — only `http://localhost:5173` (Vite default) is allowed besides it |
@@ -198,9 +227,9 @@ never recorded either). Tests: `tests/test_api_compare.py`,
   origin is only added via `FRONTEND_ORIGIN` if that env var is set. No
   wildcard production origin was added — tighten this once the React app has
   a real deployed URL.
-* The live Railway deploy is **not** changed — `Procfile`/`railway.json`
-  still start Streamlit. Wiring `uvicorn backend.main:app` into a real
-  deployment is a later-phase decision.
+* (Resolved in Phase 5.) The live Railway deploy was left on Streamlit
+  during Phases 1–4; it now runs this API via the `Dockerfile` (see
+  Deployment above).
 
 ## Meta (Phase 3) — read-only metadata the React forms are driven by
 
@@ -266,5 +295,16 @@ and API-only dev runs are unaffected (`tests/test_api_static.py`).
 frontend is same-origin, so no extra CORS origin is needed in production; the
 env var stays available for a separately hosted frontend, and the Vite dev
 server (`http://localhost:5173`) proxies `/api` to uvicorn rather than
-relying on CORS. The Railway start command still launches Streamlit — running
-`uvicorn backend.main:app` in production is a Phase 5 decision.
+relying on CORS. Since Phase 5 this is exactly how production runs (see
+Deployment at the top).
+
+## Testing note — ledger isolation
+
+`ExperimentRegistry()` resolves its runs directory from
+`telomere_lab.config.RUNS_DIR` **at call time**, so the API test fixtures
+isolate the ledger with a single
+`monkeypatch.setattr(config_module, "RUNS_DIR", tmp_path / "runs")` — the
+routers' bare `ExperimentRegistry()` calls then write `record.json` files
+and the `registry.jsonl` index under `tmp_path`, never into the real
+`experiments/` tree. Running `python -m pytest` must leave
+`git status --short` clean and `experiments/runs/` unchanged.

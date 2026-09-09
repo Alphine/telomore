@@ -4,8 +4,8 @@
     {
       "name": "telomere-lab",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "streamlit", "run", "app/streamlit_app.py", "--server.port", "8501", "--server.headless", "true"],
-      "port": 8501
+      "runtimeArgs": ["-m", "uvicorn", "backend.main:app", "--port", "8000"],
+      "port": 8000
     }
   ]
 }

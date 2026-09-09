@@ -1,15 +1,13 @@
-"""FastAPI app factory/entrypoint -- Phase 1 of the Streamlit -> React migration.
+"""FastAPI app factory/entrypoint -- the production server.
 
 Run locally with::
 
     uvicorn backend.main:app --reload
 
-See docs/API.md for the full endpoint list and the job-polling contract.
-
-IMPORTANT: this app is NOT wired into the Railway start command yet. The
-live Railway deploy keeps running Streamlit (``app/streamlit_app.py`` via
-the existing Procfile) throughout this migration; this module only needs to
-run locally for React frontend development in a later phase.
+See docs/API.md for the full endpoint list, the job-polling contract and the
+deployment notes. In production (Railway, see the root ``Dockerfile``) this
+single process serves both the ``/api`` routes and the built React frontend
+in ``frontend/dist``.
 """
 
 from __future__ import annotations
@@ -36,9 +34,10 @@ from .routers import (
     simulate,
 )
 
-# Built React frontend (Phase 2): ``cd frontend && npm run build`` writes
-# here. Served by this app when present so ONE Railway service can host API +
-# frontend (docs/ROADMAP.md). Absent in tests / API-only dev runs -> no-op.
+# Built React frontend: ``cd frontend && npm run build`` writes here (the
+# Dockerfile copies the build to the same relative path). Served by this app
+# when present so ONE Railway service hosts API + frontend (docs/ROADMAP.md).
+# Absent in tests / API-only dev runs -> no-op.
 FRONTEND_DIST = Path(__file__).resolve().parents[1] / "frontend" / "dist"
 
 
@@ -70,8 +69,8 @@ def _mount_frontend(app: FastAPI, dist: Path) -> None:
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Telomere Evolution Lab API",
-        description="REST API wrapping telomere_lab's simulation/optimization service layer. "
-                     "Phase 1 of a migration off the Streamlit GUI in app/ (still the live production UI).",
+        description="REST API wrapping telomere_lab's simulation/optimization service layer; "
+                     "also serves the built React frontend (frontend/dist) when present.",
         version="0.1.0",
     )
 

@@ -6,7 +6,6 @@ dist/
 .venv/
 venv/
 .pytest_cache/
-.streamlit/secrets.toml
 experiments/runs/*
 !experiments/runs/.gitkeep
 experiments/reports/*.png

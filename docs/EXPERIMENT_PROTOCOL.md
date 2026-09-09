@@ -124,8 +124,9 @@ registered as the next `TEL-<date>-NNN`. Bit-identical fitness history is
 expected on the same NumPy major version; tiny last-digit differences may
 appear across BLAS builds.
 
-To view interactively: `streamlit run app/streamlit_app.py` → Evolve
-(defaults match this protocol) → Compare → Experiments.
+To view interactively: start the app (`uvicorn backend.main:app` with a
+built frontend, see `README.md`) → `/evolve` (defaults match this protocol)
+→ `/compare` → `/experiments`.
 
 ## 7. Experiment B — Pareto front with NSGA-II (run `TEL-20260907-005`)
 
@@ -256,8 +257,8 @@ maintenance against repair**:
   realistic constraint: **a 2-objective Pareto front is a lower bound on
   cost for a given survival, not the full picture whenever a third
   objective is in the scalar fitness.** A 3-objective front
-  (survival, reserve, cost) would recover the GA point exactly; the GUI
-  Pareto page supports selecting a third objective for this check.
+  (survival, reserve, cost) would recover the GA point exactly; the
+  Pareto page (`/pareto`) supports selecting a third objective for this check.
 * Practically: if an experimenter can only intervene (cannot change the
   stressor), the model recommends **maintenance ≈ 0.6, repair ≈ 0.36** (the
   knee) as the cost-efficient choice, not the corner the unconstrained

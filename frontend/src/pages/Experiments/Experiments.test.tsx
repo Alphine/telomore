@@ -136,7 +136,7 @@ describe('Experiments page', () => {
         fetchMock.mock.calls.some(
           ([u, init]) =>
             String(u).endsWith('/artifacts/timeseries.csv') &&
-            (init?.headers as Record<string, string>).Authorization === 'Bearer jwt',
+            (init?.headers as Record<string, string> | undefined)?.Authorization === 'Bearer jwt',
         ),
       ).toBe(true),
     )

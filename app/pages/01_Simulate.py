@@ -61,7 +61,7 @@ if run:
 
 result = st.session_state.get("sim_result")
 if result is None:
-    st.markdown(
+    st.info(
         "Set parameters in the sidebar and press **Run simulation**. The default baseline is the "
         "*stressed culture* scenario from `configs/demo.yaml`."
     )

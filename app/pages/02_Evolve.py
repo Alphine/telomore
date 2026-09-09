@@ -88,8 +88,8 @@ if submitted:
 result = st.session_state.get("evo_result")
 record = st.session_state.get("evo_record")
 if result is None:
-    st.markdown("Configure the objective and optimizer, then press **Evolve**. "
-                "A 32 × 20 run takes on the order of a minute or two on a laptop CPU.")
+    st.info("Configure the objective and optimizer, then press **Evolve**. "
+            "A 32 × 20 run takes on the order of a minute or two on a laptop CPU.")
     st.stop()
 
 # ---------------------------------------------------------------- results

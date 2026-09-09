@@ -23,7 +23,7 @@ DISCLAIMER = (
 
 
 def inject_css() -> None:
-    """Light-touch, theme-adaptive CSS for cards, spacing and badges.
+    """Light-touch, theme-adaptive CSS for typography, cards, spacing and badges.
 
     Uses Streamlit's own CSS variables (or structural rules with no hardcoded
     colors) so this looks correct in both light and dark themes.
@@ -31,7 +31,44 @@ def inject_css() -> None:
     st.markdown(
         """
         <style>
-        /* Bordered containers (st.container(border=True)) read as cards */
+        /* -------------------------------------------------------- typography
+           Inter for body text, Sora for headings - a common "modern SaaS
+           product" pairing. Pure structural change: no colors are set here,
+           so light/dark theming is untouched. */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sora:wght@600;700&display=swap');
+
+        html, body, [class*="css"] {
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        h1, h2, h3, h4, h5,
+        [data-testid="stMarkdownContainer"] h1,
+        [data-testid="stMarkdownContainer"] h2,
+        [data-testid="stMarkdownContainer"] h3,
+        [data-testid="stMarkdownContainer"] h4 {
+            font-family: "Sora", "Inter", sans-serif;
+            letter-spacing: -0.01em;
+        }
+
+        /* -------------------------------------------------------- spacing/rhythm
+           Consistent breathing room around the "#### Section" headers used
+           throughout every page, and a touch more room at the top/bottom of
+           the main content column. */
+        div.block-container {
+            padding-top: 2.5rem;
+            padding-bottom: 3rem;
+        }
+        h4 {
+            margin-top: 1.75rem;
+            margin-bottom: 0.75rem;
+        }
+        /* Softer, theme-adaptive divider */
+        hr {
+            margin: 1.75rem 0;
+            opacity: 0.5;
+        }
+
+        /* -------------------------------------------------------- cards
+           Bordered containers (st.container(border=True)) read as cards */
         div[data-testid="stVerticalBlockBorderWrapper"] {
             border-radius: 0.75rem;
             transition: box-shadow 0.15s ease, transform 0.15s ease;
@@ -45,14 +82,46 @@ def inject_css() -> None:
             line-height: 1;
             margin-bottom: 0.25rem;
         }
-        /* Breathing room between major page sections */
-        h4 {
-            margin-top: 1.25rem;
+
+        /* -------------------------------------------------------- sidebar
+           A subtle divider between the page-navigation list and whatever
+           this app renders below it (login status, model parameters, ...),
+           plus tidier icon+label alignment on the nav links themselves. */
+        section[data-testid="stSidebar"] div[data-testid="stSidebarNav"] {
+            border-bottom: 1px solid rgba(128, 128, 128, 0.25);
+            padding-bottom: 0.75rem;
+            margin-bottom: 0.75rem;
         }
-        /* Softer, theme-adaptive divider */
-        hr {
-            margin: 1.75rem 0;
-            opacity: 0.5;
+        section[data-testid="stSidebar"] div[data-testid="stSidebarNav"] li {
+            display: flex;
+            align-items: center;
+        }
+
+        /* -------------------------------------------------------- buttons
+           Shape/motion polish only (no hardcoded colors, so this stays
+           correct against Streamlit's own theme colors in light and dark). */
+        .stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {
+            border-radius: 0.6rem;
+            transition: box-shadow 0.15s ease, transform 0.1s ease;
+        }
+        .stButton > button:hover, .stDownloadButton > button:hover,
+        .stFormSubmitButton > button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+        }
+        .stButton > button:active, .stDownloadButton > button:active,
+        .stFormSubmitButton > button:active {
+            transform: translateY(0);
+        }
+
+        /* -------------------------------------------------------- metrics
+           Card-like grouping for st.metric rows, consistent with the
+           feature-card radius used on the landing page. */
+        div[data-testid="stMetric"] {
+            background: rgba(128, 128, 128, 0.06);
+            border: 1px solid rgba(128, 128, 128, 0.12);
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem 0.5rem;
         }
         </style>
         """,

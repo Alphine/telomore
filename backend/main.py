@@ -26,6 +26,7 @@ from .routers import (
     active_learning,
     auth,
     benchmark,
+    compare,
     evolve,
     experiments,
     jobs,
@@ -102,6 +103,7 @@ def create_app() -> FastAPI:
     app.include_router(sensitivity.router, prefix="/api")
     app.include_router(active_learning.router, prefix="/api")
     app.include_router(benchmark.router, prefix="/api")
+    app.include_router(compare.router, prefix="/api")
     app.include_router(experiments.router, prefix="/api")
     app.include_router(jobs.router, prefix="/api")
     app.include_router(meta.router, prefix="/api")

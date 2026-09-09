@@ -24,6 +24,7 @@ from telomere_lab.config import CONFIG_DIR, load_model_config
 from telomere_lab.experiments.registry import environment_metadata
 from telomere_lab.schemas import (
     EVOLVABLE_PARAMETERS,
+    OBJECTIVES,
     PARAMETER_BOUNDS,
     EvolutionConfig,
     FitnessWeights,
@@ -74,6 +75,9 @@ def bounds() -> api_schemas.BoundsResponse:
         demo=_plain(_demo_config().to_dict()),
         fitness_weights_default=_plain(FitnessWeights().to_dict()),
         evolution_default=_plain(EvolutionConfig().to_dict()),
+        # OBJECTIVES values are (direction, description) tuples (Pareto page multiselect).
+        objectives={name: api_schemas.ObjectiveInfo(direction=direction, description=description)
+                    for name, (direction, description) in OBJECTIVES.items()},
     )
 
 

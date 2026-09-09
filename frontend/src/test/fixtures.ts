@@ -57,6 +57,13 @@ export const BOUNDS: BoundsResponse = {
     checkpoint_every: 5,
     weights: { w_survival: 0.4, w_reserve: 0.3, w_senescence: 0.2, w_instability: 0.1, w_cost: 0.3 },
   },
+  objectives: {
+    survival: { direction: 'max', description: 'normalised proliferative-cell AUC' },
+    reserve: { direction: 'max', description: 'normalised shortest-telomere reserve at the end' },
+    senescence: { direction: 'min', description: 'final senescent fraction' },
+    instability: { direction: 'min', description: 'final length CV, scaled' },
+    cost: { direction: 'min', description: 'intervention cost ½(maintenance² + repair²)' },
+  },
 }
 
 export function fakeRun(cycles = 4): SimulationRun {

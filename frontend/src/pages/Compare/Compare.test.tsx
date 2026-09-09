@@ -1,0 +1,133 @@
+import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import type { CompareResponse, ModelConfig } from '../../api/types'
+import { resetBoundsCache } from '../../api/useBounds'
+import { saveBaseline } from '../../components/baseline'
+import { saveCompareUserConfig, saveEvolveBest } from '../../components/handoff'
+import { BOUNDS, fakeRun } from '../../test/fixtures'
+import { mockFetch, renderApp } from '../../test/helpers'
+import { Compare } from './index'
+
+vi.mock('../../components/charts/Plot', () => ({
+  Plot: ({ figure }: { figure: { layout: { title?: { text?: string } } } }) => (
+    <div data-testid="plot">{figure.layout.title?.text}</div>
+  ),
+}))
+
+beforeEach(() => {
+  resetBoundsCache()
+  window.sessionStorage.clear()
+})
+afterEach(() => vi.unstubAllGlobals())
+
+function scenario(name: string, cfg: Partial<ModelConfig>, fitness: number, deltas: CompareResponse['scenarios'][number]['deltas']) {
+  const { run_id: _r, fitness: _f, ...rest } = fakeRun()
+  return {
+    name,
+    result: { ...rest, config: { ...rest.config, ...cfg } },
+    fitness,
+    breakdown: { total: fitness, survival: 0.9, reserve: 0.27, senescence: 0.12, instability: 0.2, cost: 0.02, valid: true, reason: null },
+    deltas,
+  }
+}
+
+describe('Compare page', () => {
+  it('always offers the baseline, prompts for missing hand-offs and disables their checkboxes', async () => {
+    mockFetch({ 'GET /api/meta/bounds': { status: 200, body: BOUNDS } })
+    renderApp(<Compare />, { route: '/compare', token: 'jwt' })
+    expect(await screen.findByText(/no Evolve result in this session yet/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Best evolved/)).toBeDisabled()
+    expect(screen.getByLabelText(/From Pareto page/)).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Compare 1 scenario$/ })).toBeInTheDocument()
+    expect(screen.getByText('Add a second scenario to see deltas.')).toBeInTheDocument()
+  })
+
+  it('posts the assembled scenarios (baseline + manual, common seed) and renders the deltas table', async () => {
+    saveBaseline({ ...BOUNDS.demo, seed: 7 })
+    const fetchMock = mockFetch({
+      'GET /api/meta/bounds': { status: 200, body: BOUNDS },
+      'POST /api/compare': {
+        status: 200,
+        body: {
+          baseline: 'Baseline',
+          scenarios: [
+            scenario('Baseline', { seed: 7 }, 0.4, null),
+            scenario('Manual', { stress_level: 0.2, seed: 7 }, 0.55, {
+              fitness_abs: 0.15,
+              fitness_pct: 37.5,
+              senescence_pp: -4.2,
+              reserve_kb: 0.31,
+              mean_length_kb: 0.42,
+              survival_abs: 0.08,
+            }),
+          ],
+        } satisfies CompareResponse,
+      },
+    })
+    renderApp(<Compare />, { route: '/compare', token: 'jwt' })
+    await screen.findByText(/no Evolve result in this session yet/)
+
+    fireEvent.click(screen.getByLabelText(/Manual parameters/))
+    const stress = await screen.findByLabelText('Stress level (a.u.)')
+    fireEvent.change(stress, { target: { value: '0.2' } })
+    expect(screen.getByRole('button', { name: /Compare 2 scenarios/ })).toBeInTheDocument()
+    expect((screen.getByLabelText('Common seed') as HTMLInputElement).value).toBe('7')
+    fireEvent.click(screen.getByRole('button', { name: /Compare 2 scenarios/ }))
+
+    const table = await screen.findByTestId('deltas-table')
+    const row = table.querySelector('tbody tr')!
+    const cells = Array.from(row.querySelectorAll('td')).map((td) => td.textContent)
+    expect(cells).toEqual(['Manual', '+0.550', '+0.150', '+37.5', '-4.20', '+0.310', '+0.420', '+0.080'])
+    expect(screen.getByTestId('params-table').querySelectorAll('tbody tr')).toHaveLength(2)
+    const titles = screen.getAllByTestId('plot').map((el) => el.textContent)
+    expect(titles).toEqual(
+      expect.arrayContaining([
+        'Mean telomere length (kb)',
+        'Senescent fraction',
+        'Living cells',
+        'Manual: weighted fitness contributions (total +0.550)',
+      ]),
+    )
+
+    const call = fetchMock.mock.calls.find(([u, init]) => String(u).includes('/api/compare') && init?.method === 'POST')
+    const body = JSON.parse(String((call![1] as RequestInit).body))
+    expect(body.seed).toBe(7)
+    expect(body.scenarios.map((s: { name: string }) => s.name)).toEqual(['Baseline', 'Manual'])
+    expect(body.scenarios[0].config.stress_level).toBe(0.6)
+    expect(body.scenarios[1].config.stress_level).toBe(0.2)
+  })
+
+  it('pre-selects the Evolve and Pareto hand-offs from sessionStorage and can drop the common seed', async () => {
+    saveEvolveBest({ config: { ...BOUNDS.demo, stress_level: 0.31 }, label: 'Evolve run TEL-1 (fitness +0.700)', run_id: 'TEL-1' })
+    saveCompareUserConfig({ config: { ...BOUNDS.demo, repair_rate: 0.9 }, label: 'Pareto front point #1', run_id: null })
+    const fetchMock = mockFetch({
+      'GET /api/meta/bounds': { status: 200, body: BOUNDS },
+      'POST /api/compare': { status: 200, body: { baseline: 'Baseline', scenarios: [scenario('Baseline', {}, 0.4, null)] } },
+    })
+    renderApp(<Compare />, { route: '/compare', token: 'jwt' })
+    await screen.findByText(/Evolve run TEL-1/)
+    expect(screen.getByLabelText(/Best evolved/)).toBeChecked()
+    expect(screen.getByLabelText(/From Pareto page/)).toBeChecked()
+    fireEvent.click(screen.getByLabelText(/Force identical simulator seed/))
+    fireEvent.click(screen.getByRole('button', { name: /Compare 3 scenarios/ }))
+    await waitFor(() => expect(fetchMock.mock.calls.some(([u]) => String(u).includes('/api/compare'))).toBe(true))
+    const call = fetchMock.mock.calls.find(([u]) => String(u).includes('/api/compare'))
+    const body = JSON.parse(String((call![1] as RequestInit).body))
+    expect(body.seed).toBeUndefined()
+    expect(body.scenarios.map((s: { name: string }) => s.name)).toEqual(['Baseline', 'Best evolved', 'From Pareto page'])
+    expect(body.scenarios[1].config.stress_level).toBe(0.31)
+    expect(body.scenarios[2].config.repair_rate).toBe(0.9)
+  })
+
+  it('shows a 400 from the API', async () => {
+    mockFetch({
+      'GET /api/meta/bounds': { status: 200, body: BOUNDS },
+      'POST /api/compare': { status: 400, body: { detail: 'Baseline: stress_level=2.0 outside [0.0, 1.0]' } },
+    })
+    renderApp(<Compare />, { route: '/compare', token: 'jwt' })
+    await screen.findByText(/no Evolve result in this session yet/)
+    fireEvent.click(screen.getByRole('button', { name: /Compare 1 scenario/ }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid configuration: Baseline: stress_level=2.0')
+  })
+})

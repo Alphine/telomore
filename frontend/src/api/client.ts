@@ -105,3 +105,25 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
   }
   return data as T
 }
+
+/**
+ * GET a binary/text file from a protected route as a Blob (artifact
+ * downloads). A plain `<a href>` cannot carry the bearer token, so the
+ * Experiments page fetches through this and saves the Blob client-side.
+ */
+export async function requestBlob(path: string): Promise<Blob> {
+  const headers: Record<string, string> = {}
+  const token = getToken()
+  if (token) headers.Authorization = `Bearer ${token}`
+  const res = await fetch(`${API_BASE}${path}`, { headers })
+  if (!res.ok) {
+    let detail: unknown = null
+    try {
+      detail = (JSON.parse(await res.text()) as { detail?: unknown }).detail ?? null
+    } catch {
+      /* non-JSON error body */
+    }
+    throw new ApiError(res.status, detail)
+  }
+  return res.blob()
+}

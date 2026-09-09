@@ -149,6 +149,13 @@ class ParameterBound(BaseModel):
     description: str
 
 
+class ObjectiveInfo(BaseModel):
+    """One telomere_lab.schemas.OBJECTIVES entry: (direction, description)."""
+
+    direction: str  # "max" | "min"
+    description: str
+
+
 class BoundsResponse(BaseModel):
     bounds: Dict[str, ParameterBound]
     evolvable: List[str]
@@ -156,6 +163,7 @@ class BoundsResponse(BaseModel):
     demo: Dict[str, Any]                # configs/demo.yaml model block
     fitness_weights_default: Dict[str, float]
     evolution_default: Dict[str, Any]   # EvolutionConfig().to_dict() (includes nested weights)
+    objectives: Dict[str, ObjectiveInfo] = Field(default_factory=dict)  # OBJECTIVES (Phase 4, Pareto page)
 
 
 class VersionResponse(BaseModel):
@@ -196,8 +204,51 @@ class ExperimentSummary(BaseModel):
     runtime_seconds: Optional[float] = None
     notes: Optional[str] = None
     mine: bool = False
+    # Phase 4 (React Experiments ledger table): the remaining columns of
+    # registry._index_row, so the table needs no per-row detail request.
+    seed: Optional[int] = None
+    configuration_hash: Optional[str] = None
+    git_commit: Optional[str] = None
+    model_version: Optional[str] = None
 
 
 class ExperimentDetail(BaseModel):
     record: Dict[str, Any]
     artifacts: Dict[str, str] = Field(default_factory=dict)
+
+
+class ArtifactInfo(BaseModel):
+    """One file under experiments/runs/<run_id>/ (GET .../artifacts)."""
+
+    name: str                       # file name, the path segment for the download route
+    key: Optional[str] = None       # record["artifacts"] key that points at this file, if any
+    size_bytes: int
+    media_type: str
+
+
+# --------------------------------------------------------------------------- #
+# compare (synchronous, Phase 4)
+# --------------------------------------------------------------------------- #
+class CompareScenario(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    config: Dict[str, Any] = Field(default_factory=dict)
+
+
+class CompareRequest(BaseModel):
+    scenarios: List[CompareScenario] = Field(min_length=1, max_length=6)
+    #: Common random numbers: when set, every scenario is run with this seed
+    #: (the Streamlit Compare page's "Force identical simulator seed").
+    seed: Optional[int] = None
+
+
+class CompareScenarioResult(BaseModel):
+    name: str
+    result: Dict[str, Any]          # SimulationResult.to_json_dict()
+    fitness: Optional[float] = None # breakdown.total (None when the run is invalid)
+    breakdown: Dict[str, Any]       # FitnessBreakdown.to_dict()
+    deltas: Optional[Dict[str, Optional[float]]] = None  # runner.deltas vs. the first scenario; None for it
+
+
+class CompareResponse(BaseModel):
+    baseline: str                   # name of the first scenario, the reference for `deltas`
+    scenarios: List[CompareScenarioResult]

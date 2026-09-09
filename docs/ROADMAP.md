@@ -43,7 +43,10 @@ live-updating charts during a long optimization run) feel limiting.
      WebGL2/Canvas2D particle visualization, `GET/POST /api/meta/*`
      metadata endpoints — see `frontend/README.md`, `docs/API.md`).
   4. Migrate the rest: Pareto, Sensitivity, Active Learning, Compare,
-     Experiments.
+     Experiments. **Done 2026-09-10** (`frontend/src/pages/{Pareto,
+     Sensitivity,ActiveLearning,Compare,Experiments}`, `POST /api/compare`,
+     `GET /api/experiments/{run_id}/artifacts[/{name}]`, `objectives` on
+     `GET /api/meta/bounds` — see `frontend/README.md`, `docs/API.md`).
   5. Remove `app/` (Streamlit) entirely, update Railway start command +
      docs. Streamlit stays the live production UI until this step.
 

@@ -1,4 +1,4 @@
-# React frontend (Phases 2–3 of the Streamlit → React migration)
+# React frontend (Phases 2–4 of the Streamlit → React migration)
 
 Vite + React 18 + TypeScript + Tailwind CSS v4 + React Router v6, built
 against the FastAPI backend in `../backend/` (contract: `../docs/API.md`).
@@ -8,9 +8,12 @@ verify / forgot- and reset-password), the public landing page ported from
 `app/streamlit_app.py`, and a protected shell. Phase 3 replaced the
 **Simulate** and **Evolve** placeholders with full ports of
 `app/pages/01_Simulate.py` / `02_Evolve.py`, added the job-polling hook and
-the WebGL particle visualization. Pareto / Sensitivity / Active Learning /
-Compare / Experiments are still placeholders (Phase 4). **The Streamlit app
-in `../app/` is still the live production UI** — Railway keeps starting it.
+the WebGL particle visualization. Phase 4 ported the remaining five pages —
+**Pareto**, **Sensitivity**, **Active Learning**, **Compare**,
+**Experiments** — so all seven `FEATURES` pages are now real; the
+`Placeholder` component only renders if a feature path is ever added without
+a page. **The Streamlit app in `../app/` is still the live production UI** —
+Railway keeps starting it until Phase 5.
 
 ## Run locally
 
@@ -63,13 +66,19 @@ src/
   components/ Layout (sidebar/top bar), Callout + Disclaimer, DevLink, AuthCard,
               ModelConfigForm (+ NumberInput), ChipMapper (+ chipFields.ts),
               MetricRow, PopulationCanvas (+ populationFrames.ts), baseline.ts,
-              download.ts (Blob exports, CSV builders)
+              handoff.ts (Evolve/Pareto -> Compare scenarios, see below),
+              download.ts (Blob exports, CSV builders), PageHeader, ProgressBar,
+              Provenance (run id + config hash line), BaselineSummary,
+              CheckboxGroup (st.multiselect as checkboxes)
               charts/  Plot.tsx (lazy wrapper), PlotlyPlot.tsx (the plotly import),
                        theme.ts (PALETTE/_LAYOUT port + dark mode),
-                       simulationCharts.ts, evolutionCharts.ts
+                       simulationCharts.ts, evolutionCharts.ts, paretoCharts.ts,
+                       sensitivityCharts.ts, activeLearningCharts.ts, compareCharts.ts
   pages/      Landing, Login, Register, ForgotPassword, ResetPassword, Verify,
               Simulate/ (index.tsx, metrics.ts), Evolve/ (index.tsx, form.ts),
-              Placeholder (remaining protected stubs), NotFound
+              Pareto/ (index.tsx, form.ts), Sensitivity/, ActiveLearning/,
+              Compare/, Experiments/ (index.tsx, ledger.ts),
+              Placeholder (unused fallback), NotFound
   features.ts FEATURES / NAV order / DISCLAIMER text, copied from the Streamlit app
   test/       vitest setup + helpers (MemoryRouter + AuthProvider, fetch mock),
               fixtures.ts (a /api/meta/bounds response + a SimulationRun)
@@ -132,17 +141,110 @@ CSV exports and **Set best as baseline**. `failed` shows the job error.
 
 Scoped down: the **final population table** is not shown because the
 evolve job result contains only `best` / `baseline` / `history` (see
-`backend/routers/evolve.py`). **"Send best to Compare"** is a TODO for Phase
-4 — the only cross-page state is the baseline hand-off below.
+`backend/routers/evolve.py`). Every finished job also writes the best
+candidate to the Compare hand-off (below); **Send best to Compare →** just
+navigates there.
 
-### Baseline hand-off
+### sessionStorage hand-offs (cross-page state)
 
-`components/baseline.ts` keeps the shared baseline `ModelConfig` in
-`sessionStorage` (`tel_baseline_config`), mirroring
-`st.session_state["baseline_config"]`: Simulate's *Set as baseline* writes
-it, Evolve reads it (falling back to `bounds.demo`), Evolve's *Set best as
-baseline* writes the base config with the best genome merged in, and
-Simulate's *Reset to demo baseline* clears it.
+The Streamlit app shared state between pages through `st.session_state`;
+the React app uses `sessionStorage` (survives navigation and a reload of
+the tab, not a new tab/session — the same per-session semantics):
+
+| Key | Written by | Read by | Shape |
+|---|---|---|---|
+| `tel_baseline_config` (`components/baseline.ts`) | Simulate *Set as baseline*, Evolve *Set best as baseline*; cleared by Simulate *Reset to demo baseline* | Evolve, Pareto, Sensitivity, Active Learning, Compare (fallback: `bounds.demo`) | `ModelConfig` |
+| `tel_evolve_best` (`components/handoff.ts`) | Evolve, automatically when a job completes/stops (baseline with the best genome merged in, as `GenomeSpec.to_config`) | Compare → "Best evolved" scenario | `{config: ModelConfig, label, run_id}` |
+| `tel_compare_user_config` (`components/handoff.ts`) | Pareto *Send this point to the Compare page* | Compare → "From Pareto page" scenario | `{config: ModelConfig, label, run_id}` |
+
+The Streamlit Compare page could also load "Best evolved" from the ledger
+when the session had no Evolve result; the React page only offers what is in
+`sessionStorage` and links to the Evolve page otherwise (the ledger record
+has the best genome but the API returns no `final_population.csv` parsing).
+
+## Pages done in Phase 4
+
+All three optimizer pages share the Evolve pattern: `useJob` polls
+`GET /api/jobs/{id}` (unchanged, only the generics differ), the per-step
+`progress` payloads are accumulated into a live list during the run (polling
+may skip steps; the completed `result` replaces the list), the form is
+disabled while the job is active, `failed` shows the job error, and on
+completion a `Provenance` line shows the ledger run id + configuration hash
+(+ git commit), fetched from `GET /api/experiments/{run_id}` since job
+results only carry the run id. Optimizer defaults (`MultiObjectiveConfig`,
+`SensitivityConfig`, `ActiveLearningConfig`) are copied from the dataclass
+defaults — `GET /api/meta/bounds` has no blocks for them — and the scalar
+weights sent are `bounds.fitness_weights_default` (the Streamlit pages used
+the session's Evolve weights; the React Evolve page keeps them local).
+
+### Pareto (`pages/Pareto/`)
+
+Port of `app/pages/05_Pareto.py`: objective multiselect from
+`bounds.objectives` (`OBJECTIVES`), the `MultiObjectiveConfig` controls,
+`free_genes`, the shared baseline (collapsible `ModelConfigForm`), notes.
+While running: progress bar (`Generation g/N · front k · HV x · n
+simulations`), best-per-objective line, a live **hypervolume / front-size
+by generation** chart (`paretoCharts.ts::hypervolumeChart`, secondary y
+axis) and a **Stop** button whose copy says stopping happens after the
+current generation finishes. On `completed`/`stopped`: metrics, provenance,
+the Pareto scatter over the first two objectives (`paretoScatter`; colour
+by a free gene or a third objective, defaulting to the gene that varies most
+along the front), the front table, "pick a point → Send to Compare", JSON /
+CSV exports. Scoped down: the **dominated-candidate cloud** is not drawn —
+the API result has no `final_population`.
+
+### Sensitivity (`pages/Sensitivity/`)
+
+Port of `app/pages/06_Sensitivity.py`: parameter checkboxes over
+`bounds.evolvable`, perturbation fraction, seeds, notes. Progress is one
+`ParameterSensitivity` per finished parameter → progress bar + a live
+table; on completion the **tornado chart** (`sensitivityCharts.ts`,
+horizontal diverging bars from the baseline fitness, sorted by |swing|),
+the sorted table, exports. **No Stop button** — the API has no cooperative
+cancellation for sensitivity (docs/API.md); the page says so while running.
+
+### Active Learning (`pages/ActiveLearning/`)
+
+Port of `app/pages/07_ActiveLearning.py`: `ActiveLearningConfig` controls.
+Progress is one `ActiveLearningRecord` per real evaluation → progress bar,
+live **best-so-far vs. real evaluations** line with per-evaluation markers
+(`activeLearningCharts.ts`) and the iteration table (predicted mean/std and
+acquisition value vs. actual fitness). **No Stop button** (no hook on the
+GP-refit loop). Scoped down: the Streamlit page also ran a **random-search
+baseline** of the same budget client-side; the API result does not include
+one, so no baseline line is drawn (adding it would be a backend change
+outside this phase's scope).
+
+### Compare (`pages/Compare/`)
+
+Port of `app/pages/03_Compare.py` on `POST /api/compare` (synchronous).
+Scenarios: **Baseline** (always), **Best evolved** (`tel_evolve_best`, else a
+prompt to run Evolve), **From Pareto page** (`tel_compare_user_config`),
+**Manual** (a `ModelConfigForm` seeded from the baseline). "Force identical
+simulator seed" sends the common `seed`. Results: five overlays
+(`compareCharts.ts::overlayChart` — mean shortest telomere / senescent
+fraction / proliferative cells, mean length with the threshold line, living
+cells), the deltas table vs. the baseline (`runner.deltas` keys), the
+scenario-parameter table and one fitness-composition bar per scenario
+(`fitnessBreakdownBar` with a title prefix). Invalid scenarios are listed
+and excluded from the charts, as in Streamlit.
+
+### Experiments (`pages/Experiments/`)
+
+Port of `app/pages/04_Experiments.py`. Tabs **My experiments** / **All
+experiments** are the `?mine=true|false` query parameter (so a tab is
+linkable), the table shows run id, timestamp, kind, seed, config hash,
+fitness, git commit and notes (the summary route carries these columns since
+Phase 4), newest first. Clicking a row sets `?run=<id>` (Provenance links
+land here) and loads `GET /api/experiments/{id}` + `.../artifacts`: metric
+cards, a **reproduction command** derived per kind the way the Streamlit
+page did (`ledger.ts::reproductionCommand`, with copy-to-clipboard), the
+artifact list with per-file download links (`href` is the API route; the
+click fetches with the bearer token via `api/client.ts::requestBlob` and
+saves the Blob, because a bare link cannot send the token) and the full
+record JSON. Scoped down: no **zip bundle** download (the API serves single
+files; `bundle_run_dir` is not exposed) and no "current environment" JSON
+(`GET /api/meta/version` covers the versions).
 
 ## `useJob` (`api/useJob.ts`)
 

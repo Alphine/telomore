@@ -128,11 +128,63 @@ today — benchmarking has never been ledger-backed in this codebase).
   Experiments page's "My experiments" / "All experiments" tabs), via
   `db.list_user_runs`.
 * `GET /api/experiments/{run_id}` (protected) — the full ledger record plus
-  its artifact filenames. **Scoped down:** this returns artifact *paths*
-  from the record only — there is no `GET .../artifacts/{name}` download
-  route in this phase; adding streaming file downloads (with correct
-  content-types, path traversal guards, etc.) was judged a large-enough
-  scope addition to defer to when the React app actually needs it.
+  its artifact filenames (the record's `artifacts` dict, i.e. key →
+  absolute path). Phase 1 deliberately shipped no download route; Phase 4
+  added the two below when the React Experiments page needed them.
+* `GET /api/experiments/{run_id}/artifacts` (protected, Phase 4) — the
+  files in `experiments/runs/<run_id>/` as
+  `[{name, key, size_bytes, media_type}]`, where `key` is the
+  `record["artifacts"]` key pointing at that file (`null` for files the
+  record does not list, e.g. `record.json`).
+* `GET /api/experiments/{run_id}/artifacts/{name}` (protected, Phase 4) —
+  the file itself as an attachment (`FileResponse`; `.json` →
+  `application/json`, `.csv` → `text/csv`, otherwise `mimetypes` /
+  `application/octet-stream`). Security: `run_id` and `name` must each be a
+  single plain path segment (`^[A-Za-z0-9][A-Za-z0-9._-]*$`, no `..`) →
+  otherwise `400`; the resolved path must be a file directly inside the run
+  directory, which itself must be directly inside the runs root → otherwise
+  `404`. Ownership follows the record route: any authenticated, verified
+  user can read any run (the ledger is shared; only the listing is filtered
+  by `mine`). Note the download needs the bearer token, so the React page
+  fetches it and saves the Blob client-side instead of using a bare link.
+* `GET /api/experiments` summaries additionally carry `seed`,
+  `configuration_hash`, `git_commit` and `model_version` (the remaining
+  `registry._index_row` columns) since Phase 4, so the ledger table needs no
+  per-row detail request.
+
+## Compare (synchronous, Phase 4)
+
+`POST /api/compare` (protected) runs up to **six** named scenarios side by
+side — the API behind the React port of `app/pages/03_Compare.py`:
+
+```json
+{"scenarios": [{"name": "Baseline", "config": {...ModelConfig...}},
+               {"name": "Manual",   "config": {...}}],
+ "seed": 42}
+```
+
+Every `config` goes through `ModelConfig.from_dict().validate()` (`400`
+with `"<name>: <ConfigError>"` on failure; duplicate names and more than six
+scenarios are also `400`, an empty list is a `422`). The optional `seed`
+re-seeds every scenario before running (common random numbers — the
+Streamlit page's "Force identical simulator seed" checkbox). The scenarios
+are run with `runner.compare_scenarios` (default `FitnessWeights`) and the
+response is
+
+```json
+{"baseline": "Baseline",
+ "scenarios": [{"name", "result": {...SimulationResult.to_json_dict()...},
+                "fitness": 0.41, "breakdown": {...FitnessBreakdown...},
+                "deltas": null | {"fitness_abs", "fitness_pct", "senescence_pp",
+                                  "reserve_kb", "mean_length_kb", "survival_abs"}}]}
+```
+
+`deltas` is `runner.deltas(first, this)` — always relative to the **first**
+scenario (which therefore has `deltas: null`); `fitness_pct` is `null` where
+`deltas` yields NaN (zero/invalid baseline fitness). `fitness` is `null` for
+an invalid run. Nothing is written to the ledger (the Streamlit Compare page
+never recorded either). Tests: `tests/test_api_compare.py`,
+`tests/test_api_artifacts.py`.
 
 ## What's deliberately out of scope for Phase 1
 
@@ -140,7 +192,8 @@ today — benchmarking has never been ledger-backed in this codebase).
   poll `GET /api/jobs/{id}`. Could be added later without changing the job
   store's shape.
 * No Redis/Celery job queue — see the job-abstraction design note above.
-* No artifact download endpoint (see Experiments section above).
+* No artifact download endpoint in Phase 1 (added in Phase 4, see the
+  Experiments section above).
 * CORS allows `http://localhost:5173` unconditionally; the production React
   origin is only added via `FRONTEND_ORIGIN` if that env var is set. No
   wildcard production origin was added — tighten this once the React app has
@@ -164,11 +217,18 @@ never hardcodes a bound in TypeScript.
     "defaults": {...ModelConfig().to_dict()...},
     "demo": {...configs/demo.yaml model block (falls back to defaults if missing)...},
     "fitness_weights_default": {...FitnessWeights().to_dict()...},
-    "evolution_default": {...EvolutionConfig().to_dict(), incl. nested "weights"...}
+    "evolution_default": {...EvolutionConfig().to_dict(), incl. nested "weights"...},
+    "objectives": {"survival": {"direction": "max", "description": "..."}, ...}
   }
   ```
   `bounds` has one entry per `PARAMETER_BOUNDS` key, i.e. the five-tuple
-  `(min, max, unit, label, description)` as an object.
+  `(min, max, unit, label, description)` as an object. `objectives` (Phase
+  4) mirrors `telomere_lab.schemas.OBJECTIVES` — the `(direction,
+  description)` tuples the Pareto page's objective multiselect is built
+  from. No `multiobjective_default` / `sensitivity_default` /
+  `active_learning_default` blocks are exposed: the API fills omitted config
+  fields with the dataclass defaults, and the React forms start from the
+  same values (noted in each page's source).
 * `GET /api/meta/version` (**public**) →
   `{package, model, optimizer, python, numpy, git_commit}` — taken from
   `telomere_lab.experiments.registry.environment_metadata()` (same values the

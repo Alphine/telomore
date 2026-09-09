@@ -36,6 +36,27 @@ export function csvFromColumns(columns: Record<string, Cell[]>): string {
   return lines.join('\n') + '\n'
 }
 
+/** Rows of plain objects -> CSV; the header is the union of keys in first-seen order (DataFrame(rows).to_csv). */
+export function rowsCsv(rows: Array<Record<string, Cell>>): string {
+  const names: string[] = []
+  for (const r of rows) for (const k of Object.keys(r)) if (!names.includes(k)) names.push(k)
+  const columns: Record<string, Cell[]> = {}
+  for (const n of names) columns[n] = rows.map((r) => r[n])
+  return csvFromColumns(columns)
+}
+
+/** Save a Blob the browser fetched (artifact downloads). */
+export function downloadBlob(filename: string, blob: Blob): void {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 0)
+}
+
 /** Same columns/order as SimulationResult.timeseries_frame(). */
 export function timeseriesCsv(ts: SimulationTimeseries): string {
   return csvFromColumns(ts as unknown as Record<string, Cell[]>)

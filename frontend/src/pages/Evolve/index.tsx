@@ -1,8 +1,8 @@
 // Port of app/pages/02_Evolve.py (SDD §16, page 2) on top of the
 // job-polling contract (POST /api/evolve -> GET /api/jobs/{id}).
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { ApiError } from '../../api/client'
 import { startEvolve } from '../../api/endpoints'
@@ -18,6 +18,7 @@ import { Plot } from '../../components/charts/Plot'
 import { diversityChart, evolutionFitnessChart, parameterTrajectoryChart } from '../../components/charts/evolutionCharts'
 import { usePrefersDark } from '../../components/charts/theme'
 import { downloadJson, downloadText, historyCsv } from '../../components/download'
+import { genomeToConfig, saveEvolveBest } from '../../components/handoff'
 import { FEATURES } from '../../features'
 import { FITNESS_FORMULA, WEIGHT_FIELDS, parseSeeds, signed, toForm } from './form'
 import type { EvoForm } from './form'
@@ -27,6 +28,7 @@ const FEATURE = FEATURES.find((f) => f.path === '/evolve')!
 export function Evolve() {
   const { bounds, error: boundsError } = useBounds()
   const dark = usePrefersDark()
+  const navigate = useNavigate()
 
   const [weights, setWeights] = useState<FitnessWeights | null>(null)
   const [evo, setEvo] = useState<EvoForm | null>(null)
@@ -56,6 +58,21 @@ export function Evolve() {
 
   const result = job && (job.status === 'completed' || job.status === 'stopped') ? job.result : null
   const history = result?.history ?? live
+
+  // Hand the best candidate to the Compare page ("Best evolved" scenario --
+  // st.session_state["evo_result"] in Streamlit) as soon as a job finishes.
+  // The genome is merged into the baseline the job was started from.
+  useEffect(() => {
+    if (!result || !baseline) return
+    saveEvolveBest({
+      config: genomeToConfig(baseline, result.best.genome),
+      label: `Evolve run ${result.run_id ?? '(unrecorded)'} (fitness ${signed(result.best.fitness)})`,
+      run_id: result.run_id,
+    })
+    // `baseline` is deliberately not a dependency: the saved scenario belongs
+    // to the run, not to later edits of the baseline form.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result])
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -502,8 +519,9 @@ export function Evolve() {
               <button type="button" className="btn-ghost" onClick={() => setBestAsBaseline(result)}>
                 Set best as baseline
               </button>
-              {/* TODO(Phase 4): "Send best to Compare" -- the Compare page does not exist yet; the
-                  baseline hand-off above is the only cross-page state for now. */}
+              <button type="button" className="btn-ghost" onClick={() => navigate('/compare')}>
+                Send best to Compare →
+              </button>
             </div>
             <p className="prose-muted mt-2 text-xs">
               Fitness ≠ biological truth. The optimizer optimised the objective above under the model's assumptions;

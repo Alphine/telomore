@@ -7,18 +7,29 @@ import { ForgotPassword } from './pages/ForgotPassword'
 import { Landing } from './pages/Landing'
 import { Login } from './pages/Login'
 import { NotFound } from './pages/NotFound'
+import { ActiveLearning } from './pages/ActiveLearning'
+import { Compare } from './pages/Compare'
 import { Evolve } from './pages/Evolve'
+import { Experiments } from './pages/Experiments'
+import { Pareto } from './pages/Pareto'
 import { Placeholder } from './pages/Placeholder'
 import { Register } from './pages/Register'
 import { ResetPassword } from './pages/ResetPassword'
+import { Sensitivity } from './pages/Sensitivity'
 import { Simulate } from './pages/Simulate'
 import { Verify } from './pages/Verify'
 
-// Pages migrated so far (Phase 3: Simulate, Evolve). Everything else in
-// FEATURES still renders the Phase 2 placeholder until Phase 4.
+// Every FEATURES page has been migrated (Phase 3: Simulate, Evolve; Phase 4:
+// the rest). The Placeholder only renders if a feature path is ever added
+// here without a page.
 const MIGRATED: Record<string, () => JSX.Element> = {
   '/simulate': Simulate,
   '/evolve': Evolve,
+  '/pareto': Pareto,
+  '/sensitivity': Sensitivity,
+  '/active-learning': ActiveLearning,
+  '/compare': Compare,
+  '/experiments': Experiments,
 }
 
 /** Route table; the Router itself is provided by main.tsx (or a MemoryRouter in tests). */

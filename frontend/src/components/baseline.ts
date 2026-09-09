@@ -2,10 +2,8 @@
 // app kept it in st.session_state["baseline_config"], set via "Set as
 // baseline" on the Simulate page). Kept in sessionStorage so it survives
 // client-side navigation and a reload of this tab but not a new session --
-// matching the Streamlit per-session semantics.
-//
-// TODO(Phase 4 -- Compare page): the Streamlit Compare page also read this
-// baseline and a "best evolved" scenario; wire those there, not here.
+// matching the Streamlit per-session semantics. The other cross-page
+// scenarios (best evolved, Pareto point) live in ./handoff.ts.
 import type { ModelConfig } from '../api/types'
 
 const KEY = 'tel_baseline_config'

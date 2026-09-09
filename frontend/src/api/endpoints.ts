@@ -1,11 +1,17 @@
 // One function per endpoint in docs/API.md. Shapes are the Pydantic models in
 // backend/schemas.py, mirrored in ./types.ts.
-import { request } from './client'
+import { API_BASE, request, requestBlob } from './client'
 import type {
+  ActiveLearningRequest,
+  ArtifactInfo,
   BoundsResponse,
   ChipConditions,
   ChipParams,
+  CompareRequest,
+  CompareResponse,
   EvolveRequest,
+  ExperimentDetail,
+  ExperimentSummary,
   ForgotPasswordRequest,
   ForgotPasswordResponse,
   HealthResponse,
@@ -13,9 +19,11 @@ import type {
   JobStatusResponse,
   LoginRequest,
   MessageResponse,
+  ParetoRequest,
   RegisterRequest,
   RegisterResponse,
   ResetPasswordRequest,
+  SensitivityRequest,
   SimulateRequest,
   SimulateResponse,
   TokenResponse,
@@ -78,10 +86,51 @@ export function startEvolve(body: EvolveRequest): Promise<JobStartResponse> {
   return request<JobStartResponse>('/evolve', { method: 'POST', body })
 }
 
+export function startPareto(body: ParetoRequest): Promise<JobStartResponse> {
+  return request<JobStartResponse>('/pareto', { method: 'POST', body })
+}
+
+export function startSensitivity(body: SensitivityRequest): Promise<JobStartResponse> {
+  return request<JobStartResponse>('/sensitivity', { method: 'POST', body })
+}
+
+export function startActiveLearning(body: ActiveLearningRequest): Promise<JobStartResponse> {
+  return request<JobStartResponse>('/active-learning', { method: 'POST', body })
+}
+
 export function getJob<P, R>(jobId: string): Promise<JobStatusResponse<P, R>> {
   return request<JobStatusResponse<P, R>>(`/jobs/${encodeURIComponent(jobId)}`)
 }
 
 export function stopJob<P, R>(jobId: string): Promise<JobStatusResponse<P, R>> {
   return request<JobStatusResponse<P, R>>(`/jobs/${encodeURIComponent(jobId)}/stop`, { method: 'POST' })
+}
+
+// ---------------------------------------------------------------- compare
+/** Synchronous: up to six named scenarios, deltas vs. the first one. */
+export function compare(body: CompareRequest): Promise<CompareResponse> {
+  return request<CompareResponse>('/compare', { method: 'POST', body })
+}
+
+// ------------------------------------------------------------ experiments
+export function listExperiments(mine: boolean): Promise<ExperimentSummary[]> {
+  return request<ExperimentSummary[]>('/experiments', { query: { mine } })
+}
+
+export function getExperiment(runId: string): Promise<ExperimentDetail> {
+  return request<ExperimentDetail>(`/experiments/${encodeURIComponent(runId)}`)
+}
+
+export function listArtifacts(runId: string): Promise<ArtifactInfo[]> {
+  return request<ArtifactInfo[]>(`/experiments/${encodeURIComponent(runId)}/artifacts`)
+}
+
+/** The download route's URL (for `href`s); fetching it needs the bearer token, see downloadArtifact. */
+export function artifactUrl(runId: string, name: string): string {
+  return `${API_BASE}/experiments/${encodeURIComponent(runId)}/artifacts/${encodeURIComponent(name)}`
+}
+
+/** Authenticated fetch of one artifact file as a Blob. */
+export function downloadArtifact(runId: string, name: string): Promise<Blob> {
+  return requestBlob(`/experiments/${encodeURIComponent(runId)}/artifacts/${encodeURIComponent(name)}`)
 }

@@ -114,7 +114,13 @@ export function populationCurve(run: SimulationRun, dark: boolean, cursor?: numb
   return { data, layout: withCursor(layout, cursor) }
 }
 
-export function fitnessBreakdownBar(breakdown: FitnessBreakdown, weights: FitnessWeights, dark: boolean): Figure {
+export function fitnessBreakdownBar(
+  breakdown: FitnessBreakdown,
+  weights: FitnessWeights,
+  dark: boolean,
+  /** Title prefix (the Compare page shows one bar per scenario: "<name>: weighted contributions …"). */
+  titlePrefix?: string,
+): Figure {
   const comps: Array<[string, number]> = [
     ['survival', weights.w_survival * breakdown.survival],
     ['reserve', weights.w_reserve * breakdown.reserve],
@@ -134,7 +140,7 @@ export function fitnessBreakdownBar(breakdown: FitnessBreakdown, weights: Fitnes
   const layout: Partial<Layout> = {
     ...baseLayout({
       dark,
-      title: `Weighted fitness contributions (total ${sign}${breakdown.total.toFixed(3)})`,
+      title: `${titlePrefix ? `${titlePrefix}: w` : 'W'}eighted fitness contributions (total ${sign}${breakdown.total.toFixed(3)})`,
       yTitle: 'contribution',
       height: 280,
       showLegend: false,

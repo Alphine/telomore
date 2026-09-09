@@ -111,6 +111,42 @@ export interface EvolutionConfig {
   weights: FitnessWeights
 }
 
+// telomere_lab.schemas.MultiObjectiveConfig.to_dict()
+export interface MultiObjectiveConfig {
+  population_size: number
+  generations: number
+  mutation_rate: number
+  mutation_sigma: number
+  crossover_rate: number
+  crossover_kind: 'uniform' | 'arithmetic'
+  seed: number
+  eval_seeds: number[]
+  free_genes: string[]
+  objectives: string[]
+  checkpoint_every: number
+  weights: FitnessWeights
+}
+
+// telomere_lab.schemas.SensitivityConfig.to_dict()
+export interface SensitivityConfig {
+  parameters: string[]
+  perturbation_fraction: number
+  eval_seeds: number[]
+  weights: FitnessWeights
+}
+
+// telomere_lab.schemas.ActiveLearningConfig.to_dict()
+export interface ActiveLearningConfig {
+  n_initial: number
+  n_iterations: number
+  eval_seeds: number[]
+  free_genes: string[]
+  seed: number
+  xi: number
+  candidate_pool_size: number
+  weights: FitnessWeights
+}
+
 // ------------------------------------------------------------------- meta
 /** One PARAMETER_BOUNDS entry (backend/schemas.py::ParameterBound). */
 export interface ParameterBound {
@@ -121,6 +157,12 @@ export interface ParameterBound {
   description: string
 }
 
+/** One telomere_lab.schemas.OBJECTIVES entry (backend/schemas.py::ObjectiveInfo). */
+export interface ObjectiveInfo {
+  direction: 'max' | 'min'
+  description: string
+}
+
 export interface BoundsResponse {
   bounds: Record<string, ParameterBound>
   evolvable: string[]
@@ -128,6 +170,7 @@ export interface BoundsResponse {
   demo: ModelConfig
   fitness_weights_default: FitnessWeights
   evolution_default: EvolutionConfig
+  objectives: Record<string, ObjectiveInfo>
 }
 
 export interface VersionResponse {
@@ -290,3 +333,207 @@ export interface EvolveResult {
 }
 
 export type EvolveJob = JobStatusResponse<GenerationRecord, EvolveResult>
+
+// ----------------------------------------------------------------- pareto
+export interface ParetoRequest {
+  model: Partial<ModelConfig>
+  multiobjective: Partial<MultiObjectiveConfig>
+  notes: string
+}
+
+// evolution/multiobjective.py::MOGenerationRecord.to_dict() -- the per-generation
+// `progress` payload of a pareto job. Means/bests are NaN (-> null) when every
+// candidate in a generation is invalid.
+export interface MOGenerationRecord {
+  generation: number
+  front_size: number
+  hypervolume: number
+  n_invalid: number
+  objective_means: Record<string, number | null>
+  objective_best: Record<string, number | null>
+  evaluations_so_far: number
+  elapsed_seconds: number
+}
+
+// evolution/multiobjective.py::MOCandidate.to_dict()
+export interface MOCandidate {
+  genome: Record<string, number>
+  objectives: Record<string, number>
+  vector: number[]
+  scalar_fitness: number
+  valid: boolean
+  rank: number
+  crowding: number | null
+  breakdown: FitnessBreakdown | null
+  terminal_metrics: Partial<TerminalMetrics>
+}
+
+// backend/routers/pareto.py::_target return value. NOTE: no final_population --
+// the dominated-candidate cloud of the Streamlit scatter is not available.
+export interface ParetoResult {
+  run_id: string | null
+  front: MOCandidate[]
+  baseline: MOCandidate
+  history: MOGenerationRecord[]
+  reference_point: number[]
+  evaluations: number
+  runtime_seconds: number
+  stopped_early: boolean
+}
+
+export type ParetoJob = JobStatusResponse<MOGenerationRecord, ParetoResult>
+
+// ------------------------------------------------------------ sensitivity
+export interface SensitivityRequest {
+  model: Partial<ModelConfig>
+  sensitivity: Partial<SensitivityConfig>
+  notes: string
+}
+
+// analysis/sensitivity.py::ParameterSensitivity.to_dict() -- one per parameter
+// finished (the job's `progress`). Fitness values are NaN (-> null) when the
+// perturbed run is invalid.
+export interface ParameterSensitivity {
+  parameter: string
+  baseline_value: number
+  low_value: number
+  high_value: number
+  fitness_low: number | null
+  fitness_baseline: number | null
+  fitness_high: number | null
+  swing: number | null
+}
+
+// backend/routers/sensitivity.py::_target return value.
+export interface SensitivityResult {
+  run_id: string | null
+  baseline_fitness: number | null
+  items: ParameterSensitivity[]
+  evaluations: number
+  runtime_seconds: number
+}
+
+export type SensitivityJob = JobStatusResponse<ParameterSensitivity, SensitivityResult>
+
+// -------------------------------------------------------- active learning
+export interface ActiveLearningRequest {
+  model: Partial<ModelConfig>
+  active_learning: Partial<ActiveLearningConfig>
+  notes: string
+}
+
+// evolution/surrogate.py::ActiveLearningRecord.to_dict() -- one per real
+// evaluation (the job's `progress`). predicted_* / acquisition_value are null
+// during the random initial design (no surrogate yet).
+export interface ActiveLearningRecord {
+  iteration: number
+  phase: 'initial' | 'active'
+  genome: Record<string, number>
+  real_fitness: number
+  predicted_mean: number | null
+  predicted_std: number | null
+  acquisition_value: number | null
+  best_so_far: number
+  n_real_evaluations: number
+}
+
+// backend/routers/active_learning.py::_target return value. NOTE: the Streamlit
+// page also ran a random-search baseline of the same budget; the API result
+// does not include one.
+export interface ActiveLearningResult {
+  run_id: string | null
+  best_genome: Record<string, number>
+  best_fitness: number
+  records: ActiveLearningRecord[]
+  evaluations: number
+  runtime_seconds: number
+}
+
+export type ActiveLearningJob = JobStatusResponse<ActiveLearningRecord, ActiveLearningResult>
+
+// ---------------------------------------------------------------- compare
+// backend/schemas.py::CompareRequest / CompareResponse
+export interface CompareScenario {
+  name: string
+  config: Partial<ModelConfig>
+}
+
+export interface CompareRequest {
+  scenarios: CompareScenario[]
+  /** Common random numbers: every scenario is re-seeded with this when set. */
+  seed?: number
+}
+
+// runner.deltas keys; fitness_pct is null when the baseline fitness is 0 / invalid.
+export interface ScenarioDeltas {
+  fitness_abs: number | null
+  fitness_pct: number | null
+  senescence_pp: number | null
+  reserve_kb: number | null
+  mean_length_kb: number | null
+  survival_abs: number | null
+}
+
+/** SimulationResult.to_json_dict() (no run_id / fitness -- compare records nothing). */
+export type ScenarioRun = Omit<SimulationRun, 'run_id' | 'fitness'>
+
+export interface CompareScenarioResult {
+  name: string
+  result: ScenarioRun
+  fitness: number | null
+  breakdown: FitnessBreakdown
+  deltas: ScenarioDeltas | null
+}
+
+export interface CompareResponse {
+  baseline: string
+  scenarios: CompareScenarioResult[]
+}
+
+// ------------------------------------------------------------ experiments
+// backend/schemas.py::ExperimentSummary (registry._index_row columns)
+export interface ExperimentSummary {
+  run_id: string
+  kind: string | null
+  created_at: string | null
+  fitness: number | null
+  runtime_seconds: number | null
+  notes: string | null
+  mine: boolean
+  seed: number | null
+  configuration_hash: string | null
+  git_commit: string | null
+  model_version: string | null
+}
+
+// The ledger record written by ExperimentRegistry.register (+ per-kind `extra`).
+export interface ExperimentRecord {
+  run_id: string
+  kind: string
+  created_at: string
+  seed: number
+  configuration: Record<string, Record<string, unknown>>
+  configuration_hash: string
+  fitness: number | null
+  runtime_seconds: number | null
+  artifacts: Record<string, string>
+  notes: string
+  environment: Record<string, unknown>
+  model_version: string
+  optimizer_version: string
+  git_commit: string | null
+  [extra: string]: unknown
+}
+
+export interface ExperimentDetail {
+  record: ExperimentRecord
+  artifacts: Record<string, string>
+}
+
+// backend/schemas.py::ArtifactInfo
+export interface ArtifactInfo {
+  name: string
+  key: string | null
+  size_bytes: number
+  media_type: string
+}

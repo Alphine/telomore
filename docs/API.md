@@ -149,6 +149,46 @@ today — benchmarking has never been ledger-backed in this codebase).
   still start Streamlit. Wiring `uvicorn backend.main:app` into a real
   deployment is a later-phase decision.
 
+## Meta (Phase 3) — read-only metadata the React forms are driven by
+
+`backend/routers/meta.py`. `telomere_lab.schemas` stays the single source of
+truth for bounds and defaults; these routes only mirror it so the frontend
+never hardcodes a bound in TypeScript.
+
+* `GET /api/meta/bounds` (**public** — static, non-sensitive, and a form
+  needs it before the user has done anything) →
+  ```json
+  {
+    "bounds": {"<name>": {"min", "max", "unit", "label", "description"}, ...},
+    "evolvable": ["initial_length", "shortening_rate", ...],
+    "defaults": {...ModelConfig().to_dict()...},
+    "demo": {...configs/demo.yaml model block (falls back to defaults if missing)...},
+    "fitness_weights_default": {...FitnessWeights().to_dict()...},
+    "evolution_default": {...EvolutionConfig().to_dict(), incl. nested "weights"...}
+  }
+  ```
+  `bounds` has one entry per `PARAMETER_BOUNDS` key, i.e. the five-tuple
+  `(min, max, unit, label, description)` as an object.
+* `GET /api/meta/version` (**public**) →
+  `{package, model, optimizer, python, numpy, git_commit}` — taken from
+  `telomere_lab.experiments.registry.environment_metadata()` (same values the
+  ledger records; `git_commit` is `null` outside a git checkout and carries a
+  `-dirty` suffix for an unclean tree).
+* `POST /api/meta/chip-to-params` (**protected**) — body is the
+  `ChipConditions` fields (`flow_rate`, `oxygen_tension`, `nutrient_state`,
+  `stress_exposure`, `culture_days`, all optional with the dataclass
+  defaults) → `{stress_level, repair_rate, cycles}` from
+  `telomere_lab.adapters.chip.chip_to_model_params`. The mapping is a
+  documented modelling assumption, not a calibrated relationship
+  (`docs/MODEL.md` §6); the response values are valid `ModelConfig`
+  overrides as-is.
+
+Serialisation note (affects consumers of every result route): FastAPI's
+pydantic-v2 JSON mode turns non-finite floats into `null`, so e.g.
+`terminal_metrics.time_to_50pct_senescence` is `null` (not `Infinity`) when
+the target is never reached, and length statistics are `null` once a
+population is extinct. Tests: `tests/test_api_meta.py`.
+
 ## Phase 2 — frontend serving
 
 `backend/main.py` now optionally serves the built React app

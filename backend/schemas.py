@@ -137,6 +137,55 @@ class JobStatusResponse(BaseModel):
 
 
 # --------------------------------------------------------------------------- #
+# meta (read-only metadata mirrored from telomere_lab.schemas / adapters.chip)
+# --------------------------------------------------------------------------- #
+class ParameterBound(BaseModel):
+    """One PARAMETER_BOUNDS entry: (min, max, unit, label, description)."""
+
+    min: float
+    max: float
+    unit: str
+    label: str
+    description: str
+
+
+class BoundsResponse(BaseModel):
+    bounds: Dict[str, ParameterBound]
+    evolvable: List[str]
+    defaults: Dict[str, Any]            # ModelConfig().to_dict()
+    demo: Dict[str, Any]                # configs/demo.yaml model block
+    fitness_weights_default: Dict[str, float]
+    evolution_default: Dict[str, Any]   # EvolutionConfig().to_dict() (includes nested weights)
+
+
+class VersionResponse(BaseModel):
+    package: str
+    model: str
+    optimizer: str
+    python: str
+    numpy: str
+    git_commit: Optional[str] = None
+
+
+class ChipConditionsRequest(BaseModel):
+    """Field names/defaults copied from telomere_lab.adapters.chip.ChipConditions."""
+
+    flow_rate: float = 0.5
+    oxygen_tension: float = 0.21
+    nutrient_state: float = 0.8
+    stress_exposure: float = 0.2
+    culture_days: float = 60.0
+
+
+class ChipParamsResponse(BaseModel):
+    """Return shape of chip_to_model_params."""
+
+    stress_level: float
+    repair_rate: float
+    cycles: int
+
+
+# --------------------------------------------------------------------------- #
 # experiments
 # --------------------------------------------------------------------------- #
 class ExperimentSummary(BaseModel):

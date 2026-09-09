@@ -29,6 +29,7 @@ from .routers import (
     evolve,
     experiments,
     jobs,
+    meta,
     pareto,
     sensitivity,
     simulate,
@@ -103,6 +104,7 @@ def create_app() -> FastAPI:
     app.include_router(benchmark.router, prefix="/api")
     app.include_router(experiments.router, prefix="/api")
     app.include_router(jobs.router, prefix="/api")
+    app.include_router(meta.router, prefix="/api")
 
     _mount_frontend(app, FRONTEND_DIST)
 

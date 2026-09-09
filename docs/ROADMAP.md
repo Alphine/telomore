@@ -38,6 +38,10 @@ live-updating charts during a long optimization run) feel limiting.
      **Done 2026-09-09** (`frontend/`, Vite + React 18 + TS + Tailwind v4;
      FastAPI serves the build when present — see `frontend/README.md`).
   3. Migrate the highest-interactivity pages first: Simulate, Evolve.
+     **Done 2026-09-09** (`frontend/src/pages/Simulate`, `pages/Evolve`,
+     `api/useJob.ts` polling hook, `components/PopulationCanvas.tsx`
+     WebGL2/Canvas2D particle visualization, `GET/POST /api/meta/*`
+     metadata endpoints — see `frontend/README.md`, `docs/API.md`).
   4. Migrate the rest: Pareto, Sensitivity, Active Learning, Compare,
      Experiments.
   5. Remove `app/` (Streamlit) entirely, update Railway start command +

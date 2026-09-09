@@ -8,7 +8,14 @@ import json
 import streamlit as st
 
 import ui  # noqa: F401 - puts src/ on sys.path
-from ui.components import DISCLAIMER, current_user, inject_css, logout
+from ui.components import (
+    DISCLAIMER,
+    current_user,
+    handle_auth_query_params,
+    inject_css,
+    logout,
+    maybe_render_password_reset_form,
+)
 
 from telomere_lab import __version__
 from telomere_lab.adapters.published_model import available_models
@@ -38,6 +45,12 @@ FEATURES = [
 def home() -> None:
     st.set_page_config(page_title="Telomere Evolution Lab", page_icon="🧬", layout="wide")
     inject_css()
+    handle_auth_query_params()
+    # A password-reset link (?reset_token=...) can land on any page,
+    # including this public Home page - the Home page does not go through
+    # ui.components.page_setup(), so it's wired in here explicitly too.
+    if maybe_render_password_reset_form():
+        return
 
     # -------------------------------------------------------------- sidebar
     with st.sidebar:

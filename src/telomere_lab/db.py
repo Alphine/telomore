@@ -27,11 +27,13 @@ from __future__ import annotations
 
 import datetime as _dt
 import os
+import secrets
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import bcrypt
 from sqlalchemy import (
+    Boolean,
     DateTime,
     ForeignKey,
     String,
@@ -62,10 +64,20 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(String(150), unique=True, index=True, nullable=False)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[_dt.datetime] = mapped_column(
         DateTime, default=lambda: _dt.datetime.now(_dt.timezone.utc)
     )
+
+    # ------------------------------------------------------- email verification
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    verification_token: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    verification_token_created_at: Mapped[Optional[_dt.datetime]] = mapped_column(DateTime, nullable=True)
+
+    # ----------------------------------------------------------- password reset
+    reset_token: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    reset_token_expires_at: Mapped[Optional[_dt.datetime]] = mapped_column(DateTime, nullable=True)
 
     runs: Mapped[List["UserRun"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
@@ -89,6 +101,14 @@ class UserRun(Base):
 
 class DuplicateUsernameError(Exception):
     """Raised by :func:`create_user` when the username is already taken."""
+
+
+class DuplicateEmailError(Exception):
+    """Raised by :func:`create_user` when the email is already registered."""
+
+
+# Reset tokens are valid for this long after being issued.
+RESET_TOKEN_LIFETIME = _dt.timedelta(hours=1)
 
 
 def _normalized_database_url() -> str:
@@ -162,22 +182,34 @@ def _verify_password(password: str, password_hash: str) -> bool:
 
 
 # ------------------------------------------------------------------- API
-def create_user(username: str, password: str, session: Optional[Session] = None) -> User:
-    """Create a new user. Raises :class:`DuplicateUsernameError` if the
-    username is already taken."""
+def create_user(username: str, email: str, password: str, session: Optional[Session] = None) -> User:
+    """Create a new user. Raises :class:`DuplicateUsernameError` /
+    :class:`DuplicateEmailError` if the username / email is already taken.
+
+    The new user starts with ``is_verified=False``; the caller is expected
+    to immediately call :func:`generate_verification_token` and send (or,
+    in dev mode, display) the verification link."""
     username = username.strip()
+    email = email.strip().lower()
     if not username:
         raise ValueError("username must not be empty")
+    if not email:
+        raise ValueError("email must not be empty")
     if not password:
         raise ValueError("password must not be empty")
 
     own_session = session is None
     db = session or get_session()
     try:
-        existing = db.execute(select(User).where(User.username == username)).scalar_one_or_none()
-        if existing is not None:
+        existing_username = db.execute(
+            select(User).where(User.username == username)
+        ).scalar_one_or_none()
+        if existing_username is not None:
             raise DuplicateUsernameError(f"username {username!r} is already taken")
-        user = User(username=username, password_hash=_hash_password(password))
+        existing_email = db.execute(select(User).where(User.email == email)).scalar_one_or_none()
+        if existing_email is not None:
+            raise DuplicateEmailError(f"email {email!r} is already registered")
+        user = User(username=username, email=email, password_hash=_hash_password(password))
         db.add(user)
         db.commit()
         db.refresh(user)
@@ -233,6 +265,118 @@ def list_user_runs(user_id: int, session: Optional[Session] = None) -> List[str]
             .order_by(UserRun.created_at.desc())
         ).scalars().all()
         return list(rows)
+    finally:
+        if own_session:
+            db.close()
+
+
+# ------------------------------------------------------- email verification
+def generate_verification_token(user_id: int, session: Optional[Session] = None) -> str:
+    """Create (or replace) a verification token for ``user_id`` and return
+    the raw token. Verification tokens do not expire (a deliberate scope
+    limitation - see README)."""
+    own_session = session is None
+    db = session or get_session()
+    try:
+        user = db.get(User, user_id)
+        if user is None:
+            raise ValueError(f"no user with id {user_id!r}")
+        token = secrets.token_urlsafe(32)
+        user.verification_token = token
+        user.verification_token_created_at = _dt.datetime.now(_dt.timezone.utc)
+        db.add(user)
+        db.commit()
+        return token
+    finally:
+        if own_session:
+            db.close()
+
+
+def verify_email(token: str, session: Optional[Session] = None) -> Optional[User]:
+    """Mark the user owning ``token`` as verified and clear the token.
+
+    Returns the :class:`User` on success, ``None`` if the token is invalid
+    (unknown or already used)."""
+    if not token:
+        return None
+    own_session = session is None
+    db = session or get_session()
+    try:
+        user = db.execute(
+            select(User).where(User.verification_token == token)
+        ).scalar_one_or_none()
+        if user is None:
+            return None
+        user.is_verified = True
+        user.verification_token = None
+        user.verification_token_created_at = None
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user
+    finally:
+        if own_session:
+            db.close()
+
+
+# ----------------------------------------------------------------- password reset
+def request_password_reset(email: str, session: Optional[Session] = None) -> Optional[Tuple[User, str]]:
+    """Issue a password-reset token (valid for :data:`RESET_TOKEN_LIFETIME`)
+    for the user with ``email``.
+
+    Returns ``(user, raw_token)`` on success, ``None`` if no user with that
+    email exists. NOTE on the dev/prod asymmetry: the *production* UI must
+    show a generic "if an account exists..." message regardless of this
+    function's return value, so as not to leak which emails are registered.
+    In dev mode (no RESEND_API_KEY), the caller is allowed to be more
+    revealing - showing the raw link on screen when a user *was* found - for
+    local testing convenience; that is a deliberate, documented trade-off,
+    not an oversight."""
+    own_session = session is None
+    db = session or get_session()
+    try:
+        user = db.execute(
+            select(User).where(User.email == email.strip().lower())
+        ).scalar_one_or_none()
+        if user is None:
+            return None
+        token = secrets.token_urlsafe(32)
+        user.reset_token = token
+        user.reset_token_expires_at = _dt.datetime.now(_dt.timezone.utc) + RESET_TOKEN_LIFETIME
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user, token
+    finally:
+        if own_session:
+            db.close()
+
+
+def reset_password(token: str, new_password: str, session: Optional[Session] = None) -> bool:
+    """Validate ``token`` (must exist and not be expired) and set
+    ``new_password`` for its owner, clearing the reset token.
+
+    Returns ``True`` on success, ``False`` if the token is invalid, unknown,
+    or expired."""
+    if not token or not new_password:
+        return False
+    own_session = session is None
+    db = session or get_session()
+    try:
+        user = db.execute(select(User).where(User.reset_token == token)).scalar_one_or_none()
+        if user is None:
+            return False
+        expires_at = user.reset_token_expires_at
+        if expires_at is not None and expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=_dt.timezone.utc)
+        if expires_at is None or expires_at < _dt.datetime.now(_dt.timezone.utc):
+            return False
+        user.password_hash = _hash_password(new_password)
+        user.reset_token = None
+        user.reset_token_expires_at = None
+        db.add(user)
+        db.commit()
+        return True
     finally:
         if own_session:
             db.close()

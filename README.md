@@ -80,9 +80,38 @@ out of the box with no local database server.
 
 Login is **session-based only**: `st.session_state["user"]` holds the
 logged-in user for the current browser tab/session and is cleared on tab
-close or server restart. There is no persistent "remember me" cookie, no
-password-reset flow, and no email verification — this is a deliberate,
-stated scope limitation, not a bug.
+close or server restart. There is no persistent "remember me" cookie — this
+is a deliberate, stated scope limitation, not a bug.
+
+Registration now also collects an **email address**, and a fresh account
+starts unverified. A logged-in-but-unverified user sees a "verify your
+email" screen instead of the real page content on every gated feature (with
+a "resend verification email" button) until they click the link from their
+verification email. **Forgot password** is available from a "Forgot
+password?" expander in the login tab: it emails (or, in dev mode, displays)
+a reset link valid for one hour.
+
+Transactional email (verification + password reset) is sent via
+[Resend](https://resend.com) from `src/telomere_lab/email.py`, gated on the
+`RESEND_API_KEY` environment variable — the same present-vs-absent pattern
+as `DATABASE_URL` above:
+
+* **`RESEND_API_KEY` set** (production, injected as a Railway env var) —
+  `send_email()` POSTs to Resend's API and the link is actually emailed to
+  the user. The sender is Resend's shared sandbox address
+  (`onboarding@resend.dev`), since this project has not verified a custom
+  sending domain.
+* **`RESEND_API_KEY` not set** (local dev, CI, `pytest`) — `send_email()` is
+  a no-op (no network call at all) and the UI falls back to showing the
+  verification/reset link directly on screen via `st.info`, captioned
+  "Email not configured (dev mode) — use this link directly". This is what
+  lets the whole flow — register, verify, log in, forgot password, reset —
+  be tested end-to-end locally and in CI with zero real credentials.
+
+Deliberately out of scope for this pass (reasonable to add later, not
+required now): rate-limiting on reset-link requests, a CAPTCHA on
+registration, and verification-token expiry (unlike reset tokens, which
+expire after 1 hour, a verification token stays valid until used).
 
 On the **Experiments** page, the reproducibility ledger is split into an
 "All experiments" tab (the full shared ledger, exactly as before) and a
@@ -160,6 +189,7 @@ recorded in `experiments/`:
 app/            Streamlit GUI (streamlit_app.py + pages/ + ui/)
 src/telomere_lab/
   db.py         user accounts + "which run belongs to which user" (Postgres/SQLite)
+  email.py      transactional email via Resend, dev-mode no-op fallback (RESEND_API_KEY)
   schemas.py    typed configs, bounds, result containers
   simulator/    model.py, population.py, metrics.py, stochastic.py
   evolution/    genome, mutation, crossover, selection, fitness, engine, benchmark, surrogate (active learning)

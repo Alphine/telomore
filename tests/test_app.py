@@ -27,8 +27,12 @@ def _isolated_db(tmp_path, monkeypatch):
     db_module.reset_engine()
 
 
-def _logged_in_user():
-    return db_module.create_user("test_user", "test_password")
+def _logged_in_user(verified: bool = True):
+    user = db_module.create_user("test_user", "test_user@example.com", "test_password")
+    if verified:
+        token = db_module.generate_verification_token(user.id)
+        user = db_module.verify_email(token)
+    return user
 
 
 def _run(path: str, timeout: float = 60, logged_in: bool = False) -> AppTest:
@@ -50,6 +54,18 @@ def test_functional_page_requires_login():
     at = _run("pages/01_Simulate.py")
     assert any("Log in required" in s.value for s in at.subheader)
     assert not at.sidebar.slider  # the real Simulate page content never rendered
+
+
+def test_unverified_user_sees_verification_gate_not_real_page():
+    """A logged-in user who has not clicked their verification link must see
+    the "verify your email" screen, not the real gated page content."""
+    at = AppTest.from_file(str(APP / "pages/01_Simulate.py"), default_timeout=60)
+    at.session_state["user"] = _logged_in_user(verified=False)
+    at.run()
+    assert not at.exception, at.exception
+    assert any("Verify your email" in s.value for s in at.subheader)
+    assert not at.sidebar.slider  # the real Simulate page content never rendered
+    assert any("Resend verification email" in b.label for b in at.button)
 
 
 def test_simulate_page_runs_simulation_and_shows_results():

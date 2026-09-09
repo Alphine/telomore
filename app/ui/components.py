@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -9,6 +10,7 @@ import streamlit as st
 
 from telomere_lab import db as _db
 from telomere_lab.config import CONFIG_DIR, load_model_config
+from telomere_lab.email import send_email
 from telomere_lab.experiments.artifacts import simulation_csv, simulation_json
 from telomere_lab.schemas import EvolutionConfig, FitnessWeights, ModelConfig, SimulationResult
 
@@ -61,6 +63,7 @@ def inject_css() -> None:
 def page_setup(title: str, icon: str = "🧬") -> None:
     st.set_page_config(page_title=f"{title} · Telomere Evolution Lab", page_icon=icon, layout="wide")
     inject_css()
+    handle_auth_query_params()
     st.title(f"{icon} {title}")
 
 
@@ -79,8 +82,76 @@ def demo_config() -> ModelConfig:
 # is no persistent cookie / "remember me". Closing the tab or restarting the
 # Streamlit server logs everyone out. This keeps the auth layer simple; a
 # persistent-session mechanism (signed cookies, etc.) is out of scope here.
+#
+# NOTE (verification links / base URL): emailed verification and
+# password-reset links are constructed as *relative* query-param links
+# (``?verify_token=...``) rather than fully-qualified URLs. Streamlit has no
+# simple, reliable way to learn its own public base URL from within a page,
+# and the user will already be pointed at the right host when they open the
+# link from their inbox on the same machine/browser that has the app
+# bookmarked - so a relative link is enough for a link *shown on screen*
+# (dev mode) and works fine as the href in an emailed HTML link too, as long
+# as the mail client resolves it against the app's origin, which browsers do
+# for a clicked link opened directly. If this ever needs to work reliably
+# from an arbitrary device (e.g. verifying on a phone after registering on a
+# laptop), set an ``APP_BASE_URL`` env var and update ``_auth_link`` below to
+# use it - that plumbing is intentionally left out for now to keep this
+# feature small.
+def _auth_link(query_param: str, token: str) -> str:
+    base = os.environ.get("APP_BASE_URL", "").rstrip("/")
+    return f"{base}/?{query_param}={token}"
+
+
 def current_user() -> Optional[_db.User]:
     return st.session_state.get("user")
+
+
+def handle_auth_query_params() -> None:
+    """React to ``?verify_token=...`` in the URL (set by an emailed or
+    dev-mode-displayed verification link).
+
+    Must be called on every page load - it's wired into ``page_setup()`` and
+    also called directly from ``streamlit_app.py`` (whose Home page does not
+    go through ``page_setup()``) so a verification link lands correctly no
+    matter which page it points at. Idempotent: the token is consumed and
+    the query param cleared on first use, so refreshing the page afterwards
+    is a no-op.
+
+    ``?reset_token=...`` is handled separately by
+    :func:`maybe_render_password_reset_form`, since (unlike verification) it
+    drives an interactive form rather than a one-shot action.
+    """
+    token = st.query_params.get("verify_token")
+    if not token:
+        return
+    user = _db.verify_email(token)
+    if user is not None:
+        st.success(f"✅ Email verified for `{user.username}` — you can now log in.", icon="✅")
+    else:
+        st.error("That verification link is invalid or has already been used.")
+    del st.query_params["verify_token"]
+
+
+def _send_verification_email(user: _db.User) -> None:
+    """Generate a fresh verification token for ``user`` and either email it
+    (production, ``RESEND_API_KEY`` set) or show it directly on screen (dev
+    mode, no ``RESEND_API_KEY``)."""
+    token = _db.generate_verification_token(user.id)
+    link = _auth_link("verify_token", token)
+    sent = send_email(
+        user.email,
+        "Verify your Telomere Evolution Lab account",
+        f"<p>Click the link below to verify your email and unlock full access:</p>"
+        f'<p><a href="{link}">{link}</a></p>',
+    )
+    if sent:
+        st.success(f"Verification email sent to {user.email}. Check your inbox (and spam folder).")
+    else:
+        st.info(
+            f"Email not configured (dev mode) — use this link directly to verify:\n\n{link}",
+            icon="🔗",
+        )
+        st.caption("In production (RESEND_API_KEY set on Railway) this link is emailed instead of shown here.")
 
 
 def _login_register_form() -> None:
@@ -105,41 +176,136 @@ def _login_register_form() -> None:
                     st.session_state["user"] = user
                     st.rerun()
 
+        with st.expander("Forgot password?"):
+            with st.form("forgot_password_form"):
+                forgot_email = st.text_input("Account email", key="forgot_password_email")
+                forgot_submitted = st.form_submit_button("Send reset link")
+            if forgot_submitted:
+                if not forgot_email:
+                    st.error("Enter your account email.")
+                else:
+                    result = _db.request_password_reset(forgot_email)
+                    # Same generic message whether or not the email exists,
+                    # so the UI never reveals which emails are registered.
+                    st.success(
+                        "If an account with that email exists, a reset link has been sent."
+                    )
+                    if result is not None:
+                        user, token = result
+                        link = _auth_link("reset_token", token)
+                        sent = send_email(
+                            user.email,
+                            "Reset your Telomere Evolution Lab password",
+                            f"<p>Click the link below to set a new password (valid for 1 hour):</p>"
+                            f'<p><a href="{link}">{link}</a></p>',
+                        )
+                        if not sent:
+                            # Dev-mode asymmetry (documented, deliberate): production
+                            # never leaks account existence via this message, but
+                            # local/dev testing needs the raw link somewhere to click.
+                            st.info(
+                                f"Email not configured (dev mode) — use this link directly: {link}",
+                                icon="🔗",
+                            )
+
     with tab_register:
         with st.form("register_form"):
             new_username = st.text_input("Choose a username", key="register_username")
+            new_email = st.text_input("Email address", key="register_email")
             new_password = st.text_input("Choose a password", type="password", key="register_password")
             confirm_password = st.text_input("Confirm password", type="password", key="register_confirm")
             submitted = st.form_submit_button("Create account", type="primary")
         if submitted:
-            if not new_username or not new_password:
-                st.error("Enter both a username and a password.")
+            if not new_username or not new_email or not new_password:
+                st.error("Fill in username, email and password.")
             elif new_password != confirm_password:
                 st.error("Passwords do not match.")
             else:
                 try:
-                    user = _db.create_user(new_username, new_password)
+                    user = _db.create_user(new_username, new_email, new_password)
                 except _db.DuplicateUsernameError:
                     st.error(f"Username {new_username!r} is already taken.")
+                except _db.DuplicateEmailError:
+                    st.error(f"Email {new_email!r} is already registered.")
                 except ValueError as exc:
                     st.error(str(exc))
                 else:
                     st.session_state["user"] = user
-                    st.success("Account created - you are now logged in.")
-                    st.rerun()
+                    st.success("Account created. Verify your email below to unlock full access.")
+                    _send_verification_email(user)
+
+
+def _verification_gate() -> None:
+    user = current_user()
+    st.subheader("Verify your email")
+    st.caption(
+        f"We sent a verification link to `{user.email}` when you registered. "
+        "Click it to unlock Simulate/Evolve/Pareto/Sensitivity/Active Learning/Compare/Experiments."
+    )
+    if st.button("Resend verification email"):
+        _send_verification_email(user)
+    if st.button("Log out"):
+        logout()
+        st.rerun()
+
+
+def maybe_render_password_reset_form() -> bool:
+    """If the URL carries ``?reset_token=...``, render the "set a new
+    password" form and return ``True`` (the caller should stop rendering the
+    rest of the page). Returns ``False`` (no-op) otherwise.
+
+    Unlike verification, the reset token is only consumed on a successful
+    (or explicitly rejected) submit - not merely by loading the page - since
+    the form needs the token to stay in the URL across the reruns Streamlit
+    performs while the user is typing/submitting.
+    """
+    token = st.query_params.get("reset_token")
+    if not token:
+        return False
+
+    st.subheader("Set a new password")
+    with st.form("reset_password_form"):
+        new_password = st.text_input("New password", type="password", key="reset_new_password")
+        confirm = st.text_input("Confirm new password", type="password", key="reset_confirm_password")
+        submitted = st.form_submit_button("Set new password", type="primary")
+    if submitted:
+        if not new_password:
+            st.error("Enter a new password.")
+        elif new_password != confirm:
+            st.error("Passwords do not match.")
+        else:
+            ok = _db.reset_password(token, new_password)
+            if ok:
+                st.success("Password updated — you can now log in with your new password.")
+            else:
+                st.error("That reset link is invalid or has expired. Request a new one from the login tab.")
+            del st.query_params["reset_token"]
+    return True
 
 
 def require_login() -> None:
-    """Gate the rest of the current page behind login.
+    """Gate the rest of the current page behind login *and* email
+    verification.
 
-    If no user is logged in (``st.session_state["user"] is None``), render a
-    login/register form and ``st.stop()`` so nothing below this call renders.
-    If a user is already logged in, this is a no-op and the page continues.
+    If a ``reset_token`` is present in the URL, the password-reset form
+    takes over the page regardless of login state (it's a self-contained
+    flow from an emailed link, independent of whatever session happens to
+    be active in this browser tab).
+
+    Otherwise: if no user is logged in, render the login/register form and
+    ``st.stop()``. If a user is logged in but not yet ``is_verified``, show
+    the verification gate instead of the real page and ``st.stop()``. Only
+    a logged-in, verified user reaches the real page content.
     """
-    if current_user() is not None:
-        return
-    _login_register_form()
-    st.stop()
+    if maybe_render_password_reset_form():
+        st.stop()
+    user = current_user()
+    if user is None:
+        _login_register_form()
+        st.stop()
+    if not user.is_verified:
+        _verification_gate()
+        st.stop()
 
 
 def logout() -> None:

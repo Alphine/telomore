@@ -14,6 +14,11 @@ conditions that optimise an explicit scientific objective.
 Built for **Kaggle — AI4S Open Innovation: AI for Life Science**
 (theme: AI + Organ-on-a-Chip). CPU-only, laptop-friendly, no GPU.
 
+> **Migration in progress.** This project is moving from the Streamlit GUI
+> below to a React frontend backed by a new FastAPI REST API, for richer,
+> live-updating simulation UX. The Streamlit app remains the live production
+> UI for now; see [`docs/API.md`](docs/API.md) for the new backend (Phase 1).
+
 ---
 
 ## The idea

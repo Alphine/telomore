@@ -3,7 +3,7 @@
 // Shared by Evolve (Phase 3) and, in Phase 4, Pareto / Sensitivity /
 // Active Learning -- the job shape is identical, only `progress` / `result`
 // differ (hence the generics).
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { ApiError } from './client'
 import { getJob, stopJob } from './endpoints'
@@ -40,22 +40,30 @@ export function useJob<P = Record<string, unknown>, R = Record<string, unknown>>
   // State is keyed by job id so switching jobs needs no reset-in-effect: a
   // snapshot for a different id is simply ignored during render.
   const [snap, setSnap] = useState<Snapshot<P, R> | null>(null)
+  // Set once a terminal snapshot has been adopted (from a poll or from
+  // stop()); a poll that was already in flight at that moment must not
+  // overwrite it with a stale non-terminal status.
+  const doneRef = useRef(false)
 
   useEffect(() => {
     if (!jobId) return
     let cancelled = false
     let timer: ReturnType<typeof setTimeout> | undefined
+    doneRef.current = false
 
     // A setTimeout chain (not setInterval) so a slow response never overlaps
     // the next poll, and so a terminal status ends the chain cleanly.
     const tick = async () => {
       try {
         const snapshot = await getJob<P, R>(jobId)
-        if (cancelled) return
+        if (cancelled || doneRef.current) return
         setSnap({ id: jobId, job: snapshot, error: null })
-        if (TERMINAL_JOB_STATUSES.has(snapshot.status)) return
+        if (TERMINAL_JOB_STATUSES.has(snapshot.status)) {
+          doneRef.current = true
+          return
+        }
       } catch (err: unknown) {
-        if (cancelled) return
+        if (cancelled || doneRef.current) return
         const message = err instanceof Error ? err.message : 'Could not reach the API.'
         setSnap((prev) => ({ id: jobId, job: prev?.id === jobId ? prev.job : null, error: message }))
         // The job is gone or not ours -- polling again cannot help.
@@ -75,6 +83,7 @@ export function useJob<P = Record<string, unknown>, R = Record<string, unknown>>
     if (!jobId) return
     try {
       const snapshot = await stopJob<P, R>(jobId)
+      if (TERMINAL_JOB_STATUSES.has(snapshot.status)) doneRef.current = true
       setSnap({ id: jobId, job: snapshot, error: null })
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Could not reach the API.'

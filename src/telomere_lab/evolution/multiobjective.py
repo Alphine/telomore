@@ -212,7 +212,8 @@ class NSGA2Engine:
         self.base_config = base_config.validate()
         self.cfg = mo_config.validate()
         self.model = model or SimpleTelomereModel()
-        self.spec = GenomeSpec(self.base_config, self.cfg.free_genes, self.cfg.mutation_sigma)
+        self.spec = GenomeSpec(self.base_config, self.cfg.free_genes, self.cfg.mutation_sigma,
+                               schedule_phases=self.cfg.schedule_phases)
         self.rng = np.random.default_rng(self.cfg.seed)
         self.run_dir = Path(run_dir) if run_dir else None
         self.evaluations = 0

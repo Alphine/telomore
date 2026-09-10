@@ -14,6 +14,12 @@ falls below ``senescence_threshold``. Senescent cells no longer divide and
 are lost at ``senescent_death_rate`` per cycle. The culture is passaged
 (randomly diluted) back to ``carrying_capacity`` whenever it overgrows.
 
+``stress_level``, ``maintenance_rate`` and ``repair_rate`` may optionally be
+piecewise constant in time (``ModelConfig.schedule``, docs/MODEL.md §2.1);
+the loop reads the value scheduled for each division step and records what
+it applied in ``SimulationResult.applied_schedule``. An unscheduled config
+runs the identical arithmetic as before schedules existed.
+
 Full derivation, rationale and limitations: ``docs/MODEL.md``.
 """
 
@@ -83,11 +89,18 @@ class SimpleTelomereModel:
         newly = np.flatnonzero(senescent)
         founder_senescence_cycle[founder_id[newly]] = 0
 
-        deterministic_loss = (
-            config.shortening_rate
-            + config.stress_level * config.stress_sensitivity * (1.0 - config.repair_rate)
-        )
-        max_gain = config.maintenance_rate * config.maintenance_max_gain
+        # Scheduled parameters (docs/MODEL.md §2.1): one value per division
+        # step, precomputed once so the loop only indexes an array. Entry
+        # ``t`` is the value in force during the step t -> t+1. Unscheduled
+        # parameters are constant arrays holding the scalar field, so the
+        # arithmetic below is identical to the constant-parameter model.
+        stress_t = config.per_cycle_values("stress_level")
+        maintenance_t = config.per_cycle_values("maintenance_rate")
+        repair_t = config.per_cycle_values("repair_rate")
+        applied_schedule = {
+            name: arr for name, arr in (("stress_level", stress_t), ("maintenance_rate", maintenance_t),
+                                        ("repair_rate", repair_t)) if config.is_scheduled(name)
+        }
         saturation_length = MAINTENANCE_SATURATION_FACTOR * config.initial_length
 
         rows: List[Dict[str, float]] = [
@@ -105,7 +118,14 @@ class SimpleTelomereModel:
             # 1. division of proliferative cells
             lengths, senescent, founder_id, divided = divide(lengths, senescent, founder_id)
 
-            # 2-3. shortening + maintenance on every replicated copy
+            # 2-3. shortening + maintenance on every replicated copy, with the
+            # parameter values scheduled for this step (index cycle - 1).
+            step = cycle - 1
+            deterministic_loss = (
+                config.shortening_rate
+                + float(stress_t[step]) * config.stress_sensitivity * (1.0 - float(repair_t[step]))
+            )
+            max_gain = float(maintenance_t[step]) * config.maintenance_max_gain
             if divided.any():
                 sub = lengths[divided]
                 loss = deterministic_loss + division_noise(rng, sub.shape, config.noise_sd)
@@ -146,14 +166,15 @@ class SimpleTelomereModel:
             return _failed_result(config, failure, t0)
 
         snapshots[config.cycles] = lengths.ravel().copy()
-        return _assemble(config, rows, snapshots, lengths, founder_senescence_cycle, t0)
+        return _assemble(config, rows, snapshots, lengths, founder_senescence_cycle, applied_schedule, t0)
 
 
 def _stack(rows: List[Dict[str, float]], key: str, dtype=float) -> np.ndarray:
     return np.asarray([r[key] for r in rows], dtype=dtype)
 
 
-def _assemble(config, rows, snapshots, lengths, founder_senescence_cycle, t0) -> SimulationResult:
+def _assemble(config, rows, snapshots, lengths, founder_senescence_cycle, applied_schedule, t0
+              ) -> SimulationResult:
     time = np.arange(len(rows), dtype=float)
     result = SimulationResult(
         seed=config.seed,
@@ -173,6 +194,7 @@ def _assemble(config, rows, snapshots, lengths, founder_senescence_cycle, t0) ->
         final_lengths=lengths.ravel().copy(),
         distribution_snapshots=snapshots,
         founder_senescence_cycle=founder_senescence_cycle.copy(),
+        applied_schedule={k: np.asarray(v, dtype=float).copy() for k, v in applied_schedule.items()},
     )
     result.terminal_metrics = M.terminal_metrics(
         time=result.time,

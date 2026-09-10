@@ -25,6 +25,7 @@ active_learning:
   n_iterations: 12
   eval_seeds: [1, 2]
   free_genes: [stress_level, maintenance_rate, repair_rate]
+  schedule_phases: 1                            # 1 = constant genes; >1 = protocol search (docs/MODEL.md 2.1)
   seed: 11
   xi: 0.01
   candidate_pool_size: 300

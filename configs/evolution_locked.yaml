@@ -36,6 +36,7 @@ evolution:
   # reproducibility transparency; re-running this file now averages over these seeds.
   eval_seeds: [1, 2, 3]
   free_genes: [maintenance_rate, repair_rate]   # stress_level is NOT free
+  schedule_phases: 1                            # 1 = constant genes; >1 = protocol search (docs/MODEL.md 2.1)
   early_stopping_patience: 0
   checkpoint_every: 5
   weights:

@@ -137,7 +137,7 @@ class SurrogateActiveLearner:
         self.base_config = base_config.validate()
         self.cfg = al_config.validate()
         self.model = model or SimpleTelomereModel()
-        self.spec = GenomeSpec(self.base_config, self.cfg.free_genes)
+        self.spec = GenomeSpec(self.base_config, self.cfg.free_genes, schedule_phases=self.cfg.schedule_phases)
         self.rng = np.random.default_rng(self.cfg.seed)
         self.evaluations = 0
 

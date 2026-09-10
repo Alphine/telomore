@@ -15,7 +15,7 @@ from dataclasses import asdict, dataclass
 from typing import Any, Callable, Dict, List, Optional
 
 from ..evolution.fitness import FitnessBreakdown, average_breakdowns, compute_fitness
-from ..schemas import PARAMETER_BOUNDS, ModelConfig, SensitivityConfig
+from ..schemas import PARAMETER_BOUNDS, InterventionSchedule, ModelConfig, SensitivityConfig
 from ..simulator.model import SimpleTelomereModel
 
 
@@ -84,6 +84,25 @@ def _evaluate(model: SimpleTelomereModel, config: ModelConfig, weights, eval_see
     return average_breakdowns(breakdowns)
 
 
+def _perturbed(base_config: ModelConfig, name: str, value: float, baseline_value: float) -> ModelConfig:
+    """``base_config`` with ``name`` moved to ``value``.
+
+    OAT sensitivity stays a scalar analysis. If ``name`` happens to be
+    scheduled in the baseline (docs/MODEL.md §2.1), the same shift
+    ``value - baseline_value`` is applied to every phase (clipped to the
+    bounds) so the perturbation is not silently masked by the schedule.
+    """
+    if not base_config.is_scheduled(name):
+        return base_config.replace(**{name: value})
+    lo, hi = PARAMETER_BOUNDS[name][0], PARAMETER_BOUNDS[name][1]
+    shift = value - baseline_value
+    sched = base_config.schedule
+    values = dict(sched.values)
+    values[name] = tuple(float(min(hi, max(lo, v + shift))) for v in sched.values[name])
+    return base_config.replace(**{name: value},
+                               schedule=InterventionSchedule(phases=sched.phases, values=values))
+
+
 def run_sensitivity_analysis(
     base_config: ModelConfig,
     sensitivity_config: SensitivityConfig,
@@ -117,8 +136,10 @@ def run_sensitivity_analysis(
             floor = base_config.senescence_threshold / 0.999
             low_value, high_value = max(low_value, floor), max(high_value, floor)
 
-        low_bd = _evaluate(model, base_config.replace(**{name: low_value}), cfg.weights, cfg.eval_seeds)
-        high_bd = _evaluate(model, base_config.replace(**{name: high_value}), cfg.weights, cfg.eval_seeds)
+        low_bd = _evaluate(model, _perturbed(base_config, name, low_value, baseline_value),
+                           cfg.weights, cfg.eval_seeds)
+        high_bd = _evaluate(model, _perturbed(base_config, name, high_value, baseline_value),
+                            cfg.weights, cfg.eval_seeds)
         evaluations += 2 * len(cfg.eval_seeds)
 
         item = ParameterSensitivity(

@@ -72,6 +72,76 @@ For each cycle `t → t+1`:
 All random draws come from one `numpy.random.Generator` seeded with
 `seed`; the same `(config, seed)` gives bit-identical output.
 
+### 2.1 Time-varying intervention protocols (schedules)
+
+By default `stress_level`, `maintenance_rate` and `repair_rate` are constant
+for the whole run. A `ModelConfig` may optionally carry a **schedule**
+(`ModelConfig.schedule`, an `InterventionSchedule`) that makes any subset of
+these three — and only these three (`SCHEDULABLE_PARAMETERS`) — **piecewise
+constant** in time:
+
+* The run's `cycles` division steps are split into `K` consecutive,
+  as-equal-as-possible **phases**, `1 ≤ K ≤ MAX_PHASES = 8`.
+* Each scheduled parameter has exactly `K` values, one per phase, each
+  within the parameter's normal `PARAMETER_BOUNDS`; validation rejects a
+  wrong length, an out-of-range value or a non-schedulable key
+  (`ConfigError`), through the same `ModelConfig.validate()` gate every
+  other config passes.
+* The division step `t → t+1` (0-based `t = 0 … cycles−1`) uses phase
+
+  ```
+  phase(t) = min( K − 1, ⌊ t · K / cycles ⌋ )
+  ```
+
+  so for `cycles = 120, K = 6` the phases are cycles 0–19, 20–39, …,
+  100–119. When `cycles` is not divisible by `K` the first phases are one
+  step longer (10 cycles, K = 3 → blocks of 4, 3, 3). `t = cycles` (one past
+  the last step) is clamped onto the final phase so a step line drawn
+  against the `cycles + 1` time axis ends flat.
+* The parameter update of §2 is unchanged; it simply reads the scheduled
+  value for the current step. Parameters absent from the schedule keep
+  their scalar value. When a parameter *is* scheduled, its scalar field
+  (`config.stress_level` etc.) only documents the phase-0 / fallback value.
+  Lookups: `ModelConfig.value_at(name, t)`, `per_cycle_values(name)`,
+  `mean_value(name)`.
+* `SimulationResult.applied_schedule[name]` records the per-step value
+  actually applied for every scheduled parameter on the same `(T+1,)` axis
+  as `time` (empty when unscheduled), and is exported in `to_json_dict()`.
+
+**Backward compatibility.** `schedule=None` and a `K = 1` schedule run the
+identical arithmetic and are bit-identical to the pre-schedule model
+(`tests/test_schedule.py` checks this against golden output recorded from
+the code before schedules existed); a config dict without a `schedule` key
+loads with `schedule=None`; `config_hash` includes the schedule when one is
+set and is unchanged for unscheduled configs.
+
+**Cost of a protocol (see §5).** The intervention-cost term is charged on
+the **time-averaged** maintenance and repair, `½(m̄² + r̄²)` with
+`m̄ = mean_value("maintenance_rate")`, `r̄ = mean_value("repair_rate")`
+(the mean over the `cycles` steps, so uneven phase lengths are weighted
+correctly). For an unscheduled config `m̄, r̄` are the scalars and the cost
+is exactly the original one. For a protocol this means intervening only
+part of the time is cheaper than the same intensity held constant — and,
+because the cost is convex, the cost *of the mean dose* is never more than
+the mean of the per-phase costs (Jensen), so the objective deliberately
+favours intermittent dosing at equal total dose. That is an experimenter
+choice about what "intervention cost" means (total dose delivered), not a
+biological statement; the alternative (mean of per-phase costs) would be
+neutral to timing.
+
+**Protocol search.** The optimizers (`EvolutionConfig`,
+`MultiObjectiveConfig`, `ActiveLearningConfig`) take `schedule_phases`
+(default 1). With `schedule_phases = K > 1` every *free* gene in
+`SCHEDULABLE_PARAMETERS` is expanded into `K` genes named
+`<parameter>@<phase>` with the parameter's bounds; other free genes stay
+scalar; decoding builds the `InterventionSchedule` on the candidate config
+(`evolution/genome.py`). `schedule_phases = 1` produces exactly the classic
+genome and results. One-at-a-time sensitivity analysis stays a scalar
+analysis: a scheduled baseline passes through unchanged, and perturbing a
+parameter that happens to be scheduled shifts every phase by the same
+amount. An optimised protocol is a model result under the stated objective,
+not a dosing regimen (`SCIENTIFIC_SCOPE.md`).
+
 ## 3. Parameters
 
 | Name | Default | Range | Unit | Kind |
@@ -82,16 +152,17 @@ All random draws come from one `numpy.random.Generator` seeded with
 | `carrying_capacity` | 400 | ≥population | cells | structure |
 | `telomeres_per_cell` | 32 | 1–92 | – | structure |
 | `shortening_rate` | 55 | 10–200 | bp/cycle | model |
-| `stress_level` | 0.40 | 0–1 | a.u. | model (evolvable) |
+| `stress_level` | 0.40 | 0–1 | a.u. | model (evolvable, schedulable §2.1) |
 | `stress_sensitivity` | 100 | 0–300 | bp/cycle | model |
-| `maintenance_rate` | 0.20 | 0–1 | a.u. | model (evolvable) |
+| `maintenance_rate` | 0.20 | 0–1 | a.u. | model (evolvable, schedulable §2.1) |
 | `maintenance_max_gain` | 120 | 0–300 | bp/cycle | model |
-| `repair_rate` | 0.20 | 0–1 | a.u. | model (evolvable) |
+| `repair_rate` | 0.20 | 0–1 | a.u. | model (evolvable, schedulable §2.1) |
 | `senescence_threshold` | 3000 | 500–6000 | bp | model (evolvable) |
 | `noise_sd` | 30 | 0–200 | bp | randomness |
 | `senescent_death_rate` | 0.03 | 0–0.5 | 1/cycle | model |
 | `cycles` | 120 | ≥1 | cycles | run control |
 | `seed` | 42 | – | – | randomness |
+| `schedule` | none | 1–8 phases | – | optional protocol (§2.1) |
 
 Evolvable genes (SDD §12): `initial_length`, `shortening_rate`,
 `stress_level`, `maintenance_rate`, `repair_rate`, `senescence_threshold`.
@@ -132,8 +203,12 @@ fitness = w_survival    · normalized_survival
         + w_reserve     · normalized_telomere_reserve
         − w_senescence  · final_senescent_fraction
         − w_instability · clip(final_length_cv / 0.5, 0, 1)
-        − w_cost        · ½ (maintenance_rate² + repair_rate²)
+        − w_cost        · ½ (m̄² + r̄²)          m̄, r̄ = time-averaged maintenance_rate, repair_rate
 ```
+
+For a constant (unscheduled) configuration `m̄ = maintenance_rate` and
+`r̄ = repair_rate`, i.e. the cost is ½(maintenance² + repair²) exactly as
+before; for a scheduled protocol see §2.1.
 
 Default weights 0.40 / 0.30 / 0.20 / 0.10 / 0.30. Invalid simulations
 (out-of-range parameter, non-finite state) receive fitness −1000 and are
@@ -160,7 +235,7 @@ components above **without weights**. Objectives and their directions:
 | `reserve` | max | normalised shortest-telomere reserve |
 | `senescence` | min | final senescent fraction |
 | `instability` | min | clip(final CV / 0.5, 0, 1) |
-| `cost` | min | ½(maintenance² + repair²) |
+| `cost` | min | ½(m̄² + r̄²), time-averaged maintenance / repair (§2.1) |
 
 NSGA-II (Deb et al., 2002): fast non-dominated sort, crowding distance,
 binary tournament on (rank, crowding), (μ+λ) survival with the last front
@@ -223,7 +298,8 @@ simulation parameters.
   the single length threshold, no apoptosis of proliferative cells, no
   crisis/ALT escape, no chromosome-specific telomere lengths, no
   asymmetric inheritance of sister-chromatid ends.
-* Stress and repair are scalar abstractions.
+* Stress and repair are scalar abstractions (optionally piecewise constant
+  in time, §2.1 — no continuous dose–response dynamics or lag).
 * Maintenance is a phenomenological gain, not a telomerase kinetic model.
 * Passaging is state-blind random sub-sampling.
 
@@ -234,3 +310,8 @@ monotone shortening without maintenance, qualitative relationships
 (faster shortening → earlier senescence; more maintenance → longer
 telomeres and less senescence; repair mitigates stress), capacity cap,
 maintenance-weight shape, and the <1 s runtime target.
+`tests/test_schedule.py` checks schedules (§2.1): validation, the phase
+mapping including non-divisible `cycles`, bit-identity of unscheduled and
+`K = 1` runs against pre-schedule golden output, time-averaged cost, the
+per-phase genome expansion/decoding round trip, and that
+`schedule_phases = 1` reproduces the pre-schedule GA run exactly.

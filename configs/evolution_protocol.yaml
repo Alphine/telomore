@@ -1,0 +1,47 @@
+# Experiment E (GA, protocol search): identical to evolution_locked.yaml —
+# stress_level FIXED at 0.60, only the two interventions free — except that
+# each free gene is a 6-phase piecewise-constant SCHEDULE instead of one
+# constant (docs/MODEL.md §2.1). The optimizer therefore searches over
+# protocols ("how much maintenance/repair in each sixth of the run"), and the
+# intervention cost is charged on the time-averaged dose. Same population,
+# generations, seeds and weights as evolution_locked.yaml so the two runs
+# are directly comparable (docs/EXPERIMENT_PROTOCOL.md Experiment E).
+model:
+  initial_length: 7500.0
+  initial_length_sd: 800.0
+  population_size: 100
+  carrying_capacity: 400
+  telomeres_per_cell: 32
+  shortening_rate: 55.0
+  stress_level: 0.60
+  stress_sensitivity: 100.0
+  maintenance_rate: 0.10
+  maintenance_max_gain: 120.0
+  repair_rate: 0.15
+  senescence_threshold: 3000.0
+  noise_sd: 30.0
+  senescent_death_rate: 0.03
+  cycles: 120
+  seed: 42
+
+evolution:
+  population_size: 32
+  generations: 20
+  elite_fraction: 0.10
+  mutation_rate: 0.30
+  mutation_sigma: 0.15
+  crossover_rate: 0.70
+  crossover_kind: uniform
+  tournament_size: 3
+  seed: 7
+  eval_seeds: [1, 2, 3]
+  free_genes: [maintenance_rate, repair_rate]   # stress_level is NOT free
+  schedule_phases: 6                            # each free gene -> 6 genes (one per 20-cycle phase)
+  early_stopping_patience: 0
+  checkpoint_every: 5
+  weights:
+    w_survival: 0.40
+    w_reserve: 0.30
+    w_senescence: 0.20
+    w_instability: 0.10
+    w_cost: 0.30

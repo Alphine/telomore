@@ -29,6 +29,7 @@ multiobjective:
   seed: 7
   eval_seeds: [42]
   free_genes: [stress_level, maintenance_rate, repair_rate]
+  schedule_phases: 1                            # 1 = constant genes; >1 = protocol search (docs/MODEL.md 2.1)
   objectives: [survival, cost]
   checkpoint_every: 5
   weights:            # only for the reference scalar fitness column

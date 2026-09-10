@@ -65,7 +65,8 @@ class EvolutionResult:
     run_dir: Optional[str] = None
 
     def best_config(self, seed: int | None = None) -> ModelConfig:
-        spec = GenomeSpec(self.base_config, self.evolution_config.free_genes)
+        spec = GenomeSpec(self.base_config, self.evolution_config.free_genes,
+                          schedule_phases=self.evolution_config.schedule_phases)
         return spec.to_config(self.best.genome, seed=seed)
 
     def history_frame(self):
@@ -134,7 +135,8 @@ class EvolutionEngine:
         self.base_config = base_config.validate()
         self.evo = evo_config.validate()
         self.model = model or SimpleTelomereModel()
-        self.spec = GenomeSpec(self.base_config, self.evo.free_genes, self.evo.mutation_sigma)
+        self.spec = GenomeSpec(self.base_config, self.evo.free_genes, self.evo.mutation_sigma,
+                               schedule_phases=self.evo.schedule_phases)
         self.rng = np.random.default_rng(self.evo.seed)
         self.run_dir = Path(run_dir) if run_dir else None
         self.evaluations = 0

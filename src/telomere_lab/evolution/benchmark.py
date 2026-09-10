@@ -106,13 +106,15 @@ def run_random_search(
     n_evaluations: int = 800,
     seed: int = 0,
     model: Optional[SimpleTelomereModel] = None,
+    schedule_phases: int = 1,
 ) -> BenchmarkResult:
     """Sample genomes uniformly from the gene bounds (``GenomeSpec``); each sample costs
-    ``len(eval_seeds)`` simulator calls, same as one GA/NSGA-II candidate evaluation."""
+    ``len(eval_seeds)`` simulator calls, same as one GA/NSGA-II candidate evaluation.
+    ``schedule_phases`` expands the schedulable free genes per phase exactly as the GA does."""
     base_config = base_config.validate()
     weights = weights or FitnessWeights()
     eval_seeds = tuple(eval_seeds)
-    spec = GenomeSpec(base_config, free_genes)
+    spec = GenomeSpec(base_config, free_genes, schedule_phases=schedule_phases)
     model = model or SimpleTelomereModel()
     rng = np.random.default_rng(seed)
     n_candidates = max(1, n_evaluations // len(eval_seeds))

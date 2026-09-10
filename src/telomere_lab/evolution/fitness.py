@@ -50,7 +50,17 @@ class FitnessBreakdown:
 
 
 def intervention_cost(config: ModelConfig) -> float:
-    return 0.5 * (config.maintenance_rate ** 2 + config.repair_rate ** 2)
+    """½(m̄² + r̄²) with m̄, r̄ the *time-averaged* maintenance / repair.
+
+    For an unscheduled config the time average is the scalar field, so this
+    is exactly the original ½(maintenance² + repair²). For a scheduled
+    protocol (docs/MODEL.md §2.1) the cost is charged on the mean dose over
+    the run, so intervening only part of the time is cheaper than the same
+    intensity held constant.
+    """
+    m = config.mean_value("maintenance_rate")
+    r = config.mean_value("repair_rate")
+    return 0.5 * (m ** 2 + r ** 2)
 
 
 def compute_fitness(result: SimulationResult, weights: FitnessWeights) -> FitnessBreakdown:

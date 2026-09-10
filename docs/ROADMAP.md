@@ -12,8 +12,9 @@ Live at `telomore-production.up.railway.app` (Railway project
 `earnest-vibrancy`, services `telomore` + `Postgres`). React frontend
 (`frontend/`) + FastAPI backend (`backend/`) + Python science package
 (`src/telomere_lab/`), deployed as one Docker image (`Dockerfile`,
-`railway.json`); 124 pytest + 58 Vitest tests passing. Features shipped:
-core simulator, GA, NSGA-II Pareto, sensitivity analysis (OAT + tornado),
+`railway.json`); 146 pytest + 58 Vitest tests passing. Features shipped:
+core simulator (with optional piecewise-constant intervention schedules,
+Python core only as of 2026-09-10), GA, NSGA-II Pareto, sensitivity analysis (OAT + tornado),
 multi-seed fitness, optimizer benchmark (GA/NSGA-II/random search),
 surrogate-model active learning (GP + Expected Improvement), reference-model
 comparison (`anais-rat/telomeres`), user accounts (Postgres + bcrypt, JWT),
@@ -93,20 +94,33 @@ Completed 2026-09-10 with Phase 5 below; the Streamlit app is gone.
   carries none of the dual-implementation risk above. Planned as part of
   the React migration's Simulate/Evolve pages (Phase 3).
 
-## Candidate next-simulation features (brainstormed 2026-09-09, not yet built)
+## Candidate next-simulation features (brainstormed 2026-09-09)
 
 Ranked by the account owner's stated priority:
 
 1. **Time-varying / scheduled intervention protocols** (highest priority).
-   Currently `stress_level`/`repair_rate`/`maintenance_rate` are constant
-   for the whole run. Allowing them to be scheduled per cycle-range (e.g.
-   "boost repair only during cycles 10-20") turns the optimizer's search
-   space from "find good constant parameters" into "find a good
-   *protocol*" — a materially stronger AI-contribution story for judging
-   (per `docs/SDD.md` §37's emphasis on AI + scientific modeling, not just
-   UI). Needs: `ModelConfig` schema extension for scheduled parameters,
-   simulator loop changes to read schedule at each cycle, gene encoding
-   changes for the optimizers to search over schedules.
+   **Python core DONE 2026-09-10 (stage 6a)**; API + React form/plot
+   (stage 6b) **pending**. `stress_level`/`repair_rate`/`maintenance_rate`
+   may now be piecewise constant over `K ≤ 8` equal phases
+   (`ModelConfig.schedule`, `InterventionSchedule`, `SCHEDULABLE_PARAMETERS`,
+   `MAX_PHASES`; phase of step `t` = `min(K−1, ⌊tK/cycles⌋)`); the
+   simulator reads the scheduled value per step and records
+   `SimulationResult.applied_schedule`; the intervention cost is charged on
+   the time-averaged dose; the GA / NSGA-II / active learner take
+   `schedule_phases` and expand each schedulable free gene into one gene
+   per phase (`<gene>@<phase>`), so the search space is "find a good
+   *protocol*", not just good constants — the materially stronger
+   AI-contribution story argued for below. Unscheduled configs are
+   bit-identical to before (golden-fixture tests). Full spec:
+   `docs/MODEL.md` §2.1; first real run: `docs/EXPERIMENT_PROTOCOL.md`
+   Experiment E (constant vs. 6-phase protocol, stress locked); configs
+   `configs/evolution_protocol.yaml`, `configs/demo_fasting.yaml`.
+   **Stage 6b (next):** accept `model.schedule` / `schedule_phases` in the
+   API request bodies (they already pass through `from_dict`, so the
+   contract change is documentation + response typing), a schedule editor
+   on Simulate + a phase-count control on Evolve/Pareto/Active Learning,
+   and step-line plots of `applied_schedule` — per brief rule 7 with the
+   matching `frontend/src/api/types.ts` and `docs/API.md` updates.
 2. **Ensemble / uncertainty visualization** (pairs directly with the
    WebGPU particle-viz plan above). Run many seeds, show the full spread
    (fan chart / particle cloud) instead of a single mean trajectory —
@@ -154,7 +168,9 @@ narrative dynamically from real run data.
 
 Depends on the time-varying/scheduled-protocol simulation feature
 (candidate feature #1 above) existing first — Layer 2 needs a "schedule"
-concept to propose into. The LLM is given a constrained tool: it may
+concept to propose into. That concept now exists in the Python core
+(`InterventionSchedule`, 2026-09-10); Layer 2 should wait for stage 6b so
+the proposed protocols can be shown and edited in the UI. The LLM is given a constrained tool: it may
 propose a candidate `ModelConfig` / intervention schedule (e.g. a
 fasting-like cyclic pattern — high stress N cycles, repair boost M cycles,
 repeat), inspired by real biological analogies the user cares about

@@ -16,8 +16,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import asdict, dataclass, field, fields
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 
@@ -69,6 +70,89 @@ EVOLVABLE_PARAMETERS = (
     "senescence_threshold",
 )
 
+#: Parameters that may vary over the run as a piecewise-constant schedule
+#: (docs/MODEL.md §2.1). All three are "culture-condition / intervention"
+#: knobs; structural and initial-condition parameters cannot be scheduled.
+SCHEDULABLE_PARAMETERS = ("stress_level", "maintenance_rate", "repair_rate")
+
+#: Upper bound on the number of equal-length phases in a schedule.
+MAX_PHASES = 8
+
+
+def phase_index(cycle: int, cycles: int, phases: int) -> int:
+    """Phase in force during the division step ``cycle -> cycle + 1``.
+
+    ``cycle`` is the 0-based step index (0 .. cycles - 1); the run is split
+    into ``phases`` consecutive, as-equal-as-possible blocks. ``cycle ==
+    cycles`` (one past the last step) is clamped onto the final phase so
+    that a step line drawn against the ``cycles + 1``-long time axis ends
+    flat.
+    """
+    if cycles < 1 or phases < 1:
+        raise ValueError("cycles and phases must be >= 1")
+    return min(phases - 1, (max(int(cycle), 0) * phases) // cycles)
+
+
+@dataclass(frozen=True)
+class InterventionSchedule:
+    """Piecewise-constant values for one or more ``SCHEDULABLE_PARAMETERS``.
+
+    ``values[name]`` holds exactly ``phases`` entries; phase ``k`` applies to
+    the steps whose :func:`phase_index` is ``k``. Parameters absent from
+    ``values`` keep their scalar ``ModelConfig`` value for the whole run.
+    """
+
+    phases: int
+    values: Dict[str, Tuple[float, ...]] = field(default_factory=dict)
+
+    def validate(self) -> "InterventionSchedule":
+        if not isinstance(self.phases, int) or isinstance(self.phases, bool):
+            raise ConfigError(f"schedule.phases must be an integer, got {self.phases!r}")
+        if not (1 <= self.phases <= MAX_PHASES):
+            raise ConfigError(f"schedule.phases={self.phases} outside [1, {MAX_PHASES}]")
+        for name, vals in self.values.items():
+            if name not in SCHEDULABLE_PARAMETERS:
+                raise ConfigError(f"{name} cannot be scheduled; choose from {list(SCHEDULABLE_PARAMETERS)}")
+            if len(vals) != self.phases:
+                raise ConfigError(f"schedule.values[{name}] has {len(vals)} entries, expected {self.phases}")
+            lo, hi = PARAMETER_BOUNDS[name][0], PARAMETER_BOUNDS[name][1]
+            for k, v in enumerate(vals):
+                if not np.isfinite(v):
+                    raise ConfigError(f"schedule.values[{name}][{k}] must be finite, got {v!r}")
+                if not (lo <= v <= hi):
+                    raise ConfigError(f"schedule.values[{name}][{k}]={v} outside [{lo}, {hi}]")
+        return self
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"phases": int(self.phases),
+                "values": {k: [float(x) for x in v] for k, v in self.values.items()}}
+
+    @classmethod
+    def from_dict(cls, data: Any) -> "InterventionSchedule":
+        if isinstance(data, InterventionSchedule):
+            return data
+        if not isinstance(data, dict):
+            raise ConfigError(f"schedule must be a mapping, got {type(data).__name__}")
+        try:
+            phases = int(data.get("phases", 1))
+        except (TypeError, ValueError):
+            raise ConfigError(f"schedule.phases must be an integer, got {data.get('phases')!r}") from None
+        raw = data.get("values") or {}
+        if not isinstance(raw, dict):
+            raise ConfigError("schedule.values must be a mapping of parameter -> list of values")
+        values: Dict[str, Tuple[float, ...]] = {}
+        for name, vals in raw.items():
+            if isinstance(vals, (int, float)) or not hasattr(vals, "__iter__"):
+                raise ConfigError(f"schedule.values[{name}] must be a list of {phases} values")
+            values[str(name)] = tuple(float(x) for x in vals)
+        return cls(phases=phases, values=values)
+
+    def per_cycle(self, name: str, cycles: int) -> np.ndarray:
+        """Value of ``name`` at every step 0 .. cycles (length ``cycles + 1``)."""
+        vals = np.asarray(self.values[name], dtype=float)
+        idx = [phase_index(t, cycles, self.phases) for t in range(cycles + 1)]
+        return vals[idx]
+
 
 @dataclass
 class ModelConfig:
@@ -101,6 +185,11 @@ class ModelConfig:
     seed: int = 42
     record_distribution_every: int = 0  # 0 = only final distribution
 
+    # --- optional time-varying protocol (docs/MODEL.md §2.1) ------------------
+    #: When set, the scheduled parameters override their scalar field cycle by
+    #: cycle; the scalar then only documents the phase-0 / fallback value.
+    schedule: Optional[InterventionSchedule] = None
+
     def validate(self) -> "ModelConfig":
         for name, (lo, hi, *_rest) in PARAMETER_BOUNDS.items():
             value = getattr(self, name)
@@ -108,6 +197,8 @@ class ModelConfig:
                 raise ConfigError(f"{name} must be finite, got {value!r}")
             if not (lo <= value <= hi):
                 raise ConfigError(f"{name}={value} outside [{lo}, {hi}]")
+        if self.schedule is not None:
+            self.schedule.validate()
         if self.population_size < 1:
             raise ConfigError("population_size must be >= 1")
         if self.carrying_capacity < self.population_size:
@@ -120,14 +211,51 @@ class ModelConfig:
             raise ConfigError("senescence_threshold must be below initial_length")
         return self
 
+    # --- schedule lookups ----------------------------------------------------
+    def is_scheduled(self, name: str) -> bool:
+        return self.schedule is not None and name in self.schedule.values
+
+    def value_at(self, name: str, cycle: int) -> float:
+        """Value of ``name`` in force during step ``cycle -> cycle + 1``.
+
+        The scalar field when ``name`` is not scheduled; otherwise the phase
+        value selected by :func:`phase_index`.
+        """
+        if not self.is_scheduled(name):
+            return float(getattr(self, name))
+        return float(self.schedule.values[name][phase_index(cycle, self.cycles, self.schedule.phases)])
+
+    def per_cycle_values(self, name: str) -> np.ndarray:
+        """``value_at(name, t)`` for t = 0 .. cycles (length ``cycles + 1``)."""
+        if not self.is_scheduled(name):
+            return np.full(int(self.cycles) + 1, float(getattr(self, name)))
+        return self.schedule.per_cycle(name, int(self.cycles))
+
+    def mean_value(self, name: str) -> float:
+        """Time average of ``name`` over the ``cycles`` division steps.
+
+        Equals the scalar field exactly when ``name`` is not scheduled; used by
+        the intervention-cost term (docs/MODEL.md §5).
+        """
+        if not self.is_scheduled(name):
+            return float(getattr(self, name))
+        vals = self.schedule.values[name]
+        if all(v == vals[0] for v in vals):
+            return float(vals[0])  # a constant schedule averages to exactly its value
+        per_step = self.per_cycle_values(name)[: int(self.cycles)]
+        return float(math.fsum(per_step.tolist()) / int(self.cycles))
+
     # --- helpers -------------------------------------------------------------
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        data = asdict(self)
+        data["schedule"] = self.schedule.to_dict() if self.schedule is not None else None
+        return data
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ModelConfig":
         allowed = {f.name for f in fields(cls)}
         clean = {k: v for k, v in data.items() if k in allowed}
+        schedule = clean.pop("schedule", None)
         cfg = cls(**clean)
         # coerce ints that may arrive as floats from YAML / genomes
         cfg.population_size = int(cfg.population_size)
@@ -136,6 +264,8 @@ class ModelConfig:
         cfg.cycles = int(cfg.cycles)
         cfg.seed = int(cfg.seed)
         cfg.record_distribution_every = int(cfg.record_distribution_every)
+        if schedule is not None:
+            cfg.schedule = InterventionSchedule.from_dict(schedule)
         return cfg
 
     def replace(self, **changes: Any) -> "ModelConfig":
@@ -144,9 +274,15 @@ class ModelConfig:
         return ModelConfig.from_dict(data)
 
     def config_hash(self) -> str:
-        """Stable hash of every field *except* the seed (SDD §19 cache key)."""
+        """Stable hash of every field *except* the seed (SDD §19 cache key).
+
+        The schedule is part of the hash whenever one is set; an unscheduled
+        config hashes exactly as it did before schedules existed.
+        """
         data = self.to_dict()
         data.pop("seed", None)
+        if data.get("schedule") is None:
+            data.pop("schedule", None)
         blob = json.dumps(data, sort_keys=True, default=float).encode()
         return hashlib.sha256(blob).hexdigest()[:16]
 
@@ -176,6 +312,11 @@ class SimulationResult:
     #: (right-censored). Comparable to a reference model's per-ancestor
     #: senescence-onset tracking (docs/EXPERIMENT_PROTOCOL.md Experiment D).
     founder_senescence_cycle: np.ndarray = field(default_factory=lambda: np.array([], dtype=int))
+    #: Per-cycle value actually applied for each *scheduled* parameter, on the
+    #: same ``(T+1,)`` axis as ``time`` (entry t = value in force during the
+    #: step t -> t+1; the last entry repeats the final phase so a step line
+    #: ends flat). Empty when the config has no schedule.
+    applied_schedule: Dict[str, np.ndarray] = field(default_factory=dict)
     terminal_metrics: Dict[str, float] = field(default_factory=dict)
     valid: bool = True
     failure_reason: Optional[str] = None
@@ -214,6 +355,7 @@ class SimulationResult:
             "timeseries": {
                 k: v.tolist() for k, v in self.timeseries_frame().items()
             },
+            "applied_schedule": {k: np.asarray(v).tolist() for k, v in self.applied_schedule.items()},
         }
         if include_final_lengths:
             out["final_lengths_bp"] = self.final_lengths.tolist()
@@ -246,6 +388,11 @@ class FitnessWeights:
         return cls(**{k: float(v) for k, v in data.items() if k in allowed})
 
 
+def _validate_schedule_phases(phases: Any) -> None:
+    if isinstance(phases, bool) or int(phases) != phases or not (1 <= int(phases) <= MAX_PHASES):
+        raise ConfigError(f"schedule_phases must be an integer in [1, {MAX_PHASES}], got {phases!r}")
+
+
 #: Objectives available to the multi-objective optimizer: name -> (direction, description)
 OBJECTIVES: Dict[str, tuple] = {
     "survival": ("max", "normalised proliferative-cell AUC"),
@@ -271,11 +418,15 @@ class MultiObjectiveConfig:
     free_genes: tuple = ("stress_level", "maintenance_rate", "repair_rate")
     objectives: tuple = ("survival", "cost")
     checkpoint_every: int = 5
+    #: >1 expands every free gene in SCHEDULABLE_PARAMETERS into one gene per
+    #: phase (a protocol search, docs/MODEL.md §2.1); 1 = constant genes.
+    schedule_phases: int = 1
     weights: FitnessWeights = field(default_factory=FitnessWeights)  # scalar fitness for reference only
 
     def validate(self) -> "MultiObjectiveConfig":
         if self.population_size < 4 or self.population_size % 2:
             raise ConfigError("multi-objective population_size must be even and >= 4")
+        _validate_schedule_phases(self.schedule_phases)
         if self.generations < 1:
             raise ConfigError("generations must be >= 1")
         if not (0.0 <= self.mutation_rate <= 1.0):
@@ -342,11 +493,15 @@ class EvolutionConfig:
     early_stopping_patience: int = 0     # 0 = disabled
     early_stopping_tol: float = 1e-4
     checkpoint_every: int = 5
+    #: >1 expands every free gene in SCHEDULABLE_PARAMETERS into one gene per
+    #: phase (a protocol search, docs/MODEL.md §2.1); 1 = constant genes.
+    schedule_phases: int = 1
     weights: FitnessWeights = field(default_factory=FitnessWeights)
 
     def validate(self) -> "EvolutionConfig":
         if self.population_size < 4:
             raise ConfigError("evolution population_size must be >= 4")
+        _validate_schedule_phases(self.schedule_phases)
         if self.generations < 1:
             raise ConfigError("generations must be >= 1")
         if not (0.0 <= self.elite_fraction <= 0.5):
@@ -404,11 +559,15 @@ class ActiveLearningConfig:
     seed: int = 11
     xi: float = 0.01              # Expected Improvement exploration margin
     candidate_pool_size: int = 500  # random candidates the acquisition function is scored over
+    #: >1 expands every free gene in SCHEDULABLE_PARAMETERS into one gene per
+    #: phase (a protocol search, docs/MODEL.md §2.1); 1 = constant genes.
+    schedule_phases: int = 1
     weights: FitnessWeights = field(default_factory=FitnessWeights)
 
     def validate(self) -> "ActiveLearningConfig":
         if self.n_initial < 2:
             raise ConfigError("n_initial must be >= 2")
+        _validate_schedule_phases(self.schedule_phases)
         if self.n_iterations < 0:
             raise ConfigError("n_iterations must be >= 0")
         if self.candidate_pool_size < 10:

@@ -80,6 +80,9 @@ python scripts/run_simulation.py --config configs/demo.yaml --seed 42
 python scripts/run_evolution.py  --config configs/evolution.yaml --seed 7
 python scripts/run_pareto.py     --config configs/pareto.yaml --seed 7      # NSGA-II
 python scripts/run_evolution.py  --config configs/evolution_locked.yaml --seed 7  # stress locked
+python scripts/run_evolution.py  --config configs/evolution_protocol.yaml --seed 7 # stress locked, 6-phase protocol search
+python scripts/run_simulation.py --config configs/demo_fasting.yaml --seed 42      # hand-written alternating-stress schedule
+python scripts/run_protocol_experiment.py --seed 7                                  # Experiment E: constant vs protocol
 python scripts/run_sensitivity.py --config configs/sensitivity.yaml                 # OAT tornado
 python scripts/run_active_learning.py --config configs/active_learning.yaml --seed 1 # surrogate + Expected Improvement
 python scripts/benchmark.py
@@ -172,6 +175,20 @@ telomere falls below `senescence_threshold`; senescent cells stop dividing
 and are slowly lost; the culture is passaged back to carrying capacity.
 Exact equations, ranges and simplifications: [`docs/MODEL.md`](docs/MODEL.md).
 
+**Protocols (time-varying interventions).** `stress_level`,
+`maintenance_rate` and `repair_rate` can optionally follow a
+piecewise-constant **schedule**: the run is split into up to 8 equal phases
+and each scheduled parameter gets one value per phase
+(`configs/demo_fasting.yaml` alternates high/low stress over six phases).
+Every optimizer accepts `schedule_phases`, which turns each schedulable free
+gene into one gene per phase, so the GA / NSGA-II / active learner search
+over *protocols* rather than constants; the intervention cost is charged on
+the time-averaged dose. Unscheduled configs behave exactly as before.
+Semantics: [`docs/MODEL.md` §2.1](docs/MODEL.md); first real run:
+Experiment E in [`docs/EXPERIMENT_PROTOCOL.md`](docs/EXPERIMENT_PROTOCOL.md).
+(Python core + CLI only so far; the React forms do not expose schedules yet —
+`docs/ROADMAP.md`.)
+
 ## Fitness (the AI's objective)
 
 ```
@@ -196,7 +213,7 @@ next — actually beats undirected search.
 
 ## Reproducible experiment
 
-See [`docs/EXPERIMENT_PROTOCOL.md`](docs/EXPERIMENT_PROTOCOL.md) for three
+See [`docs/EXPERIMENT_PROTOCOL.md`](docs/EXPERIMENT_PROTOCOL.md) for five
 reproducible experiments — every number in it comes from an actual run
 recorded in `experiments/`:
 
@@ -212,6 +229,9 @@ recorded in `experiments/`:
   model's generations-to-senescence distribution vs. theirs, run in an
   isolated environment so the two licenses never mix
   (`scripts/reference_model/`).
+- **E.** Constant interventions vs. a 6-phase scheduled **protocol** with
+  stress locked (same GA, same seed): does letting the optimizer time its
+  interventions buy anything at matched time-averaged cost?
 
 ## Repository layout
 
@@ -227,9 +247,9 @@ src/telomere_lab/
   analysis/     sensitivity (OAT tornado analysis)
   experiments/  registry (ledger), runner (service layer), artifacts
   adapters/     model protocol, published-model stub, organ-on-chip mapping
-configs/        default.yaml, demo.yaml, evolution.yaml, sensitivity.yaml, active_learning.yaml
-scripts/        run_simulation.py, run_evolution.py, run_sensitivity.py, run_active_learning.py, benchmark.py, benchmark_optimizers.py
-tests/          simulator, metrics, evolution, sensitivity, surrogate, benchmark, db, email, API (test_api_*.py)
+configs/        default.yaml, demo.yaml, demo_fasting.yaml, evolution*.yaml (incl. evolution_protocol.yaml), pareto*.yaml, sensitivity.yaml, active_learning.yaml
+scripts/        run_simulation.py, run_evolution.py, run_pareto.py, run_sensitivity.py, run_active_learning.py, run_protocol_experiment.py, benchmark.py, benchmark_optimizers.py
+tests/          simulator, metrics, evolution, schedule (+ fixtures/ golden output), sensitivity, surrogate, benchmark, db, email, API (test_api_*.py)
 docs/           SDD, MODEL, SCIENTIFIC_SCOPE, EXPERIMENT_PROTOCOL, API, ROADMAP
 experiments/    runs/ (ledger + artifacts, git-ignored), reports/
 data/           local SQLite fallback DB for accounts (git-ignored; unused when DATABASE_URL is set)

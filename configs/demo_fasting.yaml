@@ -1,0 +1,28 @@
+# Hand-written "fasting-like" protocol for the Simulate demo (docs/MODEL.md §2.1).
+# Same stressed culture as demo.yaml, but stress_level alternates between a
+# high (0.90) and a low (0.30) phase over six equal 20-cycle blocks, so the
+# TIME-AVERAGED stress is the demo baseline's constant 0.60. Interventions
+# (maintenance, repair) are held at the demo baseline. This is a model
+# scenario, not a clinical regimen (docs/SCIENTIFIC_SCOPE.md).
+model:
+  initial_length: 7500.0
+  initial_length_sd: 800.0
+  population_size: 100
+  carrying_capacity: 400
+  telomeres_per_cell: 32
+  shortening_rate: 55.0
+  stress_level: 0.90            # phase-0 / fallback value; the schedule below overrides per cycle
+  stress_sensitivity: 100.0
+  maintenance_rate: 0.10
+  maintenance_max_gain: 120.0
+  repair_rate: 0.15
+  senescence_threshold: 3000.0
+  noise_sd: 30.0
+  senescent_death_rate: 0.03
+  cycles: 120
+  seed: 42
+  record_distribution_every: 20
+  schedule:
+    phases: 6                   # cycles 0-19, 20-39, ..., 100-119
+    values:
+      stress_level: [0.90, 0.30, 0.90, 0.30, 0.90, 0.30]

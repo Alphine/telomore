@@ -23,7 +23,12 @@ selection), with every result reproducible from seed + configuration.
 
 Parameters called "maintenance", "repair" or "stress" are abstract model
 knobs. The optimiser identifies *parameter configurations that optimise the
-chosen objective within the simulation* — nothing more.
+chosen objective within the simulation* — nothing more. The same holds for
+time-varying **protocols** (`MODEL.md` §2.1): an "optimised protocol" or a
+"fasting-like schedule" is a piecewise-constant sequence of model
+parameters that scored well under the stated objective in the simulation —
+not a dosing regimen, a fasting recommendation, or evidence about any real
+intermittent intervention.
 
 ## Validation levels (SDD §22)
 
@@ -74,9 +79,10 @@ permit?" — it still does not say which trade-off is biologically right.
 ## Language policy
 
 Avoid: "AI discovered how to extend lifespan", "optimal therapy",
-"prevents ageing".
+"prevents ageing", "optimal dosing regimen", "fasting protocol that works".
 Prefer: "AI identified parameter configurations that optimise the chosen
-objective within the simulation", "model output", "simulation parameter".
+objective within the simulation", "model output", "simulation parameter",
+"scheduled parameter protocol (model result)".
 
 ## Organ-on-a-chip bridge
 

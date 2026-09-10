@@ -116,6 +116,7 @@ python scripts/run_evolution.py --config configs/evolution.yaml --seed 7
 python scripts/run_pareto.py     --config configs/pareto.yaml --seed 7
 python scripts/run_evolution.py --config configs/evolution_locked.yaml --seed 7
 python scripts/run_pareto.py     --config configs/pareto_locked.yaml --seed 7
+python scripts/run_protocol_experiment.py --seed 7                  # Experiment E (§10)
 ```
 
 Expected: `best fitness +0.6254`, best genome
@@ -368,7 +369,130 @@ the process in `scripts/reference_model/README.md`).
   diverge, which is the honest and useful outcome of this kind of
   comparison for a lightweight demo model.
 
-## 10. Performance (scripts/benchmark.py, same machine)
+## 10. Experiment E — Constant interventions vs. a 6-phase scheduled protocol
+
+### Question
+
+Experiments A–C optimise *constant* interventions. With schedules
+(`docs/MODEL.md` §2.1) the optimizer can instead search over **protocols**:
+one maintenance/repair level per phase of the run. Under the same locked
+stressor as Experiment C (`stress_level = 0.60`, not evolvable), does
+letting the GA *time* its interventions buy anything — at matched
+time-averaged cost — over the best constant setting? A fasting-like,
+hand-written alternating-stress protocol is simulated alongside as the
+Simulate-page demo.
+
+### Setup
+
+| Item | Constant (control) | Protocol |
+|---|---|---|
+| Config / command | `configs/evolution_locked.yaml` · `python scripts/run_evolution.py --config configs/evolution_locked.yaml --seed 7` | `configs/evolution_protocol.yaml` · `python scripts/run_evolution.py --config configs/evolution_protocol.yaml --seed 7` |
+| Free genes | `maintenance_rate`, `repair_rate` (2 genes) | the same two, each expanded to **6 phases** of 20 cycles → 12 genes (`maintenance_rate@0…5`, `repair_rate@0…5`) |
+| `schedule_phases` | 1 | 6 |
+| Everything else | identical: baseline stress 0.60 / maintenance 0.10 / repair 0.15, model fixed as in A–C, GA 32 × 20, optimizer seed 7, **`eval_seeds = (1, 2, 3)`** (multi-seed fitness, unlike A–C), weights 0.40/0.30/0.20/0.10/0.30 | |
+| Cost term | ½(maint² + repair²) | ½(m̄² + r̄²) on the **time-averaged** doses (MODEL.md §2.1) — identical for constants |
+| Ledger | `TEL-20260910-001` (config hash `97967f3041ce0fa1`, 1 119 simulations, 148 s) | `TEL-20260910-002` (config hash `344558bff0dfd173`, 1 830 simulations, 249 s) |
+
+Both runs were produced by one driver, `python scripts/run_protocol_experiment.py --seed 7`,
+which also simulates every scenario below on five held-out simulator seeds
+(1–5) and writes `experiments/reports/experiment_e.json`. Environment:
+Windows 11, AMD64, Python 3.13.15, NumPy 2.3.4, working tree at
+`85f030f-dirty` (the schedule feature itself, committed immediately after).
+Note the multi-seed fitness: the constant run here (**+0.5234**) is the
+multi-seed re-run of Experiment C's single-seed **+0.524**, so the two agree
+to three decimals.
+
+### Fitness by generation (best candidate, training seeds 1–3)
+
+| Generation | 0 | 1 | 2 | 3 | 5 | 10 | 15 | 20 |
+|---|---|---|---|---|---|---|---|---|
+| Constant (2 genes) | 0.498 | 0.520 | 0.520 | 0.520 | 0.523 | 0.5234 | 0.5234 | 0.5235 |
+| Protocol (12 genes) | 0.381 | 0.485 | 0.510 | 0.518 | 0.519 | 0.5236 | 0.5238 | 0.5238 |
+
+Baseline (un-evolved, stress 0.60 / maintenance 0.10 / repair 0.15): **−0.1318**
+on the training seeds. The 12-gene search starts lower (random 6-phase
+protocols are worse on average than random constants) and needs ~10
+generations to catch up; final diversity 0.097 vs. 0.083 — the protocol
+population had not fully converged at generation 20.
+
+### Scenarios on held-out simulator seeds 1–5 (mean ± SD of fitness; other columns are 5-seed means)
+
+| Scenario | m̄ (maintenance) | r̄ (repair) | Cost | Fitness | Survival (AUC) | Final senescent | Reserve | Instability | Cycles to 50 % senescent |
+|---|---|---|---|---|---|---|---|---|---|
+| Baseline (constant) | 0.100 | 0.150 | 0.016 | −0.1298 ± 0.0038 | 0.269 | 100 % | 0.000 | 0.327 | 33.8 |
+| Fasting demo (`configs/demo_fasting.yaml`: stress 0.90/0.30 alternating, m̄ = 0.60) | 0.100 | 0.150 | 0.016 | −0.1386 ± 0.0051 | 0.248 | 100 % | 0.000 | 0.330 | 32.0 |
+| **Evolved constant** (`TEL-20260910-001`) | 0.938 | 0.481 | 0.556 | **+0.5240 ± 0.0009** | 0.993 | 0 % | 0.999 | 0.059 | never |
+| **Evolved protocol** (`TEL-20260910-002`) | 0.932 | 0.508 | 0.563 | **+0.5241 ± 0.0004** | 0.993 | 0 % | 1.000 | 0.040 | never |
+| Constant at the protocol's mean doses (control) | 0.932 | 0.508 | 0.563 | +0.5226 ± 0.0005 | 0.993 | 0 % | 1.000 | 0.055 | never |
+
+### The evolved protocol (phases of 20 cycles)
+
+| Phase (cycles) | 0 (0–19) | 1 (20–39) | 2 (40–59) | 3 (60–79) | 4 (80–99) | 5 (100–119) | time average |
+|---|---|---|---|---|---|---|---|
+| `maintenance_rate` | 0.924 | 0.978 | 0.866 | 0.834 | 0.990 | 1.000 | 0.932 |
+| `repair_rate` | 0.378 | **1.000** | 0.759 | 0.413 | 0.315 | 0.181 | 0.508 |
+
+### Interpretation (within the model)
+
+* **Scheduling buys essentially nothing here — a negative result.** The
+  best protocol beats the best constant by **+0.0003** on the training
+  seeds and by **+0.0001 ± 0.001** on five held-out seeds, i.e. within one
+  standard deviation of seed-to-seed noise, while costing 64 % more
+  simulator evaluations (1 830 vs. 1 119; fewer genome-cache hits in a
+  12-dimensional space). Both solutions sit on the same plateau: survival
+  0.993 (the ceiling seen in Experiments B/C), zero senescence, full
+  reserve, and a cost term of ≈ 0.56 that the objective simply pays.
+* **The timing itself is worth at most ~0.0015.** Holding the protocol's
+  own time-averaged doses constant (control row) scores +0.5226, so the
+  protocol's shape — repair front-loaded to 1.0 in cycles 20–39 while
+  stress-driven loss is eroding the initial reserve, then tapering to 0.18
+  as maintenance rises to 1.0 — is worth about +0.0015 (≈ 3 SD) over the
+  equivalent constant. That is a real but tiny effect, and it is *not*
+  enough to beat the separately-optimised constant. Mechanistically this is
+  expected: in this model the stress-induced loss is linear in
+  `(1 − repair)` and the maintenance gain is linear in `maintenance_rate`,
+  so at equal mean dose the *timing* only matters through the nonlinearity
+  of the senescence threshold and the reserve saturation — and the
+  constant solution already keeps every cell far above threshold.
+* **Intermittent stress at equal mean is slightly *worse* than constant
+  stress.** The fasting demo (stress 0.90/0.30 alternating, mean 0.60,
+  baseline interventions) scores −0.139 vs. the constant baseline's −0.130
+  and reaches 50 % senescence ~2 cycles earlier: the high-stress opening
+  phase pushes the shortest telomeres across the threshold sooner than the
+  later low-stress phase can compensate, and senescence is irreversible.
+  Within this model, then, the "fasting-like" motif carries no benefit on
+  its own; it is a demo of the mechanism, not a result in its favour.
+* **Where a protocol *could* matter.** The plateau is set by the objective:
+  survival saturates and reserve is already 1.0, so there is nothing left
+  for timing to buy. Schedules become informative when the constant
+  optimum is *not* saturated — a lower cost weight, a harder or
+  time-varying stressor, a stress schedule the optimizer cannot remove but
+  can anticipate, or an objective that penalises dose *peaks*. Those are
+  natural follow-ups (and the intended playground for the roadmap's LLM
+  Layer 2, which proposes protocols into exactly this schema).
+* **Method note.** Random 6-phase protocols are worse than random
+  constants, and the 12-gene population had not converged at 20
+  generations; a fairer search-budget comparison would give the protocol
+  run more generations or a matched evaluation budget. The negative result
+  above is therefore "no benefit found at Experiment C's budget," not
+  "no benefit exists."
+
+### Reproduce
+
+```bash
+python scripts/run_protocol_experiment.py --seed 7          # both GA runs (registered) + the table above -> experiments/reports/experiment_e.json
+# or, piece by piece:
+python scripts/run_evolution.py  --config configs/evolution_locked.yaml   --seed 7
+python scripts/run_evolution.py  --config configs/evolution_protocol.yaml --seed 7
+python scripts/run_simulation.py --config configs/demo_fasting.yaml --seed 1
+```
+
+Expected: constant `best fitness +0.5234`
+(`{maintenance_rate: 0.938, repair_rate: 0.481}`), protocol
+`best fitness +0.5238` with the phase table above. Bit-identical fitness
+histories are expected on the same NumPy major version.
+
+## 11. Performance (scripts/benchmark.py, same machine)
 
 | Measurement | Value |
 |---|---|

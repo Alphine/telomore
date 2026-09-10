@@ -70,12 +70,17 @@ describe('Active Learning page', () => {
 
   it('streams records into the live convergence chart + table, then shows the result', async () => {
     let polls = 0
+    // The job stays `running` until the live-state assertions below have run,
+    // so the test never races the 10 ms poll interval.
+    let release = false
     const fetchMock = mockFetch({
       'GET /api/meta/bounds': { status: 200, body: BOUNDS },
       'POST /api/active-learning': { status: 200, body: { job_id: 'job-a' } },
       'GET /api/jobs/job-a': () => {
         polls += 1
-        if (polls <= 3) return { status: 200, body: jobSnapshot('running', { progress: RECORDS[polls - 1] }) }
+        if (!release || polls <= 3) {
+          return { status: 200, body: jobSnapshot('running', { progress: RECORDS[Math.min(polls, 4) - 1] }) }
+        }
         return {
           status: 200,
           body: jobSnapshot('completed', {
@@ -106,6 +111,7 @@ describe('Active Learning page', () => {
     expect(screen.getByTestId('iteration-table').querySelectorAll('tbody tr').length).toBeGreaterThanOrEqual(1)
     expect(screen.queryByRole('button', { name: /Stop/ })).not.toBeInTheDocument()
 
+    release = true
     await screen.findByText('Best fitness found')
     const table = screen.getByTestId('iteration-table')
     expect(table.querySelectorAll('tbody tr')).toHaveLength(4)

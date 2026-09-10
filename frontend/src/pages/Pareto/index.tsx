@@ -18,6 +18,7 @@ import { PageHeader } from '../../components/PageHeader'
 import { PhasesControl } from '../../components/PhasesControl'
 import { ProgressBar } from '../../components/ProgressBar'
 import { ProtocolTable } from '../../components/ProtocolTable'
+import { InterpretPanel } from '../../components/InterpretPanel'
 import { Provenance } from '../../components/Provenance'
 import { loadBaseline } from '../../components/baseline'
 import { Plot } from '../../components/charts/Plot'
@@ -398,6 +399,7 @@ export function Pareto() {
           />
           {result.stopped_early && <Callout tone="warning">Stopped early at the user's request.</Callout>}
           {result.run_id && <Provenance runId={result.run_id} />}
+          {result.run_id && <InterpretPanel runId={result.run_id} />}
 
           <div>
             <label className="label" htmlFor="par-color">

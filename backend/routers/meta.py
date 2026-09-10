@@ -33,6 +33,7 @@ from telomere_lab.schemas import (
     ModelConfig,
 )
 
+from .. import llm as _llm
 from .. import schemas as api_schemas
 from ..auth import get_current_user
 
@@ -97,6 +98,24 @@ def bounds() -> api_schemas.BoundsResponse:
         schedulable=list(SCHEDULABLE_PARAMETERS),
         max_phases=MAX_PHASES,
         presets=_presets(),
+    )
+
+
+@router.get("/llm", response_model=api_schemas.LLMMetaResponse)
+def llm_meta() -> api_schemas.LLMMetaResponse:
+    """Providers / models / list prices / efforts of the results interpreter
+    (backend/llm.py is the single source; the React InterpretPanel renders
+    its selects from this). Public: static, non-sensitive."""
+    return api_schemas.LLMMetaResponse(
+        providers=list(_llm.PROVIDERS),
+        models=[api_schemas.LLMModelInfo(id=model_id, label=info["label"],
+                                         input_usd_per_mtok=info["input_usd_per_mtok"],
+                                         output_usd_per_mtok=info["output_usd_per_mtok"])
+                for model_id, info in _llm.MODELS.items()],
+        default_model=_llm.DEFAULT_MODEL,
+        efforts=list(_llm.EFFORTS),
+        default_effort=_llm.DEFAULT_EFFORT,
+        rate_limit={"calls": _llm.RATE_LIMIT_CALLS, "window_seconds": _llm.RATE_LIMIT_WINDOW_SECONDS},
     )
 
 

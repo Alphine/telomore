@@ -18,6 +18,7 @@ import { PageHeader } from '../../components/PageHeader'
 import { PhasesControl } from '../../components/PhasesControl'
 import { ProgressBar } from '../../components/ProgressBar'
 import { ProtocolTable } from '../../components/ProtocolTable'
+import { InterpretPanel } from '../../components/InterpretPanel'
 import { Provenance } from '../../components/Provenance'
 import { loadBaseline } from '../../components/baseline'
 import { Plot } from '../../components/charts/Plot'
@@ -339,6 +340,7 @@ export function ActiveLearning() {
             ]}
           />
           {result.run_id && <Provenance runId={result.run_id} />}
+          {result.run_id && <InterpretPanel runId={result.run_id} />}
 
           <div>
             <h3 className="mb-2 text-base font-semibold">Convergence: best fitness vs. real evaluations</h3>

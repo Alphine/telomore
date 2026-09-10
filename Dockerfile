@@ -33,6 +33,9 @@ RUN pip install --no-deps -e .
 
 COPY backend/ ./backend/
 COPY configs/ ./configs/
+# docs/ is excluded from the build context except this one file: backend/llm.py
+# quotes its "Language policy" section verbatim in the interpreter's system prompt.
+COPY docs/SCIENTIFIC_SCOPE.md ./docs/SCIENTIFIC_SCOPE.md
 # The experiment ledger (experiments/runs/<id>/ + experiments/registry.jsonl)
 # is created at runtime by ExperimentRegistry; the reference runs are
 # git-ignored and the reports/ + reference_model/ data is only used by the

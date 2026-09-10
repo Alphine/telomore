@@ -22,6 +22,7 @@ dependencies = [
   "fastapi>=0.110",
   "uvicorn[standard]>=0.29",
   "pyjwt>=2.8",
+  "anthropic>=1.0",
 ]
 
 [project.optional-dependencies]

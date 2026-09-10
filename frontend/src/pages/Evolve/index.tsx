@@ -11,6 +11,7 @@ import { useBounds } from '../../api/useBounds'
 import { useJob } from '../../api/useJob'
 import { Callout, Disclaimer } from '../../components/Callout'
 import { GeneName } from '../../components/GeneName'
+import { InterpretPanel } from '../../components/InterpretPanel'
 import { MetricRow } from '../../components/MetricRow'
 import { ModelConfigForm } from '../../components/ModelConfigForm'
 import { NumberInput } from '../../components/NumberInput'
@@ -469,6 +470,7 @@ export function Evolve() {
               Recorded as <strong>{result.run_id}</strong> in the experiment ledger.
             </Callout>
           )}
+          {result.run_id && <InterpretPanel runId={result.run_id} />}
 
           <div className="grid gap-4 xl:grid-cols-2">
             <Plot figure={figures.fitness} />

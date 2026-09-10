@@ -565,3 +565,69 @@ export interface ArtifactInfo {
   size_bytes: number
   media_type: string
 }
+
+// -------------------------------------------------------------------- llm
+// LLM Layer 1, the read-only results interpreter (backend/llm.py,
+// backend/schemas.py::LLM*). Bring-your-own-key: `api_key` is relayed to
+// Anthropic for one request and never persisted server-side.
+export type LLMProvider = 'anthropic'
+export type LLMEffort = 'low' | 'medium' | 'high'
+
+/** backend/schemas.py::LLMModelInfo (one row of backend.llm.MODELS). */
+export interface LLMModelInfo {
+  id: string
+  label: string
+  input_usd_per_mtok: number
+  output_usd_per_mtok: number
+}
+
+/** GET /api/meta/llm */
+export interface LLMMetaResponse {
+  providers: LLMProvider[]
+  models: LLMModelInfo[]
+  default_model: string
+  efforts: LLMEffort[]
+  default_effort: LLMEffort
+  rate_limit: { calls: number; window_seconds: number }
+}
+
+export interface LLMInterpretRequest {
+  run_id: string
+  api_key: string
+  provider: LLMProvider
+  model?: string
+  effort?: LLMEffort
+}
+
+export interface LLMUsage {
+  input_tokens: number
+  output_tokens: number
+  cache_read_input_tokens: number | null
+}
+
+export interface LLMInterpretResponse {
+  run_id: string
+  model: string
+  narrative_markdown: string
+  usage: LLMUsage
+  /** List-price estimate; the user's own invoice is the authority. */
+  estimated_cost_usd: number | null
+  warnings: string[]
+}
+
+export interface LLMValidateKeyRequest {
+  api_key: string
+  provider: LLMProvider
+}
+
+export interface LLMValidateKeyResponse {
+  valid: boolean
+  detail: string
+}
+
+/** The structured `detail` of every LLM error response (401/403/429/422/400/502). */
+export interface LLMErrorDetail {
+  code: 'llm_auth_failed' | 'llm_permission_denied' | 'llm_rate_limited' | 'llm_refusal' | 'llm_bad_request' | 'llm_upstream_error'
+  message: string
+  category?: string
+}

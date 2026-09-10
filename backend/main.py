@@ -28,6 +28,7 @@ from .routers import (
     evolve,
     experiments,
     jobs,
+    llm,
     meta,
     pareto,
     sensitivity,
@@ -105,6 +106,7 @@ def create_app() -> FastAPI:
     app.include_router(compare.router, prefix="/api")
     app.include_router(experiments.router, prefix="/api")
     app.include_router(jobs.router, prefix="/api")
+    app.include_router(llm.router, prefix="/api")
     app.include_router(meta.router, prefix="/api")
 
     _mount_frontend(app, FRONTEND_DIST)

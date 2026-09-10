@@ -7,6 +7,7 @@ import { useSearchParams } from 'react-router-dom'
 import { artifactUrl, downloadArtifact, getExperiment, listArtifacts, listExperiments } from '../../api/endpoints'
 import type { ArtifactInfo, ExperimentDetail, ExperimentSummary } from '../../api/types'
 import { Callout } from '../../components/Callout'
+import { InterpretPanel } from '../../components/InterpretPanel'
 import { MetricRow } from '../../components/MetricRow'
 import { PageHeader } from '../../components/PageHeader'
 import { downloadBlob } from '../../components/download'
@@ -274,6 +275,8 @@ export function Experiments() {
                   </Callout>
                 )}
               </div>
+
+              <InterpretPanel runId={selected} />
 
               <details className="card p-5">
                 <summary className="cursor-pointer select-none text-sm font-semibold">Full record (JSON)</summary>

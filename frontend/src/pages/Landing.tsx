@@ -126,6 +126,11 @@ export function Landing() {
             </Link>
           ))}
         </div>
+        <p className="prose-muted mt-4" data-testid="llm-callout">
+          Every recorded run can also be narrated by an LLM on your own Anthropic key (Experiments → inspect a run →{' '}
+          <em>AI interpretation</em>, or right under any finished optimizer result): a read-only, model-result narration
+          under the same scope policy — it never runs or changes a simulation.
+        </p>
       </section>
 
       <hr className="border-slate-200 dark:border-slate-800" />

@@ -25,9 +25,9 @@ documents them and the frontend types can mirror them. Their *semantics*
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
 from telomere_lab.schemas import MAX_PHASES
 
@@ -335,3 +335,88 @@ class CompareScenarioResult(BaseModel):
 class CompareResponse(BaseModel):
     baseline: str                   # name of the first scenario, the reference for `deltas`
     scenarios: List[CompareScenarioResult]
+
+
+# --------------------------------------------------------------------------- #
+# LLM Layer 1 -- results interpreter (backend/llm.py, docs/ROADMAP.md)
+# --------------------------------------------------------------------------- #
+class LLMInterpretRequest(BaseModel):
+    """Bring-your-own-key interpretation of one recorded run.
+
+    ``api_key`` is a ``SecretStr`` (masked in reprs) and the model hides its
+    input from validation errors, so the key is never echoed back or logged;
+    the router hands ``get_secret_value()`` straight to a per-request client
+    and nothing else keeps a reference. ``model`` / ``effort`` are checked
+    against ``backend.llm.MODELS`` / ``EFFORTS`` (the single source, exposed on
+    ``GET /api/meta/llm``) -> 422 on an unknown value.
+    """
+
+    model_config = ConfigDict(hide_input_in_errors=True)
+
+    run_id: str = Field(min_length=1)
+    api_key: SecretStr = Field(min_length=1)
+    provider: Literal["anthropic"] = "anthropic"
+    model: Optional[str] = None
+    effort: Optional[str] = None
+
+    @field_validator("model")
+    @classmethod
+    def _known_model(cls, value: Optional[str]) -> Optional[str]:
+        from . import llm as _llm
+
+        if value is not None and value not in _llm.MODELS:
+            raise ValueError(f"unknown model {value!r}; one of {sorted(_llm.MODELS)}")
+        return value
+
+    @field_validator("effort")
+    @classmethod
+    def _known_effort(cls, value: Optional[str]) -> Optional[str]:
+        from . import llm as _llm
+
+        if value is not None and value not in _llm.EFFORTS:
+            raise ValueError(f"unknown effort {value!r}; one of {list(_llm.EFFORTS)}")
+        return value
+
+
+class LLMUsage(BaseModel):
+    input_tokens: int
+    output_tokens: int
+    cache_read_input_tokens: Optional[int] = None
+
+
+class LLMInterpretResponse(BaseModel):
+    run_id: str
+    model: str
+    narrative_markdown: str
+    usage: LLMUsage
+    #: List-price estimate from backend.llm.MODELS -- the user's invoice is the authority.
+    estimated_cost_usd: Optional[float] = None
+    warnings: List[str] = Field(default_factory=list)
+
+
+class LLMValidateKeyRequest(BaseModel):
+    model_config = ConfigDict(hide_input_in_errors=True)
+
+    api_key: SecretStr = Field(min_length=1)
+    provider: Literal["anthropic"] = "anthropic"
+
+
+class LLMValidateKeyResponse(BaseModel):
+    valid: bool
+    detail: str
+
+
+class LLMModelInfo(BaseModel):
+    id: str
+    label: str
+    input_usd_per_mtok: float
+    output_usd_per_mtok: float
+
+
+class LLMMetaResponse(BaseModel):
+    providers: List[str]
+    models: List[LLMModelInfo]
+    default_model: str
+    efforts: List[str]
+    default_effort: str
+    rate_limit: Dict[str, int]   # {"calls": 10, "window_seconds": 600}

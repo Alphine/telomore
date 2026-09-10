@@ -15,6 +15,7 @@ import { CheckboxGroup } from '../../components/CheckboxGroup'
 import { MetricRow } from '../../components/MetricRow'
 import { PageHeader } from '../../components/PageHeader'
 import { ProgressBar } from '../../components/ProgressBar'
+import { InterpretPanel } from '../../components/InterpretPanel'
 import { Provenance } from '../../components/Provenance'
 import { loadBaseline } from '../../components/baseline'
 import { Plot } from '../../components/charts/Plot'
@@ -274,6 +275,7 @@ export function Sensitivity() {
             ]}
           />
           {result.run_id && <Provenance runId={result.run_id} />}
+          {result.run_id && <InterpretPanel runId={result.run_id} />}
           {tornado && <Plot figure={tornado} />}
 
           <div>

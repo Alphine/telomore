@@ -48,7 +48,7 @@ def compare(body: api_schemas.CompareRequest, user: _db.User = Depends(get_curre
         if sc.name in scenarios:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Duplicate scenario name: {sc.name!r}")
         try:
-            cfg = ModelConfig.from_dict(sc.config)
+            cfg = ModelConfig.from_dict(sc.config.to_plain())
             if body.seed is not None:
                 cfg = cfg.replace(seed=int(body.seed))
             scenarios[sc.name] = cfg.validate()

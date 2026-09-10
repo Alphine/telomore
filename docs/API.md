@@ -106,6 +106,43 @@ the full result as JSON (`SimulationResult.to_json_dict()` plus `run_id` and
 raising `ConfigError`). The run is recorded in the shared experiment ledger
 and tagged as belonging to the calling user.
 
+### Scheduled intervention protocols (stage 6b, 2026-09-10)
+
+Every `ModelConfig` request body (`config` here, `model` on the job routes,
+`scenarios[].config` on Compare) may carry an optional **`schedule`** block,
+shaped exactly like `ModelConfig.to_dict()` emits it (`docs/MODEL.md` §2.1):
+
+```json
+{"config": {"cycles": 120, "stress_level": 0.9,
+            "schedule": {"phases": 6,
+                         "values": {"stress_level": [0.9, 0.3, 0.9, 0.3, 0.9, 0.3]}}}}
+```
+
+* `schedule.phases` (int, `1..max_phases`) splits the run's `cycles` into
+  as-equal-as-possible phases; `schedule.values[<name>]` gives one value per
+  phase for a name in `SCHEDULABLE_PARAMETERS` (`GET /api/meta/bounds` →
+  `schedulable`, currently `stress_level`, `maintenance_rate`, `repair_rate`).
+  Omit the key, or send `"schedule": null`, for constant parameters — both
+  are what an unscheduled `to_dict()` round-trips to. A scheduled parameter's
+  scalar field only documents its phase-0 / fallback value.
+* Validation is the core gate: wrong length, an out-of-bounds value, a
+  non-schedulable name or too many phases raise `ConfigError` → **`400`**
+  with the core message (e.g. `schedule.values[stress_level] has 2 entries,
+  expected 3`). Only a *malformed* block (e.g. `"phases": "many"`) is a
+  pydantic `422`, like any other malformed body
+  (`backend/schemas.py::ModelConfigBody` / `InterventionSchedule` type just
+  the shape; everything else stays a free-form dict).
+* The response's `run` carries **`applied_schedule`**: for every *scheduled*
+  parameter the value actually in force at each cycle, an array of length
+  `cycles + 1` on the same axis as `timeseries.cycle` (entry `t` = value
+  during step `t → t+1`; the last entry repeats the final phase so a step
+  line ends flat). `{}` when the config has no schedule. `config.schedule`
+  echoes the schedule (`null` when none). The intervention-cost term in
+  `fitness` is charged on the time-averaged doses (mean of the first `cycles`
+  entries of `applied_schedule`).
+
+Tests: `tests/test_api_schedule.py`.
+
 ## Long-running jobs (evolve / pareto / sensitivity / active-learning / benchmark)
 
 These `POST` a config body and return `{"job_id": "..."}` immediately,
@@ -143,6 +180,25 @@ Request bodies: `{"model": {...}, "evolution"|"multiobjective"|"sensitivity"|"ac
 (`/api/benchmark` takes `model`, `evolution`, `multiobjective`). Each config
 block is validated with the matching `telomere_lab.schemas` dataclass's own
 `.from_dict().validate()` — `400` with the `ConfigError` message on failure.
+
+**Protocol search (`schedule_phases`, stage 6b).** The `evolution`,
+`multiobjective` and `active_learning` blocks accept `schedule_phases` (int,
+default `1`, `1..max_phases` — range-checked by
+`backend/schemas.py::OptimizerConfigBody` against the core `MAX_PHASES`, so an
+out-of-range value is a `422` naming `schedule_phases`). With `K > 1` every
+*free* gene in `SCHEDULABLE_PARAMETERS` is expanded into `K` genes named
+`<gene>@<phase>` (`maintenance_rate@0` … `maintenance_rate@5`) with the
+parameter's bounds; other free genes stay scalar. The `@` names appear
+verbatim wherever a genome is reported — `best.genome` / `baseline.genome` /
+`history[].best_genome` on evolve, `front[].genome` on pareto,
+`best_genome` / `records[].genome` on active-learning — and the frontend
+reassembles them into a `ModelConfig.schedule` for hand-offs
+(`frontend/src/components/scheduleUtils.ts::genomeToConfig`, mirroring
+`GenomeSpec.to_config`). `schedule_phases = 1` is the classic constant-gene
+search and bit-identical to before. The `model` block may itself carry a
+`schedule` (see Simulate above); a scheduled parameter that is *not* a free
+gene passes through unchanged. Sensitivity takes no `schedule_phases` (OAT
+stays a scalar analysis, MODEL.md §2.1).
 
 On success, evolve/pareto/sensitivity/active-learning register the run in
 the shared JSONL ledger and tag it to the calling user
@@ -194,7 +250,10 @@ side — the API behind the React port of `app/pages/03_Compare.py`:
 
 Every `config` goes through `ModelConfig.from_dict().validate()` (`400`
 with `"<name>: <ConfigError>"` on failure; duplicate names and more than six
-scenarios are also `400`, an empty list is a `422`). The optional `seed`
+scenarios are also `400`, an empty list is a `422`). A `config` may carry a
+`schedule` (Simulate section above); it passes through untouched and the
+scenario's `result.applied_schedule` is filled like on `/api/simulate`
+(empty for constant scenarios). The optional `seed`
 re-seeds every scenario before running (common random numbers — the
 Streamlit page's "Force identical simulator seed" checkbox). The scenarios
 are run with `runner.compare_scenarios` (default `FitnessWeights`) and the
@@ -247,14 +306,23 @@ never hardcodes a bound in TypeScript.
     "demo": {...configs/demo.yaml model block (falls back to defaults if missing)...},
     "fitness_weights_default": {...FitnessWeights().to_dict()...},
     "evolution_default": {...EvolutionConfig().to_dict(), incl. nested "weights"...},
-    "objectives": {"survival": {"direction": "max", "description": "..."}, ...}
+    "objectives": {"survival": {"direction": "max", "description": "..."}, ...},
+    "schedulable": ["stress_level", "maintenance_rate", "repair_rate"],
+    "max_phases": 8,
+    "presets": {"demo_fasting": {...configs/demo_fasting.yaml model block, incl. "schedule"...}}
   }
   ```
   `bounds` has one entry per `PARAMETER_BOUNDS` key, i.e. the five-tuple
   `(min, max, unit, label, description)` as an object. `objectives` (Phase
   4) mirrors `telomere_lab.schemas.OBJECTIVES` — the `(direction,
   description)` tuples the Pareto page's objective multiselect is built
-  from. No `multiobjective_default` / `sensitivity_default` /
+  from. `schedulable` / `max_phases` (stage 6b) mirror
+  `SCHEDULABLE_PARAMETERS` / `MAX_PHASES` — the schedule editor's toggles and
+  phase-count range come from here; `presets` are named example protocols as
+  full `ModelConfig` dicts (currently only `demo_fasting`, loaded from
+  `configs/demo_fasting.yaml` like `demo`; a missing file simply omits the
+  key). `defaults` / `demo` now include `"schedule": null`, and
+  `evolution_default` includes `schedule_phases: 1`. No `multiobjective_default` / `sensitivity_default` /
   `active_learning_default` blocks are exposed: the API fills omitted config
   fields with the dataclass defaults, and the React forms start from the
   same values (noted in each page's source).

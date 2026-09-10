@@ -10,8 +10,11 @@ import { ChipMapper } from '../../components/ChipMapper'
 import { MetricRow } from '../../components/MetricRow'
 import { ModelConfigForm } from '../../components/ModelConfigForm'
 import { PopulationCanvas } from '../../components/PopulationCanvas'
+import { ProtocolTable } from '../../components/ProtocolTable'
+import { ScheduleEditor } from '../../components/ScheduleEditor'
 import { clearBaseline, loadBaseline, saveBaseline } from '../../components/baseline'
 import { Plot } from '../../components/charts/Plot'
+import { appliedScheduleChart } from '../../components/charts/scheduleCharts'
 import {
   fitnessBreakdownBar,
   lengthDistribution,
@@ -21,11 +24,24 @@ import {
 } from '../../components/charts/simulationCharts'
 import { usePrefersDark } from '../../components/charts/theme'
 import { downloadJson, downloadText, timeseriesCsv } from '../../components/download'
+import { configPayload, isScheduled, scheduledParameters, withSchedule } from '../../components/scheduleUtils'
 import { FEATURES } from '../../features'
 import { reproduceCommand, terminalMetrics } from './metrics'
 
 const FEATURE = FEATURES.find((f) => f.path === '/simulate')!
 const CHIP_KEYS: ReadonlySet<keyof ModelConfig> = new Set(['stress_level', 'repair_rate', 'cycles'] as const)
+// The chip mapper derives these two; they cannot be scheduled at the same time.
+const CHIP_UNAVAILABLE: ReadonlyMap<string, string> = new Map([
+  ['stress_level', 'derived from chip'],
+  ['repair_rate', 'derived from chip'],
+])
+
+/** Drop the chip-derived parameters from a schedule (when the mapper is switched on). */
+function withoutChipKeys(cfg: ModelConfig): ModelConfig {
+  if (!isScheduled(cfg)) return cfg
+  const values = Object.fromEntries(Object.entries(cfg.schedule.values).filter(([k]) => !CHIP_UNAVAILABLE.has(k)))
+  return withSchedule(cfg, Object.keys(values).length ? { phases: cfg.schedule.phases, values } : null)
+}
 
 export function Simulate() {
   const { bounds, error: boundsError } = useBounds()
@@ -50,13 +66,23 @@ export function Simulate() {
 
   const onCycle = useCallback((c: number) => setCursor(c), [])
 
+  // Scheduled parameters are read-only in the scalar form (the protocol below
+  // sets them per phase; the scalar is the phase-0 value), like chip-derived ones.
+  const scheduledKeys = effective ? scheduledParameters(effective) : []
+  const locked: ReadonlySet<keyof ModelConfig> = new Set<keyof ModelConfig>([
+    ...(useChip ? CHIP_KEYS : []),
+    ...(scheduledKeys as Array<keyof ModelConfig>),
+  ])
+  const lockedLabels = Object.fromEntries(scheduledKeys.map((k) => [k, 'scheduled'])) as Partial<Record<keyof ModelConfig, string>>
+
   async function onRun() {
     if (!effective) return
     setRunning(true)
     setError(null)
     setNotice(null)
     try {
-      const res = await apiSimulate({ config: effective })
+      // `schedule` is omitted from the request when nothing is scheduled.
+      const res = await apiSimulate({ config: configPayload(effective) })
       setRun(res.run)
       setCursor(null)
     } catch (err: unknown) {
@@ -78,13 +104,24 @@ export function Simulate() {
 
   function onSetBaseline() {
     if (!effective) return
-    saveBaseline(effective)
+    saveBaseline(configPayload(effective))
     setNotice('Baseline updated for Evolve.')
   }
+
+  function onLoadPreset(name: string, cfg: ModelConfig) {
+    setEdited(cfg)
+    setUseChip(false)
+    setDerived(null)
+    setNotice(`Loaded the "${name}" protocol (configs/${name}.yaml) -- a model scenario, not a regimen.`)
+  }
+
+  const applied = run && run.valid ? run.applied_schedule ?? {} : {}
+  const hasProtocol = Object.keys(applied).length > 0
 
   const figures = useMemo(() => {
     if (!run || !run.valid) return null
     return {
+      protocol: Object.keys(run.applied_schedule ?? {}).length ? appliedScheduleChart(run.applied_schedule, dark, cursor) : null,
       length: lengthTrajectory(run, dark, cursor),
       dist: lengthDistribution(run, dark),
       sen: senescenceCurve(run, dark, cursor),
@@ -136,6 +173,7 @@ export function Simulate() {
                   onChange={(e) => {
                     setUseChip(e.target.checked)
                     if (!e.target.checked) setDerived(null)
+                    else setEdited(withoutChipKeys(effective ?? config))
                   }}
                 />
                 <span>Derive stress/repair from organ-on-chip conditions</span>
@@ -146,7 +184,19 @@ export function Simulate() {
                 bounds={bounds}
                 value={effective ?? config}
                 onChange={setEdited}
-                locked={useChip ? CHIP_KEYS : undefined}
+                locked={locked.size ? locked : undefined}
+                lockedLabels={lockedLabels}
+                afterDynamics={
+                  <ScheduleEditor
+                    bounds={bounds}
+                    value={effective ?? config}
+                    onChange={setEdited}
+                    unavailable={useChip ? CHIP_UNAVAILABLE : undefined}
+                    onLoadPreset={onLoadPreset}
+                    disabled={running}
+                    idPrefix="sim-sched"
+                  />
+                }
                 idPrefix="sim"
                 disabled={running}
               />
@@ -216,6 +266,22 @@ export function Simulate() {
               </p>
 
               <PopulationCanvas run={run} onCycleChange={onCycle} dark={dark} />
+
+              {hasProtocol && figures.protocol && isScheduled(run.config) && (
+                <section className="space-y-3" aria-label="Applied protocol">
+                  <Plot figure={figures.protocol} />
+                  <ProtocolTable
+                    schedule={run.config.schedule}
+                    cycles={run.config.cycles}
+                    applied={applied}
+                    title="Protocol phases (time averages computed from the applied per-cycle values)"
+                  />
+                  <p className="prose-muted text-xs">
+                    The step lines show the value in force at each cycle. The intervention-cost term uses the time
+                    averages above (docs/MODEL.md §2.1); the protocol is a model scenario, not a regimen.
+                  </p>
+                </section>
+              )}
 
               <div className="grid gap-4 xl:grid-cols-2">
                 <Plot figure={figures.length} />

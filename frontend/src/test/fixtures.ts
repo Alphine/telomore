@@ -55,6 +55,7 @@ export const BOUNDS: BoundsResponse = {
     early_stopping_patience: 0,
     early_stopping_tol: 0.0001,
     checkpoint_every: 5,
+    schedule_phases: 1,
     weights: { w_survival: 0.4, w_reserve: 0.3, w_senescence: 0.2, w_instability: 0.1, w_cost: 0.3 },
   },
   objectives: {
@@ -63,6 +64,19 @@ export const BOUNDS: BoundsResponse = {
     senescence: { direction: 'min', description: 'final senescent fraction' },
     instability: { direction: 'min', description: 'final length CV, scaled' },
     cost: { direction: 'min', description: 'intervention cost ½(maintenance² + repair²)' },
+  },
+  schedulable: ['stress_level', 'maintenance_rate', 'repair_rate'],
+  max_phases: 8,
+  // configs/demo_fasting.yaml as GET /api/meta/bounds returns it (ModelConfig.to_dict()).
+  presets: {
+    demo_fasting: {
+      ...MODEL_DEFAULTS,
+      stress_level: 0.9,
+      maintenance_rate: 0.1,
+      repair_rate: 0.15,
+      record_distribution_every: 20,
+      schedule: { phases: 6, values: { stress_level: [0.9, 0.3, 0.9, 0.3, 0.9, 0.3] } },
+    },
   },
 }
 
@@ -103,6 +117,7 @@ export function fakeRun(cycles = 4): SimulationRun {
       fraction_below_threshold: t.map((i) => 0.01 * i),
       length_cv: t.map(() => 0.1),
     },
+    applied_schedule: {},
     final_lengths_bp: [6000, 6500, 7000],
     run_id: 'TEL-20260909-001',
     fitness: { total: 0.512, survival: 0.9, reserve: 0.27, senescence: 0.12, instability: 0.2, cost: 0.02, valid: true, reason: null },

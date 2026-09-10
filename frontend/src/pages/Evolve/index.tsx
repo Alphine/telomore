@@ -10,15 +10,20 @@ import type { EvolutionConfig, EvolveResult, FitnessWeights, GenerationRecord, M
 import { useBounds } from '../../api/useBounds'
 import { useJob } from '../../api/useJob'
 import { Callout, Disclaimer } from '../../components/Callout'
+import { GeneName } from '../../components/GeneName'
 import { MetricRow } from '../../components/MetricRow'
 import { ModelConfigForm } from '../../components/ModelConfigForm'
 import { NumberInput } from '../../components/NumberInput'
+import { PhasesControl } from '../../components/PhasesControl'
+import { ProtocolTable } from '../../components/ProtocolTable'
 import { loadBaseline, saveBaseline } from '../../components/baseline'
 import { Plot } from '../../components/charts/Plot'
 import { diversityChart, evolutionFitnessChart, parameterTrajectoryChart } from '../../components/charts/evolutionCharts'
+import { appliedScheduleChart, scheduleToApplied } from '../../components/charts/scheduleCharts'
 import { usePrefersDark } from '../../components/charts/theme'
 import { downloadJson, downloadText, historyCsv } from '../../components/download'
 import { genomeToConfig, saveEvolveBest } from '../../components/handoff'
+import { groupGenes, isScheduled } from '../../components/scheduleUtils'
 import { FEATURES } from '../../features'
 import { FITNESS_FORMULA, WEIGHT_FIELDS, parseSeeds, signed, toForm } from './form'
 import type { EvoForm } from './form'
@@ -116,11 +121,22 @@ export function Evolve() {
 
   function setBestAsBaseline(res: EvolveResult) {
     if (!baseline) return
-    const cfg: ModelConfig = { ...baseline, ...(res.best.genome as Partial<ModelConfig>) }
+    const cfg: ModelConfig = genomeToConfig(baseline, res.best.genome)
     saveBaseline(cfg)
     setBase(cfg)
     setNotice('Best candidate saved as the baseline -- open Simulate to inspect its full trajectory.')
   }
+
+  // The best candidate as a full config (GenomeSpec.to_config): with
+  // schedule_phases > 1 its `<gene>@<phase>` genes form a schedule.
+  const bestConfig = useMemo(() => (result && baseline ? genomeToConfig(baseline, result.best.genome) : null), [result, baseline])
+  const bestProtocol = useMemo(
+    () =>
+      bestConfig && isScheduled(bestConfig)
+        ? appliedScheduleChart(scheduleToApplied(bestConfig.schedule, bestConfig.cycles), dark, null, 'Best candidate protocol (per-cycle values)')
+        : null,
+    [bestConfig, dark],
+  )
 
   return (
     <div className="space-y-6">
@@ -316,6 +332,13 @@ export function Evolve() {
                   ))}
                 </div>
               </fieldset>
+              <PhasesControl
+                id="evo-phases"
+                value={form.schedule_phases}
+                max={bounds.max_phases}
+                disabled={isActive}
+                onChange={(schedule_phases) => setEvo({ ...form, schedule_phases })}
+              />
               <div>
                 <label className="label" htmlFor="evo-seeds">
                   Simulator seeds per candidate (comma-separated; more = less noise, slower)
@@ -467,13 +490,15 @@ export function Evolve() {
                   </tr>
                 </thead>
                 <tbody className="font-mono">
-                  {Object.keys(result.best.genome).map((g) => {
+                  {groupGenes(Object.keys(result.best.genome)).flatMap((grp) => grp.genes).map((g) => {
                     const b = result.baseline.genome[g]
                     const e = result.best.genome[g]
                     const pct = b ? ((e - b) / b) * 100 : NaN
                     return (
-                      <tr key={g} className="border-t border-slate-200 dark:border-slate-800">
-                        <td className="px-4 py-2">{g}</td>
+                      <tr key={g} className="border-t border-slate-200 dark:border-slate-800" data-gene={g}>
+                        <td className="px-4 py-2">
+                          <GeneName gene={g} />
+                        </td>
                         <td className="px-4 py-2 text-right">{b?.toFixed(3)}</td>
                         <td className="px-4 py-2 text-right">{e.toFixed(3)}</td>
                         <td className="px-4 py-2 text-right">{signed(e - (b ?? 0))}</td>
@@ -496,6 +521,19 @@ export function Evolve() {
               the final population (only best / baseline / history).
             </p>
           </div>
+
+          {bestConfig && isScheduled(bestConfig) && bestProtocol && (
+            <div className="space-y-3" aria-label="Best candidate protocol">
+              <h3 className="text-base font-semibold">Best candidate protocol ({bestConfig.schedule.phases} phases)</h3>
+              <Plot figure={bestProtocol} />
+              <ProtocolTable schedule={bestConfig.schedule} cycles={bestConfig.cycles} />
+              <p className="prose-muted text-xs">
+                One value per phase for each scheduled gene; the cost term is charged on the time averages. This is the
+                optimizer's best model configuration under the stated objective, not a dosing regimen
+                (docs/SCIENTIFIC_SCOPE.md). Simulate it via <em>Set best as baseline</em>.
+              </p>
+            </div>
+          )}
 
           <div>
             <h3 className="mb-2 text-base font-semibold">Export &amp; hand-off</h3>

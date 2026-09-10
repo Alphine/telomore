@@ -2,6 +2,7 @@
 // its min/max/label/unit/description from GET /api/meta/bounds
 // (PARAMETER_BOUNDS) -- nothing about a model bound is hardcoded here.
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 
 import type { BoundsResponse, ModelConfig, ParameterBound } from '../api/types'
 import { NumberInput } from './NumberInput'
@@ -35,6 +36,10 @@ export interface ModelConfigFormProps {
   onChange: (next: ModelConfig) => void
   /** Fields shown read-only (e.g. derived from organ-on-chip conditions). */
   locked?: ReadonlySet<keyof ModelConfig>
+  /** Badge text per locked field (default "derived from chip"; a scheduled parameter says "scheduled"). */
+  lockedLabels?: Partial<Record<keyof ModelConfig, string>>
+  /** Rendered right after the Dynamics fieldset (the Simulate page's schedule editor). */
+  afterDynamics?: ReactNode
   idPrefix?: string
   disabled?: boolean
 }
@@ -45,6 +50,7 @@ function BoundedField({
   value,
   onChange,
   locked,
+  lockedLabel,
   disabled,
   id,
 }: {
@@ -53,6 +59,7 @@ function BoundedField({
   value: number
   onChange: (v: number) => void
   locked: boolean
+  lockedLabel: string
   disabled: boolean
   id: string
 }) {
@@ -72,7 +79,7 @@ function BoundedField({
         </label>
         {locked && (
           <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-500/20 dark:text-amber-200">
-            derived from chip
+            {lockedLabel}
           </span>
         )}
       </div>
@@ -149,9 +156,19 @@ function RunField({
   )
 }
 
-export function ModelConfigForm({ bounds, value, onChange, locked, idPrefix = 'model', disabled = false }: ModelConfigFormProps) {
+export function ModelConfigForm({
+  bounds,
+  value,
+  onChange,
+  locked,
+  lockedLabels,
+  afterDynamics,
+  idPrefix = 'model',
+  disabled = false,
+}: ModelConfigFormProps) {
   const [warning, setWarning] = useState<string | null>(null)
   const isLocked = (k: keyof ModelConfig) => Boolean(locked?.has(k))
+  const lockedLabel = (k: keyof ModelConfig) => lockedLabels?.[k] ?? 'derived from chip'
   const id = (k: string) => `${idPrefix}-${k}`
 
   function set<K extends keyof ModelConfig>(key: K, v: ModelConfig[K]) {
@@ -175,6 +192,7 @@ export function ModelConfigForm({ bounds, value, onChange, locked, idPrefix = 'm
       value={value[name] as number}
       onChange={(v) => set(name, v as ModelConfig[typeof name])}
       locked={isLocked(name)}
+      lockedLabel={lockedLabel(name)}
       disabled={disabled}
       id={id(name)}
     />
@@ -212,6 +230,8 @@ export function ModelConfigForm({ bounds, value, onChange, locked, idPrefix = 'm
         {bounded('maintenance_rate')}
         {bounded('repair_rate')}
       </fieldset>
+
+      {afterDynamics}
 
       <fieldset className="space-y-3">
         <legend className="mb-2 text-sm font-semibold">Population &amp; run</legend>

@@ -62,12 +62,9 @@ export const loadCompareUserConfig = () => load(COMPARE_USER_CONFIG_KEY)
 export const saveCompareUserConfig = (v: ScenarioHandoff) => save(COMPARE_USER_CONFIG_KEY, v)
 export const clearCompareUserConfig = () => clear(COMPARE_USER_CONFIG_KEY)
 
-/** GenomeSpec.to_config(genome, seed): the base config with the free genes overwritten. */
-export function genomeToConfig(base: ModelConfig, genome: Record<string, number>, seed?: number): ModelConfig {
-  const cfg: ModelConfig = { ...base, ...(genome as Partial<ModelConfig>) }
-  if (seed !== undefined) cfg.seed = seed
-  return cfg
-}
+// GenomeSpec.to_config(genome, seed) -- constant genes overwrite scalar fields,
+// `<gene>@<phase>` genes become the config's `schedule` (scheduleUtils.ts).
+export { genomeToConfig } from './scheduleUtils'
 
 export function signed(v: number | null | undefined, digits = 3): string {
   if (v === null || v === undefined || Number.isNaN(v)) return 'n/a'

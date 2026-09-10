@@ -13,13 +13,23 @@ and each dataclass's own ``.from_dict().validate()` already does full
 validation, raising ``ConfigError`` (mapped to HTTP 400 by the routers).
 Re-declaring every field here would just be a second copy of that contract
 to keep in sync.
+
+The one exception (stage 6b, scheduled intervention protocols -- docs/MODEL.md
+§2.1) is the *shape* of the optional ``schedule`` block and of
+``schedule_phases``: ``ModelConfigBody`` / ``OptimizerConfigBody`` type just
+those two on top of an ``extra="allow"`` free-form dict, so the OpenAPI schema
+documents them and the frontend types can mirror them. Their *semantics*
+(schedulable names, phase count vs. value count, bounds) are still checked by
+``InterventionSchedule.validate()`` -> ``ConfigError`` -> HTTP 400.
 """
 
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+from telomere_lab.schemas import MAX_PHASES
 
 
 # --------------------------------------------------------------------------- #
@@ -77,47 +87,114 @@ class UserResponse(BaseModel):
 
 
 # --------------------------------------------------------------------------- #
+# config blocks (free-form dicts; only the schedule contract is typed)
+# --------------------------------------------------------------------------- #
+class InterventionSchedule(BaseModel):
+    """telomere_lab.schemas.InterventionSchedule.to_dict() (docs/MODEL.md §2.1).
+
+    ``values[name]`` must hold exactly ``phases`` entries and ``name`` must be
+    one of ``SCHEDULABLE_PARAMETERS``; those rules are enforced by the core
+    ``validate()`` (400), this model only fixes the wire shape (422 on a
+    malformed body, like every other request model).
+    """
+
+    phases: int
+    values: Dict[str, List[float]] = Field(default_factory=dict)
+
+
+class ModelConfigBody(BaseModel):
+    """A ``ModelConfig`` dict as accepted by ``ModelConfig.from_dict``.
+
+    Every scalar field stays free-form (``extra="allow"``, see the module
+    docstring); ``schedule`` is the optional protocol block. ``None`` /
+    absent means "constant parameters" -- exactly what ``to_dict()`` emits for
+    an unscheduled config.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    schedule: Optional[InterventionSchedule] = None
+
+    def to_plain(self) -> Dict[str, Any]:
+        """The dict ``ModelConfig.from_dict`` expects (``schedule`` dropped when unset)."""
+        data = self.model_dump()
+        if data.get("schedule") is None:
+            data.pop("schedule", None)
+        return data
+
+
+class OptimizerConfigBody(BaseModel):
+    """An ``EvolutionConfig`` / ``MultiObjectiveConfig`` / ``ActiveLearningConfig`` dict.
+
+    ``schedule_phases`` (protocol search, docs/MODEL.md §2.1) is typed and
+    range-checked here against the core ``MAX_PHASES``; everything else is
+    free-form and validated by the dataclass's own ``validate()``.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    schedule_phases: int = Field(default=1, ge=1, le=MAX_PHASES)
+
+    def to_plain(self) -> Dict[str, Any]:
+        return self.model_dump()
+
+
+# --------------------------------------------------------------------------- #
 # simulate
 # --------------------------------------------------------------------------- #
 class SimulateRequest(BaseModel):
-    config: Dict[str, Any] = Field(default_factory=dict)
+    config: ModelConfigBody = Field(default_factory=ModelConfigBody)
+
+
+class SimulationRunResponse(BaseModel):
+    """``SimulationResult.to_json_dict()`` (+ ``run_id`` / ``fitness`` on /simulate).
+
+    Free-form apart from ``applied_schedule``: the per-cycle value actually
+    applied for every *scheduled* parameter, each array ``cycles + 1`` long on
+    the same axis as ``timeseries.cycle`` (docs/MODEL.md §2.1); ``{}`` when the
+    config has no schedule.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    applied_schedule: Dict[str, List[float]] = Field(default_factory=dict)
 
 
 class SimulateResponse(BaseModel):
-    run: Dict[str, Any]
+    run: SimulationRunResponse
 
 
 # --------------------------------------------------------------------------- #
 # long-running jobs (evolve / pareto / sensitivity / active-learning / benchmark)
 # --------------------------------------------------------------------------- #
 class EvolveRequest(BaseModel):
-    model: Dict[str, Any] = Field(default_factory=dict)
-    evolution: Dict[str, Any] = Field(default_factory=dict)
+    model: ModelConfigBody = Field(default_factory=ModelConfigBody)
+    evolution: OptimizerConfigBody = Field(default_factory=OptimizerConfigBody)
     notes: str = ""
 
 
 class ParetoRequest(BaseModel):
-    model: Dict[str, Any] = Field(default_factory=dict)
-    multiobjective: Dict[str, Any] = Field(default_factory=dict)
+    model: ModelConfigBody = Field(default_factory=ModelConfigBody)
+    multiobjective: OptimizerConfigBody = Field(default_factory=OptimizerConfigBody)
     notes: str = ""
 
 
 class SensitivityRequest(BaseModel):
-    model: Dict[str, Any] = Field(default_factory=dict)
+    model: ModelConfigBody = Field(default_factory=ModelConfigBody)
     sensitivity: Dict[str, Any] = Field(default_factory=dict)
     notes: str = ""
 
 
 class ActiveLearningRequest(BaseModel):
-    model: Dict[str, Any] = Field(default_factory=dict)
-    active_learning: Dict[str, Any] = Field(default_factory=dict)
+    model: ModelConfigBody = Field(default_factory=ModelConfigBody)
+    active_learning: OptimizerConfigBody = Field(default_factory=OptimizerConfigBody)
     notes: str = ""
 
 
 class BenchmarkRequest(BaseModel):
-    model: Dict[str, Any] = Field(default_factory=dict)
-    evolution: Dict[str, Any] = Field(default_factory=dict)
-    multiobjective: Dict[str, Any] = Field(default_factory=dict)
+    model: ModelConfigBody = Field(default_factory=ModelConfigBody)
+    evolution: OptimizerConfigBody = Field(default_factory=OptimizerConfigBody)
+    multiobjective: OptimizerConfigBody = Field(default_factory=OptimizerConfigBody)
     notes: str = ""
 
 
@@ -164,6 +241,12 @@ class BoundsResponse(BaseModel):
     fitness_weights_default: Dict[str, float]
     evolution_default: Dict[str, Any]   # EvolutionConfig().to_dict() (includes nested weights)
     objectives: Dict[str, ObjectiveInfo] = Field(default_factory=dict)  # OBJECTIVES (Phase 4, Pareto page)
+    # Stage 6b (schedules, docs/MODEL.md §2.1): the parameters a schedule may
+    # vary, the phase cap, and named example protocols as full ModelConfig
+    # dicts (configs/demo_fasting.yaml -> "demo_fasting"; absent file -> no key).
+    schedulable: List[str] = Field(default_factory=list)   # SCHEDULABLE_PARAMETERS
+    max_phases: int = MAX_PHASES
+    presets: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
 
 
 class VersionResponse(BaseModel):
@@ -231,7 +314,7 @@ class ArtifactInfo(BaseModel):
 # --------------------------------------------------------------------------- #
 class CompareScenario(BaseModel):
     name: str = Field(min_length=1, max_length=80)
-    config: Dict[str, Any] = Field(default_factory=dict)
+    config: ModelConfigBody = Field(default_factory=ModelConfigBody)
 
 
 class CompareRequest(BaseModel):
@@ -243,7 +326,7 @@ class CompareRequest(BaseModel):
 
 class CompareScenarioResult(BaseModel):
     name: str
-    result: Dict[str, Any]          # SimulationResult.to_json_dict()
+    result: SimulationRunResponse   # SimulationResult.to_json_dict() (incl. applied_schedule)
     fitness: Optional[float] = None # breakdown.total (None when the run is invalid)
     breakdown: Dict[str, Any]       # FitnessBreakdown.to_dict()
     deltas: Optional[Dict[str, Optional[float]]] = None  # runner.deltas vs. the first scenario; None for it

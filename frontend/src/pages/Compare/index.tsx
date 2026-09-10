@@ -17,9 +17,11 @@ import { PageHeader } from '../../components/PageHeader'
 import { loadBaseline } from '../../components/baseline'
 import { Plot } from '../../components/charts/Plot'
 import { overlayChart } from '../../components/charts/compareCharts'
+import { protocolOverlayChart } from '../../components/charts/scheduleCharts'
 import { fitnessBreakdownBar } from '../../components/charts/simulationCharts'
 import { usePrefersDark } from '../../components/charts/theme'
 import { loadCompareUserConfig, loadEvolveBest, signed } from '../../components/handoff'
+import { isScheduled, meanApplied } from '../../components/scheduleUtils'
 import { FEATURES } from '../../features'
 
 const FEATURE = FEATURES.find((f) => f.path === '/compare')!
@@ -43,8 +45,18 @@ const DELTA_COLUMNS: Array<[string, keyof NonNullable<CompareResponse['scenarios
   ['Δ survival (AUC)', 'survival_abs', 3],
 ]
 
+// Time-averaged doses of the schedulable parameters (docs/MODEL.md §2.1),
+// shown in the parameter table when at least one scenario is scheduled. Each
+// mean is taken over the applied per-cycle values the API returned.
+const MEAN_COLUMNS: Array<[string, 'stress_level' | 'maintenance_rate' | 'repair_rate']> = [
+  ['s̄ (mean stress)', 'stress_level'],
+  ['m̄ (mean maintenance)', 'maintenance_rate'],
+  ['r̄ (mean repair)', 'repair_rate'],
+]
+
 function summary(c: ModelConfig): string {
-  return `stress=${c.stress_level.toFixed(3)}, maintenance=${c.maintenance_rate.toFixed(3)}, repair=${c.repair_rate.toFixed(3)}`
+  const base = `stress=${c.stress_level.toFixed(3)}, maintenance=${c.maintenance_rate.toFixed(3)}, repair=${c.repair_rate.toFixed(3)}`
+  return isScheduled(c) ? `${base} (phase 0 of a ${c.schedule.phases}-phase protocol: ${Object.keys(c.schedule.values).join(', ')})` : base
 }
 
 export function Compare() {
@@ -95,11 +107,13 @@ export function Compare() {
 
   const valid = useMemo(() => response?.scenarios.filter((s) => s.result.valid) ?? [], [response])
   const invalid = useMemo(() => response?.scenarios.filter((s) => !s.result.valid) ?? [], [response])
+  const anyScheduled = useMemo(() => (response?.scenarios ?? []).some((s) => isScheduled(s.result.config)), [response])
 
   const figures = useMemo(() => {
     if (!valid.length || !baseline) return null
     const runs = valid.map((s) => ({ name: s.name, run: s.result }))
     return {
+      protocol: runs.some(({ run }) => Object.keys(run.applied_schedule ?? {}).length) ? protocolOverlayChart(runs, dark) : null,
       length: overlayChart(runs, 'mean_length_bp', 'Mean telomere length (kb)', 'kb', dark, {
         kb: true,
         hline: baseline.senescence_threshold / 1000,
@@ -298,6 +312,15 @@ export function Compare() {
                 <Plot figure={figures.length} />
                 <Plot figure={figures.population} />
               </div>
+              {figures.protocol && (
+                <div className="space-y-2" aria-label="Applied protocols">
+                  <Plot figure={figures.protocol} />
+                  <p className="prose-muted text-xs">
+                    Dashed step lines: the value in force at each cycle for every scheduled parameter of a scheduled
+                    scenario (constant scenarios are not drawn). Cost is charged on the time averages (s̄ / m̄ / r̄ below).
+                  </p>
+                </div>
+              )}
             </>
           )}
 
@@ -352,23 +375,56 @@ export function Compare() {
                         {k}
                       </th>
                     ))}
+                    {anyScheduled &&
+                      MEAN_COLUMNS.map(([label]) => (
+                        <th key={label} className="px-3 py-2 text-right">
+                          {label}
+                        </th>
+                      ))}
                   </tr>
                 </thead>
                 <tbody className="font-mono">
-                  {response.scenarios.map((s) => (
-                    <tr key={s.name} className="border-t border-slate-200 dark:border-slate-800">
-                      <td className="px-3 py-1.5 font-sans">{s.name}</td>
-                      <td className="px-3 py-1.5 text-right">{s.fitness === null ? 'invalid' : s.fitness.toFixed(4)}</td>
-                      {PARAM_COLUMNS.map((k) => (
-                        <td key={k} className="px-3 py-1.5 text-right">
-                          {Number.isInteger(s.result.config[k]) ? s.result.config[k] : Number(s.result.config[k]).toFixed(3)}
+                  {response.scenarios.map((s) => {
+                    const cfg = s.result.config
+                    const applied = s.result.applied_schedule ?? {}
+                    return (
+                      <tr key={s.name} className="border-t border-slate-200 dark:border-slate-800">
+                        <td className="px-3 py-1.5 font-sans">
+                          {s.name}
+                          {isScheduled(cfg) && (
+                            <span className="prose-muted ml-1 text-[10px]" title="scheduled: scalar columns show the phase-0 value">
+                              ({cfg.schedule.phases}-phase protocol)
+                            </span>
+                          )}
                         </td>
-                      ))}
-                    </tr>
-                  ))}
+                        <td className="px-3 py-1.5 text-right">{s.fitness === null ? 'invalid' : s.fitness.toFixed(4)}</td>
+                        {PARAM_COLUMNS.map((k) => (
+                          <td key={k} className="px-3 py-1.5 text-right">
+                            {Number.isInteger(cfg[k]) ? String(cfg[k]) : Number(cfg[k]).toFixed(3)}
+                            {k in applied && <span title="phase-0 value; see the mean column">†</span>}
+                          </td>
+                        ))}
+                        {anyScheduled &&
+                          MEAN_COLUMNS.map(([label, k]) => {
+                            const m = k in applied ? meanApplied(applied[k]) : cfg[k]
+                            return (
+                              <td key={label} className="px-3 py-1.5 text-right" data-testid={`mean-${k}`}>
+                                {m === null ? '' : m.toFixed(3)}
+                              </td>
+                            )
+                          })}
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
+            {anyScheduled && (
+              <p className="prose-muted mt-1 text-xs">
+                † scheduled parameter — the scalar column shows its phase-0 value; the s̄ / m̄ / r̄ columns are the time
+                averages over the applied per-cycle values (what the cost term is charged on).
+              </p>
+            )}
           </div>
 
           {breakdowns.length > 0 && (

@@ -123,4 +123,66 @@ describe('Simulate page', () => {
     expect(JSON.parse(window.sessionStorage.getItem('tel_baseline_config')!)).toMatchObject({ stress_level: 0.6 })
     expect(screen.getByRole('status')).toHaveTextContent('Baseline updated for Evolve.')
   })
+
+  it('omits `schedule` from the request when nothing is scheduled', async () => {
+    const fetchMock = mockFetch({
+      'GET /api/meta/bounds': { status: 200, body: BOUNDS },
+      'POST /api/simulate': { status: 200, body: { run: fakeRun() } },
+    })
+    renderApp(<Simulate />, { route: '/simulate', token: 'jwt' })
+    await screen.findByLabelText('Stress level (a.u.)')
+    expect(screen.getByLabelText('Vary stress_level over time')).not.toBeChecked()
+    fireEvent.click(screen.getByRole('button', { name: /Run simulation/ }))
+    await screen.findByTestId('metric-row')
+    const simCall = fetchMock.mock.calls.find(([u]) => String(u).includes('/api/simulate'))
+    const body = JSON.parse(String((simCall![1] as RequestInit).body))
+    expect('schedule' in body.config).toBe(false)
+    expect(screen.queryByTestId('protocol-table')).not.toBeInTheDocument()
+  })
+
+  it('loads the fasting demo preset, posts its schedule verbatim and renders the applied protocol', async () => {
+    const preset = BOUNDS.presets.demo_fasting
+    const run = fakeRun(12)
+    run.config = { ...preset, cycles: 12 }
+    // 12 cycles / 6 phases -> 2-cycle blocks; the API returns cycles + 1 values.
+    run.applied_schedule = { stress_level: [0.9, 0.9, 0.3, 0.3, 0.9, 0.9, 0.3, 0.3, 0.9, 0.9, 0.3, 0.3, 0.3] }
+    const fetchMock = mockFetch({
+      'GET /api/meta/bounds': { status: 200, body: BOUNDS },
+      'POST /api/simulate': { status: 200, body: { run } },
+    })
+    renderApp(<Simulate />, { route: '/simulate', token: 'jwt' })
+    await screen.findByLabelText('Stress level (a.u.)')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Load fasting demo' }))
+    expect(screen.getByRole('status')).toHaveTextContent('Loaded the "demo_fasting" protocol')
+    expect(screen.getByLabelText('Vary stress_level over time')).toBeChecked()
+    expect((screen.getByLabelText(/Phases \(1–8\)/) as HTMLInputElement).value).toBe('6')
+    expect((screen.getByLabelText('stress_level phase 1') as HTMLInputElement).value).toBe('0.3')
+    // The scalar slider is read-only while scheduled and shows the phase-0 value.
+    const stress = screen.getByLabelText('Stress level (a.u.)') as HTMLInputElement
+    expect(stress.value).toBe('0.9')
+    expect(stress).toBeDisabled()
+    expect(screen.getByText('scheduled')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Run simulation/ }))
+    await screen.findByTestId('metric-row')
+    const simCall = fetchMock.mock.calls.find(([u]) => String(u).includes('/api/simulate'))
+    const body = JSON.parse(String((simCall![1] as RequestInit).body))
+    expect(body.config.schedule).toEqual(preset.schedule)
+    expect(body.config.stress_level).toBe(0.9)
+
+    // Applied-protocol step chart + phase table with the time average from applied_schedule.
+    expect(screen.getAllByTestId('plot').map((el) => el.textContent)).toContain('Applied protocol')
+    const table = screen.getByTestId('protocol-table')
+    expect(table.querySelectorAll('tbody tr')).toHaveLength(7) // 6 phases + time average
+    const rows = Array.from(table.querySelectorAll('tbody tr')).map((tr) => Array.from(tr.querySelectorAll('td')).map((td) => td.textContent))
+    expect(rows[0]).toEqual(['0', '0–1', '0.900'])
+    expect(rows[1]).toEqual(['1', '2–3', '0.300'])
+    expect(rows[6]).toEqual(['time average', '0.600'])
+
+    // Reset to constant drops the schedule again.
+    fireEvent.click(screen.getByRole('button', { name: 'Reset to constant' }))
+    expect(screen.getByLabelText('Vary stress_level over time')).not.toBeChecked()
+    expect(screen.getByLabelText('Stress level (a.u.)')).not.toBeDisabled()
+  })
 })

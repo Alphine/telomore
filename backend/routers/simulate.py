@@ -25,7 +25,7 @@ router = APIRouter(tags=["simulate"])
 def simulate(body: api_schemas.SimulateRequest, user: _db.User = Depends(get_current_user)
              ) -> api_schemas.SimulateResponse:
     try:
-        config = ModelConfig.from_dict(body.config).validate()
+        config = ModelConfig.from_dict(body.config.to_plain()).validate()
     except ConfigError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
 

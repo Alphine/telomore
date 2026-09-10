@@ -87,11 +87,16 @@ src/
               handoff.ts (Evolve/Pareto -> Compare scenarios, see below),
               download.ts (Blob exports, CSV builders), PageHeader, ProgressBar,
               Provenance (run id + config hash line), BaselineSummary,
-              CheckboxGroup (st.multiselect as checkboxes)
+              CheckboxGroup (st.multiselect as checkboxes),
+              scheduleUtils.ts (phase arithmetic, schedule payloads, genomeToConfig),
+              ScheduleEditor (Simulate's "Protocol (schedule)" section),
+              ProtocolTable (phase table + time averages), PhasesControl
+              (optimizers' schedule_phases), GeneName (`gene@phase` rendering)
               charts/  Plot.tsx (lazy wrapper), PlotlyPlot.tsx (the plotly import),
                        theme.ts (PALETTE/_LAYOUT port + dark mode),
                        simulationCharts.ts, evolutionCharts.ts, paretoCharts.ts,
-                       sensitivityCharts.ts, activeLearningCharts.ts, compareCharts.ts
+                       sensitivityCharts.ts, activeLearningCharts.ts, compareCharts.ts,
+                       scheduleCharts.ts (step-line protocol figures)
   pages/      Landing, Login, Register, ForgotPassword, ResetPassword, Verify,
               Simulate/ (index.tsx, metrics.ts), Evolve/ (index.tsx, form.ts),
               Pareto/ (index.tsx, form.ts), Sensitivity/, ActiveLearning/,
@@ -263,6 +268,76 @@ saves the Blob, because a bare link cannot send the token) and the full
 record JSON. Scoped down: no **zip bundle** download (the API serves single
 files; `bundle_run_dir` is not exposed) and no "current environment" JSON
 (`GET /api/meta/version` covers the versions).
+
+## Scheduled protocols (stage 6b, 2026-09-10)
+
+`docs/MODEL.md` §2.1 lets `stress_level` / `maintenance_rate` /
+`repair_rate` vary as `K ≤ 8` piecewise-constant phases
+(`ModelConfig.schedule`), and the optimizers search one value per phase
+(`schedule_phases`). The API contract is in `../docs/API.md` (Simulate →
+"Scheduled intervention protocols", the `schedule_phases` note under
+long-running jobs, and the new `schedulable` / `max_phases` / `presets`
+keys of `GET /api/meta/bounds`). Nothing about schedules is hardcoded in
+TypeScript: the parameter list, the phase cap, the bounds of each per-phase
+input and the fasting preset all come from that endpoint.
+
+* **`components/scheduleUtils.ts`** (pure, unit-tested against MODEL.md's
+  examples incl. cycles not divisible by K): `phaseIndex(t, cycles, K) =
+  min(K−1, ⌊tK/cycles⌋)`, `phaseBounds`, `perCycleValues`, `meanApplied`
+  (time average over the `cycles` steps of an `applied_schedule` array — the
+  trailing clamped entry is dropped; this, not a formula, is what the UI
+  reports as m̄ / r̄), `buildSchedule` / `withSchedule` / `configPayload`
+  (emit exactly the `ModelConfig.to_dict()` shape, keep a scheduled
+  parameter's scalar equal to its phase-0 value, and **omit** the `schedule`
+  key from requests when nothing is scheduled), `splitGeneName` /
+  `groupGenes` (`maintenance_rate@3` → parameter + phase) and
+  `genomeToConfig` (the client port of `GenomeSpec.to_config`: `@` genes are
+  assembled into a schedule whose phase count is the number of phases present
+  for that parameter; `handoff.ts` re-exports it, so Evolve *Set best as
+  baseline*, the Compare hand-offs and Pareto *Send this point* all carry a
+  proper `schedule` instead of raw `@` keys).
+* **Simulate** — `components/ScheduleEditor.tsx` renders as a "Protocol
+  (schedule)" fieldset right after Dynamics (via `ModelConfigForm`'s
+  `afterDynamics` slot): one "vary over time" toggle per `bounds.schedulable`
+  parameter, a shared phase count (1..`bounds.max_phases`, showing the cycle
+  ranges of each phase), one bounded number input per phase for every
+  scheduled parameter, **Load fasting demo** (`bounds.presets.demo_fasting`,
+  replaces the whole config) and **Reset to constant**. A scheduled
+  parameter's scalar slider becomes read-only with a "scheduled" badge
+  (`ModelConfigForm`'s `lockedLabels`); with the organ-on-chip mapper on, its
+  two derived parameters cannot be scheduled (and are dropped from an existing
+  schedule). Results: when `run.applied_schedule` is non-empty an **Applied
+  protocol** step chart (`scheduleCharts.ts::appliedScheduleChart`, Plotly
+  `line.shape: 'hv'`, follows the particle-canvas cursor) and a
+  `ProtocolTable` (phase → cycle range → values, plus the time average
+  computed from `applied_schedule`) appear above the four trajectory charts.
+  The particle canvas is unchanged. The provenance "reproduce" line points a
+  scheduled run at a YAML `--config` (the CLI's `--set` takes scalars only).
+* **Evolve / Pareto / Active Learning** — a shared `PhasesControl`
+  ("Protocol phases", 1..`max_phases`) sends `schedule_phases`. Its helper
+  text is deliberately factual: a protocol search is a larger search space,
+  and Experiment E (`docs/EXPERIMENT_PROTOCOL.md` §10) found no benefit over
+  a constant dose. With `K > 1` the gene tables show `<gene>@<phase>` rows
+  grouped by parameter in phase order (`GeneName` renders the phase tag), the
+  parameter-trajectory chart maps each `@` gene onto its parameter's bounds,
+  the Pareto colour-by options / hover use the actual genome keys, and the
+  best candidate (Evolve), the picked front point (Pareto) and the best genome
+  (Active Learning) get a phase table + step plot of the schedule
+  `genomeToConfig` assembled (expanded with the same phase arithmetic — the
+  job results carry no per-cycle payload).
+* **Compare** — scenarios pass through untouched (the hand-offs and the
+  session baseline may carry a `schedule`). When any scenario is scheduled, a
+  compact **Applied protocols** panel draws each scheduled scenario's
+  `applied_schedule` as dashed `hv` step lines (`protocolOverlayChart`), and
+  the scenario-parameter table gains s̄ / m̄ / r̄ columns (`meanApplied` of the
+  applied values; a constant scenario shows its scalar) with a † on the scalar
+  cells of scheduled parameters (phase-0 values).
+* Tests: `scheduleUtils.test.ts`, `ScheduleEditor.test.tsx`,
+  `charts/scheduleCharts.test.ts`, plus new cases in the Simulate (payload
+  omitted when constant; fasting preset posted verbatim + applied protocol
+  rendered), Evolve (`schedule_phases` sent, `@` rows, best-protocol table,
+  hand-off shape) and Compare (pass-through, protocol panel, mean columns)
+  suites — Vitest 76.
 
 ## `useJob` (`api/useJob.ts`)
 

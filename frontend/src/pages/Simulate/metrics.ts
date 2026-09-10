@@ -1,5 +1,6 @@
 import type { SimulationRun } from '../../api/types'
 import type { Metric } from '../../components/MetricRow'
+import { isScheduled } from '../../components/scheduleUtils'
 
 /** app/ui/components.py::terminal_metric_row (six metrics incl. fitness). */
 export function terminalMetrics(run: SimulationRun): Metric[] {
@@ -16,11 +17,18 @@ export function terminalMetrics(run: SimulationRun): Metric[] {
   ]
 }
 
-/** app/ui/components.py::provenance -- the CLI command that reproduces the run. */
+/**
+ * app/ui/components.py::provenance -- the CLI command that reproduces the run.
+ * `--set` takes scalars only, so a schedule (a nested block) is pointed at a
+ * YAML `--config` instead, like configs/demo_fasting.yaml.
+ */
 export function reproduceCommand(run: SimulationRun): string {
   const sets = Object.entries(run.config)
-    .filter(([k]) => k !== 'seed')
+    .filter(([k]) => k !== 'seed' && k !== 'schedule')
     .map(([k, v]) => `--set ${k}=${v}`)
     .join(' ')
-  return `python scripts/run_simulation.py --seed ${run.seed} ${sets}`
+  const cmd = `python scripts/run_simulation.py --seed ${run.seed} ${sets}`
+  return isScheduled(run.config)
+    ? `# scheduled protocol: put run.config (incl. "schedule") in a YAML "model:" block, then\npython scripts/run_simulation.py --config <file>.yaml --seed ${run.seed}\n# constant-parameter part only:\n${cmd}`
+    : cmd
 }

@@ -7,7 +7,12 @@ import type { MOCandidate, MOGenerationRecord, ObjectiveInfo } from '../../api/t
 import type { Figure } from './Plot'
 import { PALETTE, baseLayout } from './theme'
 
-const HOVER_GENES = ['stress_level', 'maintenance_rate', 'repair_rate', 'shortening_rate', 'initial_length', 'senescence_threshold']
+import { groupGenes } from '../scheduleUtils'
+
+/** Hover lists every genome key, protocol genes (`<gene>@<phase>`) grouped by parameter and in phase order. */
+function hoverGenes(genome: Record<string, number>): string[] {
+  return groupGenes(Object.keys(genome)).flatMap((g) => g.genes)
+}
 
 /** Front sorted by the first objective (ParetoResult.front_frame sorts by vector[0], i.e. the same order). */
 export function sortedFront(front: MOCandidate[], objectives: string[], objInfo: Record<string, ObjectiveInfo>): MOCandidate[] {
@@ -34,7 +39,7 @@ export function paretoScatter(
   const data: Data[] = []
   if (f.length) {
     const hover = f.map((c) => {
-      const genes = HOVER_GENES.filter((g) => g in c.genome)
+      const genes = hoverGenes(c.genome)
         .map((g) => `<br>${g}: ${c.genome[g].toFixed(3)}`)
         .join('')
       return `<b>${ox}</b> ${c.objectives[ox].toFixed(3)}<br><b>${oy}</b> ${c.objectives[oy].toFixed(3)}${genes}`

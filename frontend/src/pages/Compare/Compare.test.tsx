@@ -120,6 +120,39 @@ describe('Compare page', () => {
     expect(body.scenarios[2].config.repair_rate).toBe(0.9)
   })
 
+  it('passes a scheduled hand-off through untouched and shows the protocol panel + mean-dose columns', async () => {
+    const protocol = { phases: 2, values: { maintenance_rate: [0.8, 0.2] } }
+    saveEvolveBest({ config: { ...BOUNDS.demo, maintenance_rate: 0.8, schedule: protocol }, label: 'Evolve run TEL-2', run_id: 'TEL-2' })
+    const scheduled = scenario('Best evolved', { maintenance_rate: 0.8, schedule: protocol }, 0.5, {
+      fitness_abs: 0.1,
+      fitness_pct: 25,
+      senescence_pp: -1,
+      reserve_kb: 0.1,
+      mean_length_kb: 0.1,
+      survival_abs: 0.05,
+    })
+    // fakeRun has 4 cycles -> 2 phases of 2 cycles; applied_schedule is cycles + 1 long.
+    scheduled.result.applied_schedule = { maintenance_rate: [0.8, 0.8, 0.2, 0.2, 0.2] }
+    const fetchMock = mockFetch({
+      'GET /api/meta/bounds': { status: 200, body: BOUNDS },
+      'POST /api/compare': { status: 200, body: { baseline: 'Baseline', scenarios: [scenario('Baseline', {}, 0.4, null), scheduled] } },
+    })
+    renderApp(<Compare />, { route: '/compare', token: 'jwt' })
+    await screen.findByText(/Evolve run TEL-2/)
+    expect(screen.getByText(/phase 0 of a 2-phase protocol: maintenance_rate/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Compare 2 scenarios/ }))
+
+    const table = await screen.findByTestId('params-table')
+    const call = fetchMock.mock.calls.find(([u]) => String(u).includes('/api/compare'))
+    const body = JSON.parse(String((call![1] as RequestInit).body))
+    expect(body.scenarios[1].config.schedule).toEqual(protocol)
+    expect(screen.getAllByTestId('plot').map((el) => el.textContent)).toContain('Applied protocols (scheduled scenarios)')
+    const means = Array.from(table.querySelectorAll('[data-testid="mean-maintenance_rate"]')).map((td) => td.textContent)
+    expect(means).toEqual(['0.100', '0.500']) // constant scenario: its scalar; protocol: mean of the applied steps
+    expect(table).toHaveTextContent('2-phase protocol')
+    expect(table).toHaveTextContent('†')
+  })
+
   it('shows a 400 from the API', async () => {
     mockFetch({
       'GET /api/meta/bounds': { status: 200, body: BOUNDS },

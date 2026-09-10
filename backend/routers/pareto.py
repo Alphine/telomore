@@ -25,8 +25,8 @@ router = APIRouter(tags=["pareto"])
 def start_pareto(body: api_schemas.ParetoRequest, user: _db.User = Depends(get_current_user)
                   ) -> api_schemas.JobStartResponse:
     try:
-        base_config = ModelConfig.from_dict(body.model).validate()
-        mo_config = MultiObjectiveConfig.from_dict(body.multiobjective).validate()
+        base_config = ModelConfig.from_dict(body.model.to_plain()).validate()
+        mo_config = MultiObjectiveConfig.from_dict(body.multiobjective.to_plain()).validate()
     except ConfigError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
 

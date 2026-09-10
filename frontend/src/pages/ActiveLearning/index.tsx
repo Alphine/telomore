@@ -15,14 +15,18 @@ import { CheckboxGroup } from '../../components/CheckboxGroup'
 import { MetricRow } from '../../components/MetricRow'
 import { NumberInput } from '../../components/NumberInput'
 import { PageHeader } from '../../components/PageHeader'
+import { PhasesControl } from '../../components/PhasesControl'
 import { ProgressBar } from '../../components/ProgressBar'
+import { ProtocolTable } from '../../components/ProtocolTable'
 import { Provenance } from '../../components/Provenance'
 import { loadBaseline } from '../../components/baseline'
 import { Plot } from '../../components/charts/Plot'
 import { convergenceChart } from '../../components/charts/activeLearningCharts'
+import { appliedScheduleChart, scheduleToApplied } from '../../components/charts/scheduleCharts'
 import { usePrefersDark } from '../../components/charts/theme'
 import { downloadJson, downloadText, rowsCsv } from '../../components/download'
-import { parseIntList, signed } from '../../components/handoff'
+import { genomeToConfig, parseIntList, signed } from '../../components/handoff'
+import { isScheduled } from '../../components/scheduleUtils'
 import { FEATURES } from '../../features'
 
 const FEATURE = FEATURES.find((f) => f.path === '/active-learning')!
@@ -76,6 +80,7 @@ export function ActiveLearning() {
   const [xi, setXi] = useState(DEFAULTS.xi)
   const [seed, setSeed] = useState(DEFAULTS.seed)
   const [seedsText, setSeedsText] = useState(DEFAULTS.seeds)
+  const [schedulePhases, setSchedulePhases] = useState(1)
   const [base, setBase] = useState<ModelConfig | null>(null)
   const [notes, setNotes] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
@@ -118,6 +123,7 @@ export function ActiveLearning() {
       seed,
       xi,
       candidate_pool_size: 500,
+      schedule_phases: schedulePhases,
       weights: bounds.fitness_weights_default,
     }
     setSubmitting(true)
@@ -136,6 +142,15 @@ export function ActiveLearning() {
 
   const convergence = useMemo(() => (records.length ? convergenceChart(records, dark) : null), [records, dark])
   const total = submitted ? submitted.n_initial + submitted.n_iterations : 0
+  // Best genome as a full config: `<gene>@<phase>` genes form its schedule.
+  const bestConfig = useMemo(() => (result && baseline ? genomeToConfig(baseline, result.best_genome) : null), [result, baseline])
+  const bestProtocol = useMemo(
+    () =>
+      bestConfig && isScheduled(bestConfig)
+        ? appliedScheduleChart(scheduleToApplied(bestConfig.schedule, bestConfig.cycles), dark, null, 'Best genome protocol (per-cycle values)')
+        : null,
+    [bestConfig, dark],
+  )
 
   return (
     <div className="space-y-6">
@@ -244,6 +259,7 @@ export function ActiveLearning() {
                 />
               </div>
             </div>
+            <PhasesControl id="al-phases" value={schedulePhases} max={bounds.max_phases} disabled={isActive} onChange={setSchedulePhases} />
             <div>
               <label className="label" htmlFor="al-notes">
                 Notes for the ledger
@@ -333,6 +349,18 @@ export function ActiveLearning() {
               include one, so it is not shown here.
             </p>
           </div>
+
+          {bestConfig && isScheduled(bestConfig) && bestProtocol && (
+            <div className="space-y-3" aria-label="Best genome protocol">
+              <h3 className="text-base font-semibold">Best genome protocol ({bestConfig.schedule.phases} phases)</h3>
+              <Plot figure={bestProtocol} />
+              <ProtocolTable schedule={bestConfig.schedule} cycles={bestConfig.cycles} />
+              <p className="prose-muted text-xs">
+                One value per phase for each scheduled gene (cost charged on the time averages) — a model configuration
+                under the stated objective, not a regimen.
+              </p>
+            </div>
+          )}
 
           <div>
             <h3 className="mb-2 text-base font-semibold">Iterations: surrogate prediction vs. actual fitness</h3>

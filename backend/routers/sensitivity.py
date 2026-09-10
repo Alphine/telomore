@@ -34,7 +34,7 @@ router = APIRouter(tags=["sensitivity"])
 def start_sensitivity(body: api_schemas.SensitivityRequest, user: _db.User = Depends(get_current_user)
                        ) -> api_schemas.JobStartResponse:
     try:
-        base_config = ModelConfig.from_dict(body.model).validate()
+        base_config = ModelConfig.from_dict(body.model.to_plain()).validate()
         sens_config = SensitivityConfig.from_dict(body.sensitivity).validate()
     except ConfigError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))

@@ -62,7 +62,16 @@ export interface HealthResponse {
 }
 
 // ---------------------------------------------------------------- configs
-// telomere_lab.schemas.ModelConfig
+// telomere_lab.schemas.InterventionSchedule.to_dict() (docs/MODEL.md §2.1):
+// `values[name]` holds exactly `phases` entries for a SCHEDULABLE_PARAMETERS
+// name (bounds.schedulable); parameters absent from `values` stay constant.
+export interface InterventionSchedule {
+  phases: number
+  values: Record<string, number[]>
+}
+
+// telomere_lab.schemas.ModelConfig (to_dict() emits `schedule: null` when
+// unscheduled; requests may omit the key entirely -- backend/schemas.py::ModelConfigBody).
 export interface ModelConfig {
   initial_length: number
   initial_length_sd: number
@@ -81,6 +90,8 @@ export interface ModelConfig {
   cycles: number
   seed: number
   record_distribution_every: number
+  /** Optional time-varying protocol; when set, the scalar field of a scheduled parameter is its phase-0 value. */
+  schedule?: InterventionSchedule | null
 }
 
 // telomere_lab.schemas.FitnessWeights
@@ -108,6 +119,8 @@ export interface EvolutionConfig {
   early_stopping_patience: number
   early_stopping_tol: number
   checkpoint_every: number
+  /** >1 expands every free SCHEDULABLE gene into one `<gene>@<phase>` gene per phase (protocol search). */
+  schedule_phases: number
   weights: FitnessWeights
 }
 
@@ -124,6 +137,7 @@ export interface MultiObjectiveConfig {
   free_genes: string[]
   objectives: string[]
   checkpoint_every: number
+  schedule_phases: number
   weights: FitnessWeights
 }
 
@@ -144,6 +158,7 @@ export interface ActiveLearningConfig {
   seed: number
   xi: number
   candidate_pool_size: number
+  schedule_phases: number
   weights: FitnessWeights
 }
 
@@ -171,6 +186,12 @@ export interface BoundsResponse {
   fitness_weights_default: FitnessWeights
   evolution_default: EvolutionConfig
   objectives: Record<string, ObjectiveInfo>
+  /** SCHEDULABLE_PARAMETERS -- the only parameters a schedule may vary. */
+  schedulable: string[]
+  /** MAX_PHASES -- upper bound for schedule.phases / schedule_phases. */
+  max_phases: number
+  /** Named example protocols as full ModelConfigs (configs/demo_fasting.yaml -> "demo_fasting"). */
+  presets: Record<string, ModelConfig>
 }
 
 export interface VersionResponse {
@@ -259,6 +280,13 @@ export interface SimulationRun {
   runtime_seconds: number
   terminal_metrics: Partial<TerminalMetrics>
   timeseries: SimulationTimeseries
+  /**
+   * Per-cycle value actually applied for every *scheduled* parameter, each
+   * `cycles + 1` long on the `timeseries.cycle` axis (entry t = value in force
+   * during step t -> t+1; the last entry repeats the final phase). `{}` when
+   * the config has no schedule.
+   */
+  applied_schedule: Record<string, number[]>
   final_lengths_bp: number[]
   run_id: string
   fitness: FitnessBreakdown

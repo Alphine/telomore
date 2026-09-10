@@ -23,6 +23,7 @@ export const PARETO_DEFAULTS: ParetoForm = {
   eval_seeds_text: '42',
   free_genes: ['stress_level', 'maintenance_rate', 'repair_rate'],
   objectives: ['survival', 'cost'],
+  schedule_phases: 1,
 }
 
 export const WHY_NSGA2 =

@@ -24,8 +24,10 @@ from telomere_lab.config import CONFIG_DIR, load_model_config
 from telomere_lab.experiments.registry import environment_metadata
 from telomere_lab.schemas import (
     EVOLVABLE_PARAMETERS,
+    MAX_PHASES,
     OBJECTIVES,
     PARAMETER_BOUNDS,
+    SCHEDULABLE_PARAMETERS,
     EvolutionConfig,
     FitnessWeights,
     ModelConfig,
@@ -60,6 +62,20 @@ def _demo_config() -> ModelConfig:
     return load_model_config(path) if path.exists() else ModelConfig()
 
 
+#: Named example protocols exposed as ``presets`` (name -> configs/<file>.yaml).
+#: Only files that exist are listed, so a missing YAML degrades to no preset.
+PRESET_FILES = {"demo_fasting": "demo_fasting.yaml"}
+
+
+def _presets() -> Dict[str, Dict[str, Any]]:
+    out: Dict[str, Dict[str, Any]] = {}
+    for name, filename in PRESET_FILES.items():
+        path = CONFIG_DIR / filename
+        if path.exists():
+            out[name] = _plain(load_model_config(path).to_dict())
+    return out
+
+
 @router.get("/bounds", response_model=api_schemas.BoundsResponse)
 def bounds() -> api_schemas.BoundsResponse:
     # PARAMETER_BOUNDS values are (min, max, unit, label, description) tuples.
@@ -78,6 +94,9 @@ def bounds() -> api_schemas.BoundsResponse:
         # OBJECTIVES values are (direction, description) tuples (Pareto page multiselect).
         objectives={name: api_schemas.ObjectiveInfo(direction=direction, description=description)
                     for name, (direction, description) in OBJECTIVES.items()},
+        schedulable=list(SCHEDULABLE_PARAMETERS),
+        max_phases=MAX_PHASES,
+        presets=_presets(),
     )
 
 

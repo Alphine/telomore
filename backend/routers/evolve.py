@@ -25,8 +25,8 @@ router = APIRouter(tags=["evolve"])
 def start_evolve(body: api_schemas.EvolveRequest, user: _db.User = Depends(get_current_user)
                   ) -> api_schemas.JobStartResponse:
     try:
-        base_config = ModelConfig.from_dict(body.model).validate()
-        evo_config = EvolutionConfig.from_dict(body.evolution).validate()
+        base_config = ModelConfig.from_dict(body.model.to_plain()).validate()
+        evo_config = EvolutionConfig.from_dict(body.evolution.to_plain()).validate()
     except ConfigError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
 

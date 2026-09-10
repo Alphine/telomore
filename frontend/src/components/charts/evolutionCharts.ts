@@ -7,6 +7,7 @@ import type { Data, Layout } from 'plotly.js-dist-min'
 import type { GenerationRecord, ParameterBound } from '../../api/types'
 import type { Figure } from './Plot'
 import { PALETTE, baseLayout } from './theme'
+import { splitGeneName } from '../scheduleUtils'
 
 export function evolutionFitnessChart(history: GenerationRecord[], dark: boolean): Figure {
   const gen = history.map((h) => h.generation)
@@ -63,10 +64,11 @@ export function parameterTrajectoryChart(
   dark: boolean,
 ): Figure {
   const gen = history.map((h) => h.generation)
+  // A protocol gene `<parameter>@<phase>` uses its parameter's bounds.
   const data: Data[] = genes
-    .filter((g) => g in bounds)
+    .filter((g) => splitGeneName(g).parameter in bounds)
     .map((g, i) => {
-      const { min: lo, max: hi } = bounds[g]
+      const { min: lo, max: hi } = bounds[splitGeneName(g).parameter]
       const raw = history.map((h) => h.best_genome[g])
       return {
         type: 'scatter' as const,

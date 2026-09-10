@@ -31,8 +31,8 @@ router = APIRouter(tags=["active-learning"])
 def start_active_learning(body: api_schemas.ActiveLearningRequest, user: _db.User = Depends(get_current_user)
                            ) -> api_schemas.JobStartResponse:
     try:
-        base_config = ModelConfig.from_dict(body.model).validate()
-        al_config = ActiveLearningConfig.from_dict(body.active_learning).validate()
+        base_config = ModelConfig.from_dict(body.model.to_plain()).validate()
+        al_config = ActiveLearningConfig.from_dict(body.active_learning.to_plain()).validate()
     except ConfigError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
 

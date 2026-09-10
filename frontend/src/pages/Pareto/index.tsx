@@ -15,14 +15,18 @@ import { CheckboxGroup } from '../../components/CheckboxGroup'
 import { MetricRow } from '../../components/MetricRow'
 import { NumberInput } from '../../components/NumberInput'
 import { PageHeader } from '../../components/PageHeader'
+import { PhasesControl } from '../../components/PhasesControl'
 import { ProgressBar } from '../../components/ProgressBar'
+import { ProtocolTable } from '../../components/ProtocolTable'
 import { Provenance } from '../../components/Provenance'
 import { loadBaseline } from '../../components/baseline'
 import { Plot } from '../../components/charts/Plot'
 import { hypervolumeChart, paretoScatter, sortedFront } from '../../components/charts/paretoCharts'
+import { appliedScheduleChart, scheduleToApplied } from '../../components/charts/scheduleCharts'
 import { usePrefersDark } from '../../components/charts/theme'
 import { downloadJson, downloadText, rowsCsv } from '../../components/download'
 import { genomeToConfig, parseIntList, saveCompareUserConfig } from '../../components/handoff'
+import { isScheduled } from '../../components/scheduleUtils'
 import { FEATURES } from '../../features'
 import { PARETO_DEFAULTS, WHY_NSGA2, defaultColorGene, frontColumns, frontRow } from './form'
 import type { ParetoForm } from './form'
@@ -108,8 +112,10 @@ export function Pareto() {
   }
 
   const front = useMemo(() => (result ? sortedFront(result.front, objectives, objInfo) : []), [result, objectives, objInfo])
-  const colorOptions = useMemo(() => [...freeGenes, ...objectives.slice(2)], [freeGenes, objectives])
-  const effectiveColor = colorBy === undefined ? defaultColorGene(front, freeGenes) : colorBy
+  // With schedule_phases > 1 the genome keys are `<gene>@<phase>`, so colour by the actual keys.
+  const geneKeys = useMemo(() => (front.length ? Object.keys(front[0].genome) : freeGenes), [front, freeGenes])
+  const colorOptions = useMemo(() => [...geneKeys, ...objectives.slice(2)], [geneKeys, objectives])
+  const effectiveColor = colorBy === undefined ? defaultColorGene(front, geneKeys) : colorBy
 
   const hvFigure = useMemo(
     () => (history.length && objectives.length === 2 ? hypervolumeChart(history, dark) : null),
@@ -133,6 +139,15 @@ export function Pareto() {
 
   const columns = frontColumns(front, objectives)
   const picked = front.length ? front[Math.min(pick, front.length - 1)] : null
+  // The picked point as a full config: protocol genes become its schedule.
+  const pickedConfig = useMemo(() => (picked && baseline ? genomeToConfig(baseline, picked.genome, baseline.seed) : null), [picked, baseline])
+  const pickedProtocol = useMemo(
+    () =>
+      pickedConfig && isScheduled(pickedConfig)
+        ? appliedScheduleChart(scheduleToApplied(pickedConfig.schedule, pickedConfig.cycles), dark, null, 'Picked point protocol (per-cycle values)')
+        : null,
+    [pickedConfig, dark],
+  )
 
   return (
     <div className="space-y-6">
@@ -252,6 +267,13 @@ export function Pareto() {
               value={form.free_genes}
               disabled={isActive}
               onChange={(free_genes) => setForm({ ...form, free_genes })}
+            />
+            <PhasesControl
+              id="par-phases"
+              value={form.schedule_phases}
+              max={bounds.max_phases}
+              disabled={isActive}
+              onChange={(schedule_phases) => setForm({ ...form, schedule_phases })}
             />
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
@@ -463,6 +485,16 @@ export function Pareto() {
                   ...objectives.map((o) => `${o}=${picked.objectives[o].toFixed(3)}`),
                 ].join(' · ')}
               </p>
+              {pickedConfig && isScheduled(pickedConfig) && pickedProtocol && (
+                <div className="space-y-3" aria-label="Picked point protocol">
+                  <Plot figure={pickedProtocol} />
+                  <ProtocolTable schedule={pickedConfig.schedule} cycles={pickedConfig.cycles} />
+                  <p className="prose-muted text-xs">
+                    A {pickedConfig.schedule.phases}-phase protocol: one value per phase for each scheduled gene, cost charged
+                    on the time averages. A model configuration on the front, not a regimen.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

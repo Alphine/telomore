@@ -163,7 +163,7 @@ the app never bears LLM cost and the key is **session-only, never
 persisted to the database** — same non-persistent-credential posture as
 the existing login system.
 
-### Layer 1 — Results interpreter (build first, low risk)
+### Layer 1 — Results interpreter — **DONE 2026-09-11**
 
 Read-only. The LLM reads an experiment's results (ledger entry, sensitivity
 tornado data, Pareto front, active-learning convergence) and writes a
@@ -176,6 +176,17 @@ or similar overclaiming) — the interpreter's system prompt should quote
 that policy directly, not re-derive it. Directly strengthens the judging
 narrative (`docs/SDD.md` §37's four questions) since it can generate that
 narrative dynamically from real run data.
+
+Shipped as: `backend/llm.py` + `backend/routers/llm.py`
+(`POST /api/llm/interpret`, `POST /api/llm/validate-key`,
+`GET /api/meta/llm`), BYOK via the official `anthropic` Python SDK
+(`anthropic.Anthropic(api_key=...)` per request, `claude-opus-5` default,
+`claude-sonnet-5`/`claude-haiku-4-5` selectable, adaptive thinking,
+`output_config.effort`). The key lives in the browser's `sessionStorage`
+only and is never logged/persisted/ledgered; a small in-memory per-user
+rate limit (10 calls / 10 min) caps exposure. `frontend/src/components/
+InterpretPanel.tsx` is mounted on the Experiments detail view and the
+completed-result section of Evolve/Pareto/Sensitivity/Active Learning.
 
 ### Layer 2 — Protocol-designing agent (build after roadmap item #1 above)
 

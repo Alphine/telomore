@@ -94,7 +94,7 @@ export function ScheduleEditor({
 
       {scheduled && (
         <>
-          <div className="flex items-end gap-3">
+          <div className="flex flex-wrap items-end gap-3">
             <div>
               <label className="label" htmlFor={`${idPrefix}-phases`}>
                 Phases (1–{bounds.max_phases})
@@ -125,7 +125,7 @@ export function ScheduleEditor({
                   <p className="label !mb-1">
                     {bound.label} <span className="prose-muted font-normal">per phase ({bound.unit})</span>
                   </p>
-                  <div className="grid grid-cols-4 gap-1.5">
+                  <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
                     {values[name].map((v, k) => (
                       <div key={k}>
                         <span className="prose-muted block text-[10px]">

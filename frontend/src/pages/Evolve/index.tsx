@@ -9,13 +9,15 @@ import { startEvolve } from '../../api/endpoints'
 import type { EvolutionConfig, EvolveResult, FitnessWeights, GenerationRecord, ModelConfig } from '../../api/types'
 import { useBounds } from '../../api/useBounds'
 import { useJob } from '../../api/useJob'
-import { Callout, Disclaimer } from '../../components/Callout'
+import { Callout } from '../../components/Callout'
 import { GeneName } from '../../components/GeneName'
 import { InterpretPanel } from '../../components/InterpretPanel'
 import { MetricRow } from '../../components/MetricRow'
 import { ModelConfigForm } from '../../components/ModelConfigForm'
 import { NumberInput } from '../../components/NumberInput'
+import { PageHeader } from '../../components/PageHeader'
 import { PhasesControl } from '../../components/PhasesControl'
+import { ProgressBar } from '../../components/ProgressBar'
 import { ProtocolTable } from '../../components/ProtocolTable'
 import { loadBaseline, saveBaseline } from '../../components/baseline'
 import { Plot } from '../../components/charts/Plot'
@@ -141,16 +143,7 @@ export function Evolve() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">
-          <span aria-hidden className="mr-2">
-            {FEATURE.icon}
-          </span>
-          {FEATURE.title}
-        </h1>
-        <p className="prose-muted mt-2 max-w-2xl">{FEATURE.description}</p>
-      </div>
-      <Disclaimer />
+      <PageHeader feature={FEATURE} />
 
       {boundsError && (
         <Callout tone="error" role="alert">
@@ -403,16 +396,16 @@ export function Evolve() {
             const frac = rec && nTotal > 0 ? Math.min(rec.generation / nTotal, 1) : 0
             return (
               <>
-                <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
-                  <div className="h-full bg-teal-600 transition-all dark:bg-teal-400" style={{ width: `${frac * 100}%` }} />
-                </div>
-                <p className="text-sm">
-                  {rec
-                    ? `Generation ${rec.generation}/${nTotal} · best ${signed(rec.best_fitness, 4)} · ${rec.evaluations_so_far} simulations · ${rec.elapsed_seconds.toFixed(0)}s`
-                    : job?.status === 'running'
-                      ? 'Initialising population…'
-                      : 'Queued…'}
-                </p>
+                <ProgressBar
+                  fraction={frac}
+                  text={
+                    rec
+                      ? `Generation ${rec.generation}/${nTotal} · best ${signed(rec.best_fitness, 4)} · ${rec.evaluations_so_far} simulations · ${rec.elapsed_seconds.toFixed(0)}s`
+                      : job?.status === 'running'
+                        ? 'Initialising population…'
+                        : 'Queued…'
+                  }
+                />
                 {figures && <Plot figure={figures.fitness} />}
                 {rec && (
                   <p className="prose-muted text-xs">

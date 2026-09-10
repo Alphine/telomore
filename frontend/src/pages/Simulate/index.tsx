@@ -5,10 +5,11 @@ import { ApiError } from '../../api/client'
 import { simulate as apiSimulate } from '../../api/endpoints'
 import type { ChipParams, ModelConfig, SimulationRun } from '../../api/types'
 import { useBounds } from '../../api/useBounds'
-import { Callout, Disclaimer } from '../../components/Callout'
+import { Callout } from '../../components/Callout'
 import { ChipMapper } from '../../components/ChipMapper'
 import { MetricRow } from '../../components/MetricRow'
 import { ModelConfigForm } from '../../components/ModelConfigForm'
+import { PageHeader } from '../../components/PageHeader'
 import { PopulationCanvas } from '../../components/PopulationCanvas'
 import { ProtocolTable } from '../../components/ProtocolTable'
 import { ScheduleEditor } from '../../components/ScheduleEditor'
@@ -135,16 +136,7 @@ export function Simulate() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">
-          <span aria-hidden className="mr-2">
-            {FEATURE.icon}
-          </span>
-          {FEATURE.title}
-        </h1>
-        <p className="prose-muted mt-2 max-w-2xl">{FEATURE.description}</p>
-      </div>
-      <Disclaimer />
+      <PageHeader feature={FEATURE} />
 
       <div className="gap-8 lg:grid lg:grid-cols-[21rem_minmax(0,1fr)]">
         {/* ------------------------------------------------ parameter form */}

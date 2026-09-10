@@ -187,6 +187,10 @@ class EvolutionEngine:
 
         history: List[GenerationRecord] = []
         best_ever = max(population, key=lambda c: c.fitness)
+        # Early stopping counts only improvements above the tolerance, but the
+        # returned best must be the true maximum (an improvement smaller than
+        # the tolerance is still an improvement).
+        stall_reference = best_ever.fitness
         stalled = 0
         stopped_early, stop_reason = False, ""
 
@@ -238,8 +242,10 @@ class EvolutionEngine:
             population = elites + [self.evaluate(g) for g in children]
             gen_best = max(population, key=lambda c: c.fitness)
 
-            if gen_best.fitness > best_ever.fitness + evo.early_stopping_tol:
-                best_ever, stalled = gen_best, 0
+            if gen_best.fitness > best_ever.fitness:
+                best_ever = gen_best
+            if gen_best.fitness > stall_reference + evo.early_stopping_tol:
+                stall_reference, stalled = gen_best.fitness, 0
             else:
                 stalled += 1
 

@@ -16,6 +16,7 @@ import { PageHeader } from '../../components/PageHeader'
 import { PopulationCanvas } from '../../components/PopulationCanvas'
 import { ProtocolTable } from '../../components/ProtocolTable'
 import { ScheduleEditor } from '../../components/ScheduleEditor'
+import { SubcloneEditor } from '../../components/SubcloneEditor'
 import { clearBaseline, loadBaseline, saveBaseline } from '../../components/baseline'
 import { Plot } from '../../components/charts/Plot'
 import { ensembleFanChart } from '../../components/charts/ensembleCharts'
@@ -27,9 +28,11 @@ import {
   populationCurve,
   senescenceCurve,
 } from '../../components/charts/simulationCharts'
+import { cloneFractionChart } from '../../components/charts/subcloneCharts'
 import { usePrefersDark } from '../../components/charts/theme'
 import { downloadJson, downloadText, timeseriesCsv } from '../../components/download'
 import { configPayload, isScheduled, scheduledParameters, withSchedule } from '../../components/scheduleUtils'
+import { finalComposition, hasSubclones } from '../../components/subclonesUtils'
 import { FEATURES } from '../../features'
 import { reproduceCommand, terminalMetrics } from './metrics'
 
@@ -154,6 +157,7 @@ export function Simulate() {
     if (!run || !run.valid) return null
     return {
       protocol: Object.keys(run.applied_schedule ?? {}).length ? appliedScheduleChart(run.applied_schedule, dark, cursor) : null,
+      clones: Object.keys(run.clone_fraction ?? {}).length ? cloneFractionChart(run.clone_fraction, dark, cursor) : null,
       length: lengthTrajectory(run, dark, cursor),
       dist: lengthDistribution(run, dark),
       sen: senescenceCurve(run, dark, cursor),
@@ -215,15 +219,24 @@ export function Simulate() {
                 locked={locked.size ? locked : undefined}
                 lockedLabels={lockedLabels}
                 afterDynamics={
-                  <ScheduleEditor
-                    bounds={bounds}
-                    value={effective ?? config}
-                    onChange={setEdited}
-                    unavailable={useChip ? CHIP_UNAVAILABLE : undefined}
-                    onLoadPreset={onLoadPreset}
-                    disabled={running}
-                    idPrefix="sim-sched"
-                  />
+                  <>
+                    <ScheduleEditor
+                      bounds={bounds}
+                      value={effective ?? config}
+                      onChange={setEdited}
+                      unavailable={useChip ? CHIP_UNAVAILABLE : undefined}
+                      onLoadPreset={onLoadPreset}
+                      disabled={running}
+                      idPrefix="sim-sched"
+                    />
+                    <SubcloneEditor
+                      bounds={bounds}
+                      value={effective ?? config}
+                      onChange={setEdited}
+                      disabled={running}
+                      idPrefix="sim-clone"
+                    />
+                  </>
                 }
                 idPrefix="sim"
                 disabled={running}
@@ -353,6 +366,35 @@ export function Simulate() {
                   <p className="prose-muted text-xs">
                     The step lines show the value in force at each cycle. The intervention-cost term uses the time
                     averages above (docs/MODEL.md §2.1); the protocol is a model scenario, not a regimen.
+                  </p>
+                </section>
+              )}
+
+              {figures.clones && hasSubclones(run.config) && (
+                <section className="space-y-3" aria-label="Sub-clone composition">
+                  <Plot figure={figures.clones} />
+                  <div className="card overflow-x-auto p-3">
+                    <p className="mb-2 text-xs font-semibold">Final composition</p>
+                    <table className="w-full text-sm" data-testid="final-composition-table">
+                      <thead className="text-left text-xs text-slate-500 dark:text-slate-400">
+                        <tr>
+                          <th className="px-2 py-1">clone</th>
+                          <th className="px-2 py-1 text-right">final fraction</th>
+                        </tr>
+                      </thead>
+                      <tbody className="font-mono">
+                        {finalComposition(run.clone_fraction).map(({ name, fraction }) => (
+                          <tr key={name} className="border-t border-slate-200 dark:border-slate-800">
+                            <td className="px-2 py-1">{name}</td>
+                            <td className="px-2 py-1 text-right">{(fraction * 100).toFixed(1)}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="prose-muted text-xs">
+                    Share of the living population per clone. Clones are abstract parameter variants, not a real
+                    genetic/mutation model (docs/SCIENTIFIC_SCOPE.md).
                   </p>
                 </section>
               )}

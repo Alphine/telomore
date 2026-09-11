@@ -78,6 +78,7 @@ export const BOUNDS: BoundsResponse = {
       schedule: { phases: 6, values: { stress_level: [0.9, 0.3, 0.9, 0.3, 0.9, 0.3] } },
     },
   },
+  subclone_overridable: ['shortening_rate', 'maintenance_rate', 'repair_rate', 'stress_sensitivity'],
 }
 
 // GET /api/meta/chip-presets (ROADMAP.md candidate feature #3: multi-chip comparison).
@@ -142,6 +143,7 @@ export function fakeRun(cycles = 4): SimulationRun {
       length_cv: t.map(() => 0.1),
     },
     applied_schedule: {},
+    clone_fraction: {},
     final_lengths_bp: [6000, 6500, 7000],
     run_id: 'TEL-20260909-001',
     fitness: { total: 0.512, survival: 0.9, reserve: 0.27, senescence: 0.12, instability: 0.2, cost: 0.02, valid: true, reason: null },

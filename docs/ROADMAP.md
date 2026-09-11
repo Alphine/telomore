@@ -205,7 +205,51 @@ Ranked by the account owner's stated priority:
 4. **Sub-population / sub-clone competition.** Multiple genetically
    distinct sub-populations competing for carrying-capacity slots within
    one simulation — an inner evolutionary layer distinct from the outer
-   parameter-search loop.
+   parameter-search loop. **DONE 2026-09-11** — `ModelConfig.subclones`
+   (`SubcloneSpec`, `SUBCLONE_OVERRIDABLE_PARAMETERS = (shortening_rate,
+   maintenance_rate, repair_rate, stress_sensitivity)`; `>= 2` uniquely-named
+   clones, `initial_fraction`s summing to 1.0, bounds-checked overrides via
+   the same `PARAMETER_BOUNDS`) splits the founding population by
+   largest-remainder allocation and threads a `clone_id` array through
+   `population.divide`/`remove_dead`/`passage` exactly like `founder_id`;
+   `simulator/model.py` builds a small per-clone lookup for each overridable
+   parameter once per `simulate()` call and indexes it by `clone_id` to get
+   **per-cell** `deterministic_loss`/`max_gain` arrays instead of scalars —
+   a small vectorised generalisation of the existing arithmetic, not a
+   rewrite. Composition rule: `shortening_rate`/`stress_sensitivity`
+   overrides simply replace the scalar (never schedulable); a
+   `maintenance_rate`/`repair_rate` override means "this clone's own
+   constant value, ignoring the shared schedule for that parameter" — a
+   clone without that override still reads the shared scheduled/scalar
+   value, so `subclones=None` (the single implicit default clone, no
+   overrides) is **bit-identical** to the pre-subclone model
+   (`tests/test_subclones.py`, golden-fixture regression shared with
+   `tests/test_schedule.py`). `SimulationResult.clone_fraction[name]` records
+   each clone's share of the living population per cycle. Deliberately
+   **not** wired into the GA/NSGA-II/active-learner gene encodings — a
+   Simulate-page exploratory lens, not a new optimizer gene space. Full
+   spec: `docs/MODEL.md` §2.2; first real run:
+   `docs/EXPERIMENT_PROTOCOL.md` Experiment F (a "resilient"
+   higher-maintenance/repair clone displaces a "fragile" baseline clone
+   almost completely within half the run at `configs/demo_subclone_competition.yaml`'s
+   parameters — a clear, non-null result, not tuned to force that outcome).
+   API: `backend/schemas.py::SubcloneSpec` types the `subclones` block's
+   shape on every `ModelConfigBody` (semantics still validated by the core
+   → `400`); `GET /api/meta/bounds` exposes `subclone_overridable`; the
+   simulate/compare responses carry `clone_fraction`; ensemble and compare
+   forward `subclones` transparently, verified rather than assumed
+   (`tests/test_api_subclones.py`). React: a "Sub-clone competition" section
+   on Simulate (`SubcloneEditor.tsx` + `subclonesUtils.ts`, mirroring
+   `ScheduleEditor`'s toggle/add-row/bounded-input pattern) with a
+   fraction-sum warning, and a stacked-area composition chart
+   (`charts/subcloneCharts.ts`) plus a final-composition table on the
+   results side — not added to Evolve/Pareto/Active Learning/Compare's
+   scenario builders, matching the "distinct from the outer loop" scope.
+   Docs: `docs/MODEL.md` §2.2, `docs/API.md`, `docs/SCIENTIFIC_SCOPE.md`,
+   `frontend/README.md` "Sub-clone competition". Tests:
+   `tests/test_subclones.py`, `tests/test_api_subclones.py`,
+   `subclonesUtils.test.ts`, `SubcloneEditor.test.tsx`,
+   `charts/subcloneCharts.test.ts`.
 5. **Synthetic "biological age" biomarker score.** A single relatable
    demo-friendly number derived from the trajectory, with the same strict
    scope-language discipline as the rest of the project

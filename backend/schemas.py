@@ -102,24 +102,41 @@ class InterventionSchedule(BaseModel):
     values: Dict[str, List[float]] = Field(default_factory=dict)
 
 
+class SubcloneSpec(BaseModel):
+    """telomere_lab.schemas.SubcloneSpec.to_dict() (docs/MODEL.md §2.2).
+
+    ``overrides`` keys must be one of ``SUBCLONE_OVERRIDABLE_PARAMETERS`` and
+    bounds-checked like any other parameter; those rules are enforced by the
+    core ``SubcloneSpec.validate()`` (400), this model only fixes the wire
+    shape (422 on a malformed body).
+    """
+
+    name: str
+    initial_fraction: float
+    overrides: Dict[str, float] = Field(default_factory=dict)
+
+
 class ModelConfigBody(BaseModel):
     """A ``ModelConfig`` dict as accepted by ``ModelConfig.from_dict``.
 
     Every scalar field stays free-form (``extra="allow"``, see the module
-    docstring); ``schedule`` is the optional protocol block. ``None`` /
-    absent means "constant parameters" -- exactly what ``to_dict()`` emits for
-    an unscheduled config.
+    docstring); ``schedule`` and ``subclones`` are the two optional protocol/
+    competition blocks. ``None`` / absent means "no schedule" / "no
+    sub-clones" -- exactly what ``to_dict()`` emits for a plain config.
     """
 
     model_config = ConfigDict(extra="allow")
 
     schedule: Optional[InterventionSchedule] = None
+    subclones: Optional[List[SubcloneSpec]] = None
 
     def to_plain(self) -> Dict[str, Any]:
-        """The dict ``ModelConfig.from_dict`` expects (``schedule`` dropped when unset)."""
+        """The dict ``ModelConfig.from_dict`` expects (``schedule``/``subclones`` dropped when unset)."""
         data = self.model_dump()
         if data.get("schedule") is None:
             data.pop("schedule", None)
+        if data.get("subclones") is None:
+            data.pop("subclones", None)
         return data
 
 
@@ -158,6 +175,9 @@ class SimulationRunResponse(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     applied_schedule: Dict[str, List[float]] = Field(default_factory=dict)
+    #: Per-clone population-fraction-of-total array (docs/MODEL.md §2.2,
+    #: sub-clone competition); ``{}`` when ``config.subclones`` is unset.
+    clone_fraction: Dict[str, List[float]] = Field(default_factory=dict)
 
 
 class SimulateResponse(BaseModel):
@@ -311,6 +331,9 @@ class BoundsResponse(BaseModel):
     schedulable: List[str] = Field(default_factory=list)   # SCHEDULABLE_PARAMETERS
     max_phases: int = MAX_PHASES
     presets: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    # Sub-clone competition (docs/MODEL.md §2.2, ROADMAP.md candidate feature
+    # #4): the parameters a clone's `overrides` may set.
+    subclone_overridable: List[str] = Field(default_factory=list)  # SUBCLONE_OVERRIDABLE_PARAMETERS
 
 
 class VersionResponse(BaseModel):

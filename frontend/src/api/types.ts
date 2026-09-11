@@ -70,6 +70,14 @@ export interface InterventionSchedule {
   values: Record<string, number[]>
 }
 
+// telomere_lab.schemas.SubcloneSpec.to_dict() (docs/MODEL.md §2.2, sub-clone
+// competition). `overrides` keys must be one of `bounds.subclone_overridable`.
+export interface SubcloneSpec {
+  name: string
+  initial_fraction: number
+  overrides: Record<string, number>
+}
+
 // telomere_lab.schemas.ModelConfig (to_dict() emits `schedule: null` when
 // unscheduled; requests may omit the key entirely -- backend/schemas.py::ModelConfigBody).
 export interface ModelConfig {
@@ -92,6 +100,8 @@ export interface ModelConfig {
   record_distribution_every: number
   /** Optional time-varying protocol; when set, the scalar field of a scheduled parameter is its phase-0 value. */
   schedule?: InterventionSchedule | null
+  /** Optional sub-clone competition (docs/MODEL.md §2.2); >= 2 clones, initial_fraction sums to ~1.0. */
+  subclones?: SubcloneSpec[] | null
 }
 
 // telomere_lab.schemas.FitnessWeights
@@ -192,6 +202,8 @@ export interface BoundsResponse {
   max_phases: number
   /** Named example protocols as full ModelConfigs (configs/demo_fasting.yaml -> "demo_fasting"). */
   presets: Record<string, ModelConfig>
+  /** SUBCLONE_OVERRIDABLE_PARAMETERS -- the only parameters a clone's `overrides` may set. */
+  subclone_overridable: string[]
 }
 
 export interface VersionResponse {
@@ -302,6 +314,12 @@ export interface SimulationRun {
    * the config has no schedule.
    */
   applied_schedule: Record<string, number[]>
+  /**
+   * Per-clone population-fraction-of-total array, each `cycles + 1` long on
+   * the `timeseries.cycle` axis (docs/MODEL.md §2.2, sub-clone competition).
+   * `{}` when the config has no `subclones`.
+   */
+  clone_fraction: Record<string, number[]>
   final_lengths_bp: number[]
   run_id: string
   fitness: FitnessBreakdown

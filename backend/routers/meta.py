@@ -28,6 +28,7 @@ from telomere_lab.schemas import (
     OBJECTIVES,
     PARAMETER_BOUNDS,
     SCHEDULABLE_PARAMETERS,
+    SUBCLONE_OVERRIDABLE_PARAMETERS,
     EvolutionConfig,
     FitnessWeights,
     ModelConfig,
@@ -98,6 +99,7 @@ def bounds() -> api_schemas.BoundsResponse:
         schedulable=list(SCHEDULABLE_PARAMETERS),
         max_phases=MAX_PHASES,
         presets=_presets(),
+        subclone_overridable=list(SUBCLONE_OVERRIDABLE_PARAMETERS),
     )
 
 

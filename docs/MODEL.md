@@ -142,6 +142,75 @@ parameter that happens to be scheduled shifts every phase by the same
 amount. An optimised protocol is a model result under the stated objective,
 not a dosing regimen (`SCIENTIFIC_SCOPE.md`).
 
+### 2.2 Sub-clone competition
+
+By default a simulation is one homogeneous population. A `ModelConfig` may
+optionally carry **sub-clones** (`ModelConfig.subclones`, a tuple of
+`SubcloneSpec`) that split the founding population into named, genetically
+distinct groups competing for the same `carrying_capacity` slots — an inner
+evolutionary layer distinct from the outer GA/NSGA-II/active-learning
+parameter search, which never touches this field (ROADMAP.md candidate
+feature #4).
+
+* Each `SubcloneSpec` has a `name`, an `initial_fraction` and an `overrides`
+  mapping. There must be `>= 2` clones (a single clone is meaningless — omit
+  the field instead), names must be unique, and every clone's
+  `initial_fraction` must be finite and in `(0, 1]`; the fractions across all
+  clones must sum to `1.0` within `SUBCLONE_FRACTION_TOLERANCE = 1e-6`.
+* `overrides` may set any subset of `SUBCLONE_OVERRIDABLE_PARAMETERS =
+  (shortening_rate, maintenance_rate, repair_rate, stress_sensitivity)` — the
+  four per-cell-arithmetic "biology knobs" of §2. Each override is
+  bounds-checked against the same `PARAMETER_BOUNDS` every other value in
+  this model uses. A clone may **not** override `senescence_threshold`,
+  `carrying_capacity`, `stress_level`, or any structural/initial-condition
+  field: a clone is a genetic variant of the *same* culture, not a different
+  experiment.
+* **Founding allocation.** The `population_size` founding cells are split
+  across clones by the **largest-remainder method** on `initial_fraction`
+  (not per-cell coin flips), so the cell count per clone is a deterministic
+  function of `(population_size, fractions)` and spends no RNG draw — the
+  rest of the RNG stream (initial lengths, division noise, death, passaging)
+  is completely unaffected by whether `subclones` is set. A daughter cell
+  inherits its parent's clone exactly like it inherits `founder_id` (§2,
+  `simulator/population.py::divide`) — a clone is a heritable identity, not
+  a per-division draw.
+* **Composition rule with the per-cell arithmetic of §2.** `shortening_rate`
+  and `stress_sensitivity` are never schedulable (§2.1), so a clone's
+  override on either simply *replaces* the config's scalar for that clone's
+  cells in the `deterministic_loss` term — no ambiguity with time-varying
+  behaviour. `maintenance_rate` and `repair_rate` *can* be scheduled; the
+  chosen rule is: **the shared schedule (or scalar) is the culture
+  environment's dosing level and applies uniformly to every clone**; a
+  clone's override on `maintenance_rate`/`repair_rate`, when present, means
+  "this clone's own constant value, ignoring the shared schedule for that
+  parameter" — a clone without that specific override still reads the
+  shared per-step scheduled/scalar value, exactly as every cell did before
+  sub-clones existed. Concretely, per cycle the simulator builds a small
+  `(n_clones,)` lookup for each of the four overridable parameters (clone's
+  override, or the shared value) and indexes it by each dividing cell's
+  `clone_id` to get **per-cell** `deterministic_loss` / `max_gain` arrays,
+  the natural vectorised generalisation of §2's scalar arithmetic.
+  **Backward compatibility**: `subclones=None` (or an unset field) uses a
+  single implicit "default" clone with no overrides, whose lookup values are
+  therefore identical to the plain scalar/schedule arithmetic — bit-identical
+  to the pre-sub-clone model (`tests/test_subclones.py` checks this against
+  the same golden fixture `tests/test_schedule.py` uses); a config dict
+  without a `subclones` key loads with `subclones=None`; `config_hash`
+  includes `subclones` when set and is unchanged when unset.
+* **Composition with schedules (§2.1).** Both mechanisms may be set on the
+  same config: the schedule drives the shared per-step values every clone
+  reads by default, while distinct clones may each pin their own constant
+  `maintenance_rate`/`repair_rate` regardless of the schedule's swings on
+  that parameter (`tests/test_subclones.py::test_schedule_and_subclones_compose`).
+* **Output.** `SimulationResult.clone_fraction[name]` records, on the same
+  `(T+1,)` axis as `time`, the fraction of the *living* population in each
+  named clone at every cycle (`0.0`, never `NaN`, when the population is
+  extinct) — empty when `subclones` is unset. Exported in `to_json_dict()`.
+* **Not in scope for the outer search.** The GA/NSGA-II/active-learner
+  genome encodings (`evolution/genome.py`) do not expand or evolve
+  `subclones` — this is a Simulate-page exploratory lens on the *inner*
+  competition dynamics, not a new gene space for the *outer* optimizers.
+
 ## 3. Parameters
 
 | Name | Default | Range | Unit | Kind |
@@ -163,6 +232,7 @@ not a dosing regimen (`SCIENTIFIC_SCOPE.md`).
 | `cycles` | 120 | ≥1 | cycles | run control |
 | `seed` | 42 | – | – | randomness |
 | `schedule` | none | 1–8 phases | – | optional protocol (§2.1) |
+| `subclones` | none | ≥2 clones | – | optional sub-clone competition (§2.2) |
 
 Evolvable genes (SDD §12): `initial_length`, `shortening_rate`,
 `stress_level`, `maintenance_rate`, `repair_rate`, `senescence_threshold`.
@@ -310,6 +380,9 @@ are not a claim of calibration to any organ's real physiology.
   in time, §2.1 — no continuous dose–response dynamics or lag).
 * Maintenance is a phenomenological gain, not a telomerase kinetic model.
 * Passaging is state-blind random sub-sampling.
+* Sub-clones (§2.2) are abstract parameter variants sharing one culture's
+  environment/schedule, not a model of mutation, drift, or real genetic
+  heterogeneity — see `docs/SCIENTIFIC_SCOPE.md`.
 
 ## 8. Software validation
 
@@ -323,3 +396,10 @@ mapping including non-divisible `cycles`, bit-identity of unscheduled and
 `K = 1` runs against pre-schedule golden output, time-averaged cost, the
 per-phase genome expansion/decoding round trip, and that
 `schedule_phases = 1` reproduces the pre-schedule GA run exactly.
+`tests/test_subclones.py` checks sub-clone competition (§2.2): schema
+validation (fraction sum, clone count, override keys/bounds), bit-identity of
+an unset `subclones` config against the same golden fixture, `clone_fraction`
+summing to ~1.0 of the living population at every non-extinct cycle, a
+resilient-vs-fragile competition scenario where the higher-maintenance/
+repair clone's share measurably increases, the extinction edge case, and
+composition with an active schedule.

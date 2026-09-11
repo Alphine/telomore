@@ -492,7 +492,92 @@ Expected: constant `best fitness +0.5234`
 `best fitness +0.5238` with the phase table above. Bit-identical fitness
 histories are expected on the same NumPy major version.
 
-## 11. Performance (scripts/benchmark.py, same machine)
+## 11. Experiment F — Sub-clone competition for carrying-capacity slots
+
+### Question
+
+`docs/MODEL.md` §2.2 adds sub-clone competition: a config may split its
+founding population across named clones with their own per-cell-arithmetic
+parameters, all competing for the same `carrying_capacity` slots. Does a
+clone with better maintenance/repair genuinely outcompete a baseline clone
+under shared stress, and how fast?
+
+### Setup
+
+`configs/demo_subclone_competition.yaml`: the same stressed culture as
+`demo.yaml` (`stress_level = 0.60`, baseline `maintenance_rate = 0.10`,
+`repair_rate = 0.15`), split 50/50 into **"resilient"** (overrides
+`maintenance_rate = 0.6`, `repair_rate = 0.6`) and **"fragile"** (no
+overrides — the baseline's own 0.10/0.15), run for 150 cycles (extended from
+`demo.yaml`'s 120 to give the two clones' senescence trajectories room to
+diverge and settle). These override values were chosen a priori as "a
+clearly interpretable, strong intervention" — 3–4× the baseline's own
+maintenance/repair — not tuned after seeing the result below.
+
+```bash
+python scripts/run_simulation.py --config configs/demo_subclone_competition.yaml --seed 42
+```
+
+Ledger: `TEL-20260911-001` (config hash `b14f38f95fd81ef1`, 193 ms).
+
+### Result
+
+| cycle | 0 | 37 | 75 | 113 | 150 |
+|---|---|---|---|---|---|
+| `resilient` fraction | 0.500 | 0.945 | 1.000 | 1.000 | 1.000 |
+| `fragile` fraction | 0.500 | 0.055 | 0.000 | 0.000 | 0.000 |
+
+Terminal metrics of the combined population: `final_senescent_fraction`
+0.085, `normalized_survival` 0.983, `final_population_size` 400 (at
+`carrying_capacity`), `time_to_50pct_senescence` = ∞ (never reached at the
+population level — see the interpretation below for why that is not the
+whole story).
+
+### Interpretation
+
+* **The resilient clone displaces the fragile one almost completely, and
+  fast.** By cycle 37 (a quarter of the run) the fragile clone is already
+  down to 5.5 % of the population; by cycle 75 (half the run) it is
+  effectively zero. This is a clear, non-null result at the chosen
+  parameters — not a marginal or ambiguous one.
+* **Mechanism.** Every division step, proliferative cells produce a
+  daughter and senescent cells do not (`simulator/model.py` §1); passaging
+  then dilutes the *combined* population back to `carrying_capacity`
+  irrespective of clone identity (`simulator/population.py::passage`). A
+  clone whose telomeres shorten net-negative more slowly (higher
+  `repair_rate` cuts the stress-loss term, higher `maintenance_rate` adds
+  more gain) crosses `senescence_threshold` later, so a larger share of its
+  cells are still dividing on any given cycle. Each cycle that share compounds:
+  more proliferative cells this cycle means more daughters next cycle, so the
+  clone's count grows relative to the other even while the *total* population
+  is capped — an ordinary "more descendants per unit time" effect, not
+  anything special to clones. This is the same mechanism the
+  `founder_senescence_cycle` machinery already measures per-founder (§9,
+  Experiment D): staying non-senescent longer accumulates more cell-cycles of
+  descendants, and with two clones sharing one capacity, one clone's excess
+  cell-cycles are the other clone's lost capacity slots.
+* **Why `time_to_50pct_senescence` stays ∞ despite this.** That metric is
+  computed on the *combined* population's senescent fraction (§4), which
+  stays low here (8.5 % final) because the resilient clone, once dominant,
+  keeps the combined pool mostly proliferative — a population-level average
+  can look "healthy" while masking a complete compositional turnover
+  underneath. `clone_fraction` is exactly the per-clone view that avoids this
+  blind spot, the same bias `founder_senescence_cycle` was added to fix for
+  senescence-onset timing in Experiment D.
+* **Scope.** This is not a claim about real cellular sub-clones, mutation, or
+  selection — clones are abstract parameter variants of the same model
+  (`docs/SCIENTIFIC_SCOPE.md`). The result says: *given* this model's
+  mechanics, a large enough maintenance/repair advantage translates into a
+  fast, near-total takeover of shared capacity — a demonstration of the
+  mechanism the feature is meant to expose, not a biological finding.
+
+### Reproduce
+
+```bash
+python scripts/run_simulation.py --config configs/demo_subclone_competition.yaml --seed 42
+```
+
+## 12. Performance (scripts/benchmark.py, same machine)
 
 | Measurement | Value |
 |---|---|

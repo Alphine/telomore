@@ -99,6 +99,7 @@ def test_config_hash_includes_schedule_but_unscheduled_hash_is_unchanged():
     data = plain.to_dict()
     data.pop("seed")
     data.pop("schedule")
+    data.pop("subclones")  # added by the sub-clone-competition feature, also excluded when unset
     expected = hashlib.sha256(json.dumps(data, sort_keys=True, default=float).encode()).hexdigest()[:16]
     assert plain.config_hash() == expected
 

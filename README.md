@@ -83,6 +83,7 @@ python scripts/run_evolution.py  --config configs/evolution_locked.yaml --seed 7
 python scripts/run_evolution.py  --config configs/evolution_protocol.yaml --seed 7 # stress locked, 6-phase protocol search
 python scripts/run_simulation.py --config configs/demo_fasting.yaml --seed 42      # hand-written alternating-stress schedule
 python scripts/run_protocol_experiment.py --seed 7                                  # Experiment E: constant vs protocol
+python scripts/run_simulation.py --config configs/demo_subclone_competition.yaml --seed 42  # resilient vs fragile clone, shared stress
 python scripts/run_sensitivity.py --config configs/sensitivity.yaml                 # OAT tornado
 python scripts/run_active_learning.py --config configs/active_learning.yaml --seed 1 # surrogate + Expected Improvement
 python scripts/benchmark.py
@@ -247,7 +248,7 @@ src/telomere_lab/
   analysis/     sensitivity (OAT tornado analysis)
   experiments/  registry (ledger), runner (service layer), artifacts
   adapters/     model protocol, published-model stub, organ-on-chip mapping
-configs/        default.yaml, demo.yaml, demo_fasting.yaml, evolution*.yaml (incl. evolution_protocol.yaml), pareto*.yaml, sensitivity.yaml, active_learning.yaml
+configs/        default.yaml, demo.yaml, demo_fasting.yaml, demo_subclone_competition.yaml, evolution*.yaml (incl. evolution_protocol.yaml), pareto*.yaml, sensitivity.yaml, active_learning.yaml
 scripts/        run_simulation.py, run_evolution.py, run_pareto.py, run_sensitivity.py, run_active_learning.py, run_protocol_experiment.py, benchmark.py, benchmark_optimizers.py
 tests/          simulator, metrics, evolution, schedule (+ fixtures/ golden output), sensitivity, surrogate, benchmark, db, email, API (test_api_*.py)
 docs/           SDD, MODEL, SCIENTIFIC_SCOPE, EXPERIMENT_PROTOCOL, API, ROADMAP

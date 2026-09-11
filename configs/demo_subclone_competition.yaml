@@ -1,0 +1,33 @@
+# Sub-clone competition demo (docs/MODEL.md §2.2, ROADMAP.md candidate
+# feature #4): the same stressed culture as demo.yaml, split 50/50 between a
+# "resilient" clone (much higher maintenance_rate / repair_rate than the
+# baseline) and a "fragile" clone that keeps the baseline's own values (no
+# overrides). This is a model scenario illustrating the mechanism, not a
+# calibrated biological claim (docs/SCIENTIFIC_SCOPE.md).
+model:
+  initial_length: 7500.0
+  initial_length_sd: 800.0
+  population_size: 100
+  carrying_capacity: 400
+  telomeres_per_cell: 32
+  shortening_rate: 55.0
+  stress_level: 0.60
+  stress_sensitivity: 100.0
+  maintenance_rate: 0.10        # the "fragile" clone's own value (no override)
+  maintenance_max_gain: 120.0
+  repair_rate: 0.15             # the "fragile" clone's own value (no override)
+  senescence_threshold: 3000.0
+  noise_sd: 30.0
+  senescent_death_rate: 0.03
+  cycles: 150
+  seed: 42
+  record_distribution_every: 25
+  subclones:
+    - name: resilient
+      initial_fraction: 0.5
+      overrides:
+        maintenance_rate: 0.6
+        repair_rate: 0.6
+    - name: fragile
+      initial_fraction: 0.5
+      overrides: {}

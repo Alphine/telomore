@@ -92,3 +92,10 @@ assumption** with round-number coefficients (MODEL.md §6). It frames the
 tool as computational support for *experiment design*, i.e. prioritising
 which conditions to test next in vitro. It has not been validated against
 any physical chip.
+
+## Sub-clone competition
+
+Sub-clones (`ModelConfig.subclones`, MODEL.md §2.2) are abstract per-cell
+parameter variants of the same model competing for shared carrying-capacity
+slots, not a model of real genetic heterogeneity, mutation, or clonal
+selection.

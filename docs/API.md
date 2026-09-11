@@ -143,6 +143,50 @@ shaped exactly like `ModelConfig.to_dict()` emits it (`docs/MODEL.md` §2.1):
 
 Tests: `tests/test_api_schedule.py`.
 
+### Sub-clone competition (candidate feature #4, 2026-09-11)
+
+Every `ModelConfig` request body may also carry an optional **`subclones`**
+block, a list shaped exactly like `ModelConfig.to_dict()` emits it
+(`docs/MODEL.md` §2.2):
+
+```json
+{"config": {"population_size": 100, "carrying_capacity": 400,
+            "subclones": [
+              {"name": "resilient", "initial_fraction": 0.5,
+               "overrides": {"maintenance_rate": 0.6, "repair_rate": 0.6}},
+              {"name": "fragile", "initial_fraction": 0.5, "overrides": {}}
+            ]}}
+```
+
+* `>= 2` clones with unique `name`s, `initial_fraction` in `(0, 1]` summing
+  to `1.0` (small tolerance), and `overrides` keys restricted to
+  `SUBCLONE_OVERRIDABLE_PARAMETERS` (`GET /api/meta/bounds` →
+  `subclone_overridable`, currently `shortening_rate`, `maintenance_rate`,
+  `repair_rate`, `stress_sensitivity`), each bounds-checked like any other
+  parameter. Omit the key, or send `"subclones": null`, for a single
+  homogeneous population -- both are what an unset `to_dict()` round-trips
+  to.
+* Validation is the core gate: too few clones, a bad fraction sum, a
+  duplicate name, a non-overridable key or an out-of-bounds override value
+  all raise `ConfigError` -> **`400`** with the core message. Only a
+  *malformed* block (e.g. a clone missing `initial_fraction`) is a pydantic
+  `422` (`backend/schemas.py::ModelConfigBody` / `SubcloneSpec` type just the
+  shape).
+* The response's `run` carries **`clone_fraction`**: for every clone, its
+  share of the *living* population at each cycle, an array of length
+  `cycles + 1` on the same axis as `timeseries.cycle` (`0.0`, never `NaN`,
+  once the population is extinct). `{}` when the config has no `subclones`.
+  `config.subclones` echoes the block (`null` when none). `subclones` and
+  `schedule` may be set together on the same config (the shared schedule
+  applies uniformly to every clone unless a clone overrides that specific
+  parameter, docs/MODEL.md §2.2); the outer GA/NSGA-II/active-learning gene
+  encodings never touch `subclones` -- it is a Simulate-only exploratory
+  lens, deliberately out of scope for the optimizers.
+* `POST /api/simulate/ensemble` and `POST /api/compare` forward `subclones`
+  transparently, like every other `ModelConfig` field.
+
+Tests: `tests/test_api_subclones.py`.
+
 ## Ensemble / uncertainty visualization (candidate feature #2, 2026-09-11)
 
 `POST /api/simulate/ensemble` `{config: {...ModelConfig fields...}, n_seeds: int, base_seed?: int}`
@@ -416,7 +460,8 @@ never hardcodes a bound in TypeScript.
     "objectives": {"survival": {"direction": "max", "description": "..."}, ...},
     "schedulable": ["stress_level", "maintenance_rate", "repair_rate"],
     "max_phases": 8,
-    "presets": {"demo_fasting": {...configs/demo_fasting.yaml model block, incl. "schedule"...}}
+    "presets": {"demo_fasting": {...configs/demo_fasting.yaml model block, incl. "schedule"...}},
+    "subclone_overridable": ["shortening_rate", "maintenance_rate", "repair_rate", "stress_sensitivity"]
   }
   ```
   `bounds` has one entry per `PARAMETER_BOUNDS` key, i.e. the five-tuple
@@ -428,8 +473,11 @@ never hardcodes a bound in TypeScript.
   phase-count range come from here; `presets` are named example protocols as
   full `ModelConfig` dicts (currently only `demo_fasting`, loaded from
   `configs/demo_fasting.yaml` like `demo`; a missing file simply omits the
-  key). `defaults` / `demo` now include `"schedule": null`, and
-  `evolution_default` includes `schedule_phases: 1`. No `multiobjective_default` / `sensitivity_default` /
+  key). `subclone_overridable` (candidate feature #4) mirrors
+  `SUBCLONE_OVERRIDABLE_PARAMETERS` — the sub-clone editor's per-clone
+  override toggles come from here. `defaults` / `demo` now include
+  `"schedule": null` and `"subclones": null`, and `evolution_default`
+  includes `schedule_phases: 1`. No `multiobjective_default` / `sensitivity_default` /
   `active_learning_default` blocks are exposed: the API fills omitted config
   fields with the dataclass defaults, and the React forms start from the
   same values (noted in each page's source).

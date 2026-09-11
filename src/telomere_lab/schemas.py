@@ -78,6 +78,15 @@ SCHEDULABLE_PARAMETERS = ("stress_level", "maintenance_rate", "repair_rate")
 #: Upper bound on the number of equal-length phases in a schedule.
 MAX_PHASES = 8
 
+#: Parameters a sub-clone's ``overrides`` may set (docs/MODEL.md §2.2). All
+#: four are per-cell-arithmetic "biology knobs"; structural, initial-condition
+#: and stress-input parameters cannot be overridden per clone (a clone is a
+#: genetic variant, not a different culture).
+SUBCLONE_OVERRIDABLE_PARAMETERS = ("shortening_rate", "maintenance_rate", "repair_rate", "stress_sensitivity")
+
+#: Fractions across all clones must sum to 1.0 within this tolerance.
+SUBCLONE_FRACTION_TOLERANCE = 1e-6
+
 
 def phase_index(cycle: int, cycles: int, phases: int) -> int:
     """Phase in force during the division step ``cycle -> cycle + 1``.
@@ -154,6 +163,73 @@ class InterventionSchedule:
         return vals[idx]
 
 
+@dataclass(frozen=True)
+class SubcloneSpec:
+    """One named, genetically distinct sub-clone in a competing sub-population
+    (docs/MODEL.md §2.2, ROADMAP.md candidate feature #4).
+
+    ``overrides`` may set any subset of ``SUBCLONE_OVERRIDABLE_PARAMETERS``;
+    a parameter absent from ``overrides`` falls back to the shared
+    ``ModelConfig``'s own scalar/schedule value for that clone (this is what
+    makes an all-empty-overrides clone table behave identically to today's
+    single-population model).
+    """
+
+    name: str
+    initial_fraction: float
+    overrides: Dict[str, float] = field(default_factory=dict)
+
+    def validate(self) -> "SubcloneSpec":
+        if not self.name or not isinstance(self.name, str):
+            raise ConfigError(f"subclone name must be a non-empty string, got {self.name!r}")
+        if not np.isfinite(self.initial_fraction) or not (0.0 < self.initial_fraction <= 1.0):
+            raise ConfigError(f"subclone {self.name!r} initial_fraction={self.initial_fraction} must be in (0, 1]")
+        for key, value in self.overrides.items():
+            if key not in SUBCLONE_OVERRIDABLE_PARAMETERS:
+                raise ConfigError(
+                    f"subclone {self.name!r} cannot override {key!r}; choose from "
+                    f"{list(SUBCLONE_OVERRIDABLE_PARAMETERS)}"
+                )
+            lo, hi = PARAMETER_BOUNDS[key][0], PARAMETER_BOUNDS[key][1]
+            if not np.isfinite(value):
+                raise ConfigError(f"subclone {self.name!r} overrides[{key}] must be finite, got {value!r}")
+            if not (lo <= value <= hi):
+                raise ConfigError(f"subclone {self.name!r} overrides[{key}]={value} outside [{lo}, {hi}]")
+        return self
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"name": self.name, "initial_fraction": float(self.initial_fraction),
+                "overrides": {k: float(v) for k, v in self.overrides.items()}}
+
+    @classmethod
+    def from_dict(cls, data: Any) -> "SubcloneSpec":
+        if isinstance(data, SubcloneSpec):
+            return data
+        if not isinstance(data, dict):
+            raise ConfigError(f"each subclone must be a mapping, got {type(data).__name__}")
+        overrides = data.get("overrides") or {}
+        if not isinstance(overrides, dict):
+            raise ConfigError("subclone overrides must be a mapping of parameter -> value")
+        return cls(
+            name=str(data.get("name", "")),
+            initial_fraction=float(data.get("initial_fraction", 0.0)),
+            overrides={str(k): float(v) for k, v in overrides.items()},
+        )
+
+
+def _validate_subclones(subclones: Tuple[SubcloneSpec, ...]) -> None:
+    if len(subclones) < 2:
+        raise ConfigError("subclones needs >= 2 clones (a single clone is meaningless; just omit the field)")
+    names = [c.name for c in subclones]
+    if len(set(names)) != len(names):
+        raise ConfigError(f"subclone names must be unique, got {names}")
+    for clone in subclones:
+        clone.validate()
+    total = math.fsum(c.initial_fraction for c in subclones)
+    if abs(total - 1.0) > SUBCLONE_FRACTION_TOLERANCE:
+        raise ConfigError(f"subclone initial_fractions must sum to 1.0, got {total}")
+
+
 @dataclass
 class ModelConfig:
     """Parameters governing one virtual experiment.
@@ -190,6 +266,15 @@ class ModelConfig:
     #: cycle; the scalar then only documents the phase-0 / fallback value.
     schedule: Optional[InterventionSchedule] = None
 
+    # --- optional sub-clone competition (docs/MODEL.md §2.2) ------------------
+    #: When set, the founding population is split across these named clones
+    #: (largest-remainder allocation of ``population_size`` by
+    #: ``initial_fraction``) and each clone's per-cell arithmetic uses its own
+    #: ``overrides`` where set, falling back to this config's own scalar/
+    #: schedule values otherwise. ``None`` is the single implicit "default"
+    #: clone -- bit-identical to today's model.
+    subclones: Optional[Tuple[SubcloneSpec, ...]] = None
+
     def validate(self) -> "ModelConfig":
         for name, (lo, hi, *_rest) in PARAMETER_BOUNDS.items():
             value = getattr(self, name)
@@ -199,6 +284,8 @@ class ModelConfig:
                 raise ConfigError(f"{name}={value} outside [{lo}, {hi}]")
         if self.schedule is not None:
             self.schedule.validate()
+        if self.subclones is not None:
+            _validate_subclones(self.subclones)
         if self.population_size < 1:
             raise ConfigError("population_size must be >= 1")
         if self.carrying_capacity < self.population_size:
@@ -249,6 +336,7 @@ class ModelConfig:
     def to_dict(self) -> Dict[str, Any]:
         data = asdict(self)
         data["schedule"] = self.schedule.to_dict() if self.schedule is not None else None
+        data["subclones"] = [c.to_dict() for c in self.subclones] if self.subclones is not None else None
         return data
 
     @classmethod
@@ -256,6 +344,7 @@ class ModelConfig:
         allowed = {f.name for f in fields(cls)}
         clean = {k: v for k, v in data.items() if k in allowed}
         schedule = clean.pop("schedule", None)
+        subclones = clean.pop("subclones", None)
         cfg = cls(**clean)
         # coerce ints that may arrive as floats from YAML / genomes
         cfg.population_size = int(cfg.population_size)
@@ -266,6 +355,10 @@ class ModelConfig:
         cfg.record_distribution_every = int(cfg.record_distribution_every)
         if schedule is not None:
             cfg.schedule = InterventionSchedule.from_dict(schedule)
+        if subclones is not None:
+            if not isinstance(subclones, (list, tuple)):
+                raise ConfigError(f"subclones must be a list, got {type(subclones).__name__}")
+            cfg.subclones = tuple(SubcloneSpec.from_dict(c) for c in subclones)
         return cfg
 
     def replace(self, **changes: Any) -> "ModelConfig":
@@ -283,6 +376,8 @@ class ModelConfig:
         data.pop("seed", None)
         if data.get("schedule") is None:
             data.pop("schedule", None)
+        if data.get("subclones") is None:
+            data.pop("subclones", None)
         blob = json.dumps(data, sort_keys=True, default=float).encode()
         return hashlib.sha256(blob).hexdigest()[:16]
 
@@ -317,6 +412,10 @@ class SimulationResult:
     #: step t -> t+1; the last entry repeats the final phase so a step line
     #: ends flat). Empty when the config has no schedule.
     applied_schedule: Dict[str, np.ndarray] = field(default_factory=dict)
+    #: Per-clone population-fraction-of-total-living array, on the same
+    #: ``(T+1,)`` axis as ``time`` (docs/MODEL.md §2.2, sub-clone competition).
+    #: Empty dict when ``config.subclones`` is unset.
+    clone_fraction: Dict[str, np.ndarray] = field(default_factory=dict)
     terminal_metrics: Dict[str, float] = field(default_factory=dict)
     valid: bool = True
     failure_reason: Optional[str] = None
@@ -356,6 +455,7 @@ class SimulationResult:
                 k: v.tolist() for k, v in self.timeseries_frame().items()
             },
             "applied_schedule": {k: np.asarray(v).tolist() for k, v in self.applied_schedule.items()},
+            "clone_fraction": {k: np.asarray(v).tolist() for k, v in self.clone_fraction.items()},
         }
         if include_final_lengths:
             out["final_lengths_bp"] = self.final_lengths.tolist()

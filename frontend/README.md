@@ -361,6 +361,53 @@ input and the fasting preset all come from that endpoint.
   hand-off shape) and Compare (pass-through, protocol panel, mean columns)
   suites — Vitest 76.
 
+## Sub-clone competition (candidate feature #4, 2026-09-11)
+
+`docs/MODEL.md` §2.2 lets a config split its founding population into named
+sub-clones (`ModelConfig.subclones`) competing for the same
+`carrying_capacity` slots; unlike scheduled protocols, this is deliberately
+**not** wired into the GA/NSGA-II/active-learner gene space -- Simulate-only.
+The API contract is in `../docs/API.md` ("Sub-clone competition" under
+Simulate, `subclone_overridable` on `GET /api/meta/bounds`). Nothing about
+sub-clones is hardcoded in TypeScript: the overridable-parameter list and
+each field's bounds come from that endpoint.
+
+* **`components/subclonesUtils.ts`** (pure, unit-tested; no component export
+  in this file, following the `scheduleUtils.ts` split that avoids oxlint's
+  `react/only-export-components` warning): `hasSubclones`, `fractionSum` /
+  `fractionsAreValid` (the same `1e-6` tolerance the core uses),
+  `defaultClones` (a 50/50 unnamed pair), `withSubclones` / `subclonesPayload`
+  (emit exactly the `ModelConfig.to_dict()` shape and **omit** the `subclones`
+  key when the toggle is off), `addClone` / `removeClone` / `updateClone` /
+  `setOverride` (row editing, with `addClone` rebalancing every row's fraction
+  evenly) and `finalComposition` (the last entry of every clone's
+  `clone_fraction` array, for the results readout).
+* **Simulate** — `components/SubcloneEditor.tsx` renders as a "Sub-clone
+  competition" fieldset right after the schedule editor (`ModelConfigForm`'s
+  `afterDynamics` slot): an "enable" toggle that seeds a default 50/50 pair,
+  add/remove clone rows (name, initial fraction, and a checkbox + bounded
+  number field per `bounds.subclone_overridable` parameter), and a running
+  "total initial fraction" indicator that turns into an inline warning
+  (`role="alert"`) when the total drifts off 1.0 -- the config itself is left
+  as typed either way; the core's own `400` is still the authority on whether
+  a request is valid. Results: when `run.clone_fraction` is non-empty a
+  stacked-area **Sub-clone composition** chart
+  (`charts/subcloneCharts.ts::cloneFractionChart`, one Plotly `stackgroup`
+  trace per clone, y axis fixed to `[0, 1]`, follows the particle-canvas
+  cursor) and a compact final-composition table (`finalComposition`) appear
+  above the schedule/trajectory charts. The particle canvas is unchanged.
+* **Not wired into Evolve / Pareto / Active Learning / Compare's scenario
+  builder** by design (ROADMAP.md candidate feature #4 is explicitly "distinct
+  from the outer parameter-search loop"); `POST /api/compare` and
+  `POST /api/simulate/ensemble` still forward a `subclones`-carrying config
+  transparently like any other `ModelConfig` field (verified in
+  `tests/test_api_subclones.py`), so a hand-typed or Simulate-built
+  competition config can still be pasted into those pages' raw config JSON if
+  a user wants to -- no dedicated UI was added there.
+* Tests: `subclonesUtils.test.ts`, `SubcloneEditor.test.tsx`,
+  `charts/subcloneCharts.test.ts`, plus the existing single-run Simulate
+  suite is unchanged (regression check) — Vitest 115.
+
 ## `useJob` (`api/useJob.ts`)
 
 ```ts

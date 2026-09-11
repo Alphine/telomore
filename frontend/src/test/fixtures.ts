@@ -1,6 +1,6 @@
 // Shared fixtures for page tests. Shapes copied from the real API responses
 // (GET /api/meta/bounds mirrors PARAMETER_BOUNDS / ModelConfig defaults).
-import type { BoundsResponse, EnsembleResponse, ModelConfig, SimulationRun } from '../api/types'
+import type { BoundsResponse, ChipPresetsResponse, EnsembleResponse, ModelConfig, SimulationRun } from '../api/types'
 
 export const MODEL_DEFAULTS: ModelConfig = {
   initial_length: 7500,
@@ -76,6 +76,30 @@ export const BOUNDS: BoundsResponse = {
       repair_rate: 0.15,
       record_distribution_every: 20,
       schedule: { phases: 6, values: { stress_level: [0.9, 0.3, 0.9, 0.3, 0.9, 0.3] } },
+    },
+  },
+}
+
+// GET /api/meta/chip-presets (ROADMAP.md candidate feature #3: multi-chip comparison).
+export const CHIP_PRESETS: ChipPresetsResponse = {
+  presets: {
+    static_well: {
+      conditions: { flow_rate: 0.0, oxygen_tension: 0.21, nutrient_state: 0.6, stress_exposure: 0.05, culture_days: 60 },
+      label: 'Static well (control)',
+      description: 'No perfusion, atmospheric oxygen, no deliberate exogenous stressor.',
+      derived: { stress_level: 0.14, repair_rate: 0.28, cycles: 60 },
+    },
+    liver_chip_like: {
+      conditions: { flow_rate: 0.15, oxygen_tension: 0.06, nutrient_state: 0.5, stress_exposure: 0.5, culture_days: 90 },
+      label: 'Liver-chip-like (low flow, physioxia)',
+      description: 'Illustrative low-perfusion, low-oxygen-tension, metabolically demanding profile.',
+      derived: { stress_level: 0.55, repair_rate: 0.28, cycles: 90 },
+    },
+    lung_chip_like: {
+      conditions: { flow_rate: 0.9, oxygen_tension: 0.21, nutrient_state: 0.9, stress_exposure: 0.15, culture_days: 45 },
+      label: 'Lung-chip-like (high flow, high O2)',
+      description: 'Illustrative high-perfusion, atmospheric-oxygen, nutrient-replete profile.',
+      derived: { stress_level: 0.31, repair_rate: 0.55, cycles: 45 },
     },
   },
 }

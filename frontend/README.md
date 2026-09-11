@@ -252,6 +252,28 @@ scenario-parameter table and one fitness-composition bar per scenario
 (`fitnessBreakdownBar` with a title prefix). Invalid scenarios are listed
 and excluded from the charts, as in Streamlit.
 
+**Organ-chip presets** (ROADMAP.md candidate feature #3, 2026-09-11): an
+additional scenario source, `GET /api/meta/chip-presets`
+(`api/useChipPresets.ts`, same module-level-cache pattern as `useBounds`) —
+a preset picker (select) + "+ Add scenario" lets the user add any number of
+named chip-condition profiles (e.g. add "liver-chip-like" and "lung-chip-like"
+as two separate rows) to run side by side in one submit; each added row shows
+the preset's derived `stress_level` / `repair_rate` / `cycles` read-only
+(the same three-value readout `ChipMapper` shows on Simulate) and can be
+removed. Copy: *"Illustrative organ-chip condition profiles — a documented
+modelling assumption, not a validated physiological model (docs/MODEL.md
+§6)"*, mirroring `ChipMapper`'s own wording. A chip scenario is sent as
+`{name, chip: {...ChipConditions...}}` (never pre-mapped client-side — the
+server does the `chip_to_model_params` mapping via the extended
+`POST /api/compare`, keeping one source of truth for the mapping), with
+`base_config` set to the current baseline so a chip scenario's non-derived
+fields (population size, thresholds, etc.) match the other scenarios'.
+Scope reduction: presets are added as-is, with no per-scenario tweaking of
+their chip conditions before adding (reusing `ChipMapper`'s sliders per row
+was judged too much complexity for the time available versus the core ask
+of "several profiles side by side"); a preset can still be added more than
+once if the user wants two points on the same profile's axis.
+
 ### Experiments (`pages/Experiments/`)
 
 Port of `app/pages/04_Experiments.py`. Tabs **My experiments** / **All

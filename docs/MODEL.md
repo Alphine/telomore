@@ -292,6 +292,14 @@ Coefficients are round numbers chosen to keep outputs in bounds. They are
 mapper labels them as derived
 simulation parameters.
 
+`adapters/chip.py::CHIP_PRESETS` (ROADMAP.md candidate feature #3, multi-chip
+comparison, 2026-09-11) adds a small set of **named, illustrative** points in
+this same input space (a static-well control plus profiles loosely evoking
+liver-chip/lung-chip/gut-chip/injury-model *concepts*) so several conditions
+can be compared side by side on the Compare page. The names are framing
+devices only — they still go through the one, unmodified mapping above, and
+are not a claim of calibration to any organ's real physiology.
+
 ## 7. Known simplifications
 
 * No cell-cycle arrest heterogeneity, no DNA-damage checkpoints beyond

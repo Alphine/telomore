@@ -3,9 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { CompareResponse, ModelConfig } from '../../api/types'
 import { resetBoundsCache } from '../../api/useBounds'
+import { resetChipPresetsCache } from '../../api/useChipPresets'
 import { saveBaseline } from '../../components/baseline'
 import { saveCompareUserConfig, saveEvolveBest } from '../../components/handoff'
-import { BOUNDS, fakeRun } from '../../test/fixtures'
+import { BOUNDS, CHIP_PRESETS, fakeRun } from '../../test/fixtures'
 import { mockFetch, renderApp } from '../../test/helpers'
 import { Compare } from './index'
 
@@ -15,8 +16,11 @@ vi.mock('../../components/charts/Plot', () => ({
   ),
 }))
 
+const CHIP_PRESETS_ROUTE = { 'GET /api/meta/chip-presets': { status: 200, body: CHIP_PRESETS } }
+
 beforeEach(() => {
   resetBoundsCache()
+  resetChipPresetsCache()
   window.sessionStorage.clear()
 })
 afterEach(() => vi.unstubAllGlobals())
@@ -34,7 +38,7 @@ function scenario(name: string, cfg: Partial<ModelConfig>, fitness: number, delt
 
 describe('Compare page', () => {
   it('always offers the baseline, prompts for missing hand-offs and disables their checkboxes', async () => {
-    mockFetch({ 'GET /api/meta/bounds': { status: 200, body: BOUNDS } })
+    mockFetch({ 'GET /api/meta/bounds': { status: 200, body: BOUNDS }, ...CHIP_PRESETS_ROUTE })
     renderApp(<Compare />, { route: '/compare', token: 'jwt' })
     expect(await screen.findByText(/no Evolve result in this session yet/)).toBeInTheDocument()
     expect(screen.getByLabelText(/Best evolved/)).toBeDisabled()
@@ -47,6 +51,7 @@ describe('Compare page', () => {
     saveBaseline({ ...BOUNDS.demo, seed: 7 })
     const fetchMock = mockFetch({
       'GET /api/meta/bounds': { status: 200, body: BOUNDS },
+      ...CHIP_PRESETS_ROUTE,
       'POST /api/compare': {
         status: 200,
         body: {
@@ -103,6 +108,7 @@ describe('Compare page', () => {
     saveCompareUserConfig({ config: { ...BOUNDS.demo, repair_rate: 0.9 }, label: 'Pareto front point #1', run_id: null })
     const fetchMock = mockFetch({
       'GET /api/meta/bounds': { status: 200, body: BOUNDS },
+      ...CHIP_PRESETS_ROUTE,
       'POST /api/compare': { status: 200, body: { baseline: 'Baseline', scenarios: [scenario('Baseline', {}, 0.4, null)] } },
     })
     renderApp(<Compare />, { route: '/compare', token: 'jwt' })
@@ -135,6 +141,7 @@ describe('Compare page', () => {
     scheduled.result.applied_schedule = { maintenance_rate: [0.8, 0.8, 0.2, 0.2, 0.2] }
     const fetchMock = mockFetch({
       'GET /api/meta/bounds': { status: 200, body: BOUNDS },
+      ...CHIP_PRESETS_ROUTE,
       'POST /api/compare': { status: 200, body: { baseline: 'Baseline', scenarios: [scenario('Baseline', {}, 0.4, null), scheduled] } },
     })
     renderApp(<Compare />, { route: '/compare', token: 'jwt' })
@@ -153,9 +160,84 @@ describe('Compare page', () => {
     expect(table).toHaveTextContent('†')
   })
 
+  it('adds an organ-chip preset scenario with the {name, chip} payload shape and shows its derived readout', async () => {
+    saveBaseline({ ...BOUNDS.demo, seed: 9 })
+    const fetchMock = mockFetch({
+      'GET /api/meta/bounds': { status: 200, body: BOUNDS },
+      ...CHIP_PRESETS_ROUTE,
+      'POST /api/compare': {
+        status: 200,
+        body: {
+          baseline: 'Baseline',
+          scenarios: [
+            scenario('Baseline', { seed: 9 }, 0.4, null),
+            scenario('Liver-chip-like (low flow, physioxia)', { stress_level: 0.55, repair_rate: 0.28, seed: 9 }, 0.3, {
+              fitness_abs: -0.1,
+              fitness_pct: -25,
+              senescence_pp: 3,
+              reserve_kb: -0.2,
+              mean_length_kb: -0.3,
+              survival_abs: -0.05,
+            }),
+          ],
+        } satisfies CompareResponse,
+      },
+    })
+    renderApp(<Compare />, { route: '/compare', token: 'jwt' })
+    await screen.findByText(/no Evolve result in this session yet/)
+
+    const picker = await screen.findByLabelText('Preset')
+    fireEvent.change(picker, { target: { value: 'liver_chip_like' } })
+    expect(await screen.findByText(/low-perfusion, low-oxygen-tension/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '+ Add scenario' }))
+
+    const list = await screen.findByTestId('chip-scenario-list')
+    expect(list).toHaveTextContent('Liver-chip-like (low flow, physioxia)')
+    expect(list).toHaveTextContent('0.550') // derived stress_level readout
+    expect(screen.getByRole('button', { name: /Compare 2 scenarios/ })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Compare 2 scenarios/ }))
+    await screen.findByTestId('deltas-table')
+
+    const call = fetchMock.mock.calls.find(([u, init]) => String(u).includes('/api/compare') && init?.method === 'POST')
+    const body = JSON.parse(String((call![1] as RequestInit).body))
+    expect(body.scenarios.map((s: { name: string }) => s.name)).toEqual(['Baseline', 'Liver-chip-like (low flow, physioxia)'])
+    expect(body.scenarios[1].chip).toEqual(CHIP_PRESETS.presets.liver_chip_like.conditions)
+    expect(body.scenarios[1].config).toBeUndefined()
+    expect(body.base_config).toEqual({ ...BOUNDS.demo, seed: 9 })
+  })
+
+  it('supports multiple chip-preset scenarios alongside a manual scenario in one submit, and can remove one', async () => {
+    const fetchMock = mockFetch({
+      'GET /api/meta/bounds': { status: 200, body: BOUNDS },
+      ...CHIP_PRESETS_ROUTE,
+      'POST /api/compare': { status: 200, body: { baseline: 'Baseline', scenarios: [scenario('Baseline', {}, 0.4, null)] } },
+    })
+    renderApp(<Compare />, { route: '/compare', token: 'jwt' })
+    await screen.findByText(/no Evolve result in this session yet/)
+
+    const picker = await screen.findByLabelText('Preset')
+    fireEvent.change(picker, { target: { value: 'liver_chip_like' } })
+    fireEvent.click(screen.getByRole('button', { name: '+ Add scenario' }))
+    fireEvent.change(picker, { target: { value: 'lung_chip_like' } })
+    fireEvent.click(screen.getByRole('button', { name: '+ Add scenario' }))
+    fireEvent.click(screen.getByLabelText(/Manual parameters/))
+
+    expect(screen.getByRole('button', { name: /Compare 4 scenarios/ })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Remove Lung-chip-like \(high flow, high O2\)/ }))
+    expect(screen.getByRole('button', { name: /Compare 3 scenarios/ })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Compare 3 scenarios/ }))
+    await waitFor(() => expect(fetchMock.mock.calls.some(([u]) => String(u).includes('/api/compare'))).toBe(true))
+    const call = fetchMock.mock.calls.find(([u]) => String(u).includes('/api/compare'))
+    const body = JSON.parse(String((call![1] as RequestInit).body))
+    expect(body.scenarios.map((s: { name: string }) => s.name)).toEqual(['Baseline', 'Manual', 'Liver-chip-like (low flow, physioxia)'])
+  })
+
   it('shows a 400 from the API', async () => {
     mockFetch({
       'GET /api/meta/bounds': { status: 200, body: BOUNDS },
+      ...CHIP_PRESETS_ROUTE,
       'POST /api/compare': { status: 400, body: { detail: 'Baseline: stress_level=2.0 outside [0.0, 1.0]' } },
     })
     renderApp(<Compare />, { route: '/compare', token: 'jwt' })

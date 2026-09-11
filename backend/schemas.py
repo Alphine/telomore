@@ -340,6 +340,22 @@ class ChipParamsResponse(BaseModel):
     cycles: int
 
 
+class ChipPresetInfo(BaseModel):
+    """One entry of ``telomere_lab.adapters.chip.list_chip_presets()`` plus its
+    derived model parameters (ROADMAP.md candidate feature #3), so the
+    frontend can show stress/repair/cycles for every preset without a
+    round trip per card."""
+
+    conditions: ChipConditionsRequest
+    label: str
+    description: str
+    derived: ChipParamsResponse
+
+
+class ChipPresetsResponse(BaseModel):
+    presets: Dict[str, ChipPresetInfo]
+
+
 # --------------------------------------------------------------------------- #
 # experiments
 # --------------------------------------------------------------------------- #
@@ -377,8 +393,21 @@ class ArtifactInfo(BaseModel):
 # compare (synchronous, Phase 4)
 # --------------------------------------------------------------------------- #
 class CompareScenario(BaseModel):
+    """A scenario is specified either as an explicit ``config`` (a full
+    ``ModelConfig`` body, the original shape) or as ``chip`` (organ-chip
+    conditions, ROADMAP.md candidate feature #3: multi-chip comparison) --
+    never both, never neither. The router maps ``chip`` through
+    ``chip_to_model_params`` and merges the result onto the request's shared
+    base config, the same override semantics ``ChipMapper``/Simulate already
+    use client-side (``{...config, ...derived}``); see ``backend/routers/compare.py``.
+    """
+
     name: str = Field(min_length=1, max_length=80)
-    config: ModelConfigBody = Field(default_factory=ModelConfigBody)
+    config: Optional[ModelConfigBody] = None
+    chip: Optional[ChipConditionsRequest] = None
+    # `config` XOR `chip` is enforced in the router (backend/routers/compare.py),
+    # not here, so the 400 can be scenario-name-qualified like every other
+    # config error in that endpoint.
 
 
 class CompareRequest(BaseModel):
@@ -386,6 +415,13 @@ class CompareRequest(BaseModel):
     #: Common random numbers: when set, every scenario is run with this seed
     #: (the Streamlit Compare page's "Force identical simulator seed").
     seed: Optional[int] = None
+    #: Base ``ModelConfig`` a ``chip``-specified scenario's derived params are
+    #: merged onto (ROADMAP.md candidate feature #3), the same
+    #: ``{...config, ...derived}`` override semantics ``ChipMapper``/Simulate
+    #: already use client-side. Defaults to ``ModelConfig()``'s own defaults
+    #: (i.e. an all-default config) when omitted; a plain ``config`` scenario
+    #: never reads this field.
+    base_config: ModelConfigBody = Field(default_factory=ModelConfigBody)
 
 
 class CompareScenarioResult(BaseModel):

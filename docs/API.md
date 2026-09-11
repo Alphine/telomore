@@ -332,6 +332,55 @@ an invalid run. Nothing is written to the ledger (the Streamlit Compare page
 never recorded either). Tests: `tests/test_api_compare.py`,
 `tests/test_api_artifacts.py`.
 
+### Multi-chip / multi-organ comparison (candidate feature #3, 2026-09-11)
+
+A scenario may be specified as `{"name", "chip": {...ChipConditions...}}`
+instead of `{"name", "config": {...ModelConfig...}}` — **exactly one** of the
+two, never both, never neither (`400` on either violation, scenario-name
+qualified like every other config error on this endpoint). `chip` fields are
+the same optional `ChipConditions` fields as `/api/meta/chip-to-params`
+(`flow_rate`, `oxygen_tension`, `nutrient_state`, `stress_exposure`,
+`culture_days`); an unknown/malformed field is a `422` (pydantic wire-shape
+validation), not a `400`. The request also accepts an optional
+`base_config` (a `ModelConfig` body, defaults to `ModelConfig()`'s own
+defaults): a `chip` scenario is mapped through the existing, unmodified
+`telomere_lab.adapters.chip.chip_to_model_params` and the derived
+`{stress_level, repair_rate, cycles}` are merged onto `base_config` —
+`{...base_config, ...derived}`, the same override semantics `ChipMapper`
+already applies client-side on the Simulate page — before validation. A
+`config` scenario never reads `base_config`. Example mixing both scenario
+kinds:
+
+```json
+{"scenarios": [{"name": "Baseline", "config": {...ModelConfig...}},
+               {"name": "Liver-chip-like", "chip": {"flow_rate": 0.15, "oxygen_tension": 0.06,
+                                                     "nutrient_state": 0.5, "stress_exposure": 0.5,
+                                                     "culture_days": 90}}],
+ "base_config": {...ModelConfig...},
+ "seed": 42}
+```
+
+`GET /api/meta/chip-presets` (public) returns a small set of named,
+illustrative chip condition profiles plus their derived parameters, so the
+Compare page can render preset cards/pickers without a `/chip-to-params`
+round trip per preset:
+
+```json
+{"presets": {"liver_chip_like": {"conditions": {...ChipConditions...},
+                                  "label": "Liver-chip-like (low flow, physioxia)",
+                                  "description": "...",
+                                  "derived": {"stress_level": 0.55, "repair_rate": 0.28, "cycles": 90}},
+             "...": {}}}
+```
+
+Presets are named, illustrative points in the chip-condition space loosely
+evoking real organ-on-chip *concepts* (liver/lung/gut framings, plus a static
+well control) — **not** a claim of calibration to any organ's physiology
+(`docs/SCIENTIFIC_SCOPE.md` "organ-on-a-chip bridge", `docs/MODEL.md` §6).
+`/api/compare` remains the single comparison engine: no new parallel
+comparison endpoint was added, and `runner.compare_scenarios`/`deltas` are
+unmodified. Tests: `tests/test_api_compare_chip.py`.
+
 ## What's deliberately out of scope for Phase 1
 
 * No streaming (SSE/WebSocket) progress push — the React app is expected to

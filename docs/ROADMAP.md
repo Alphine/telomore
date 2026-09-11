@@ -172,6 +172,36 @@ Ranked by the account owner's stated priority:
    condition profiles (e.g. liver-chip vs lung-chip stress signatures)
    side by side. Strengthens the "AI + Organ-on-a-Chip" theme, which is
    currently thin (only one chip→parameter mapping, uncalibrated).
+   **DONE 2026-09-11** — `adapters/chip.py::CHIP_PRESETS` (five named,
+   illustrative profiles: `static_well`, `liver_chip_like`, `lung_chip_like`,
+   `gut_chip_like`, `injury_stress_chip_like` — each a hand-picked point in
+   the existing (flow, oxygen, nutrients, stress, duration) space, framed
+   loosely around real organ-on-chip *concepts* without claiming calibration,
+   per `docs/SCIENTIFIC_SCOPE.md`) + `list_chip_presets()`; the chip→param
+   mapping formula itself (`chip_to_model_params`) is untouched.
+   `GET /api/meta/chip-presets` (public) exposes every preset plus its
+   derived `{stress_level, repair_rate, cycles}`. `POST /api/compare`'s
+   scenario shape now accepts `{name, chip: {...ChipConditions...}}` as an
+   alternative to `{name, config: {...ModelConfig...}}` — exactly one of the
+   two (400 on both-or-neither); a `chip` scenario is mapped through the
+   unchanged `chip_to_model_params` and merged onto the request's new
+   `base_config` (`{...base_config, ...derived}`, the same override
+   semantics `ChipMapper` already used client-side) before validation, so
+   `/api/compare` stays the single comparison engine — `runner.compare_scenarios`/
+   `deltas` were not touched. React: a new "Organ-chip presets" scenario
+   source on the Compare page (`api/useChipPresets.ts`) — a preset
+   picker + "+ Add scenario" that can add any number of presets (including
+   the same one twice) as separate rows alongside the existing
+   baseline/evolved/pareto/manual scenarios, each showing its derived
+   stress/repair/cycles read-only and removable; submitted using the new
+   `{name, chip}` shape (mapping stays server-side, one source of truth).
+   Scope reduction: presets are added as-is, no per-scenario editing of their
+   chip conditions before adding (`ChipMapper`'s sliders per row would add
+   real complexity for a "compare N profiles" feature whose core ask is the
+   side-by-side view, not per-scenario tuning). Docs: `docs/API.md` "Compare"
+   (chip-scenario shape + `/chip-presets`), `docs/MODEL.md` §6,
+   `frontend/README.md` "Compare". Tests: `tests/test_chip_presets.py`,
+   `tests/test_api_compare_chip.py`, chip-preset cases in `Compare.test.tsx`.
 4. **Sub-population / sub-clone competition.** Multiple genetically
    distinct sub-populations competing for carrying-capacity slots within
    one simulation — an inner evolutionary layer distinct from the outer

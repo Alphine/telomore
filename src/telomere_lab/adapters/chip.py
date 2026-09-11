@@ -20,6 +20,13 @@ from typing import Dict
 
 import numpy as np
 
+__all__ = [
+    "ChipConditions",
+    "chip_to_model_params",
+    "CHIP_PRESETS",
+    "list_chip_presets",
+]
+
 
 @dataclass
 class ChipConditions:
@@ -61,3 +68,99 @@ def chip_to_model_params(chip: ChipConditions) -> Dict[str, float]:
     ))
     cycles = int(np.clip(round(chip.culture_days / ASSUMED_DOUBLING_TIME_DAYS), 1, 1000))
     return {"stress_level": stress_level, "repair_rate": repair_rate, "cycles": cycles}
+
+
+# --------------------------------------------------------------------------- #
+# Named illustrative chip presets (ROADMAP.md candidate feature #3: multi-chip
+# comparison). Each is a hand-picked point in the (flow, oxygen, nutrients,
+# stress, duration) space loosely evoking a real organ-on-chip *concept* from
+# the literature -- NOT a calibrated reproduction of any organ's physiology.
+# Per docs/SCIENTIFIC_SCOPE.md, "organ-on-a-chip bridge": these names are
+# framing devices for experiment-design narrative, not claims that the model
+# reproduces liver/lung/gut biology. No coefficients here were fit to any
+# dataset; they were chosen, like ``chip_to_model_params`` itself, to sit at
+# meaningfully different points of the input space and to stay inside the
+# simulator's parameter bounds.
+# --------------------------------------------------------------------------- #
+@dataclass(frozen=True)
+class ChipPreset:
+    conditions: ChipConditions
+    label: str
+    description: str
+
+
+CHIP_PRESETS: Dict[str, ChipPreset] = {
+    # Control point: no perfusion, no deliberate stressor -- the reference
+    # every other preset's "what does chip X add relative to a plain dish"
+    # comparison implicitly uses.
+    "static_well": ChipPreset(
+        conditions=ChipConditions(
+            flow_rate=0.0, oxygen_tension=0.21, nutrient_state=0.6,
+            stress_exposure=0.05, culture_days=60.0,
+        ),
+        label="Static well (control)",
+        description="No perfusion, atmospheric oxygen, no deliberate exogenous stressor -- "
+                     "an illustrative baseline dish, not an organ-chip condition.",
+    ),
+    # Low-flow / physioxic / high-stress axis, evoking a liver-chip's low
+    # perfusion + physiological (not atmospheric) oxygen tension.
+    "liver_chip_like": ChipPreset(
+        conditions=ChipConditions(
+            flow_rate=0.15, oxygen_tension=0.06, nutrient_state=0.5,
+            stress_exposure=0.5, culture_days=90.0,
+        ),
+        label="Liver-chip-like (low flow, physioxia)",
+        description="Illustrative low-perfusion, low-oxygen-tension, metabolically demanding "
+                     "profile evoking a liver-chip's physioxia -- not a calibrated hepatocyte model.",
+    ),
+    # High-flow / high-oxygen axis, evoking a lung-chip's air-liquid interface
+    # and active gas exchange.
+    "lung_chip_like": ChipPreset(
+        conditions=ChipConditions(
+            flow_rate=0.9, oxygen_tension=0.21, nutrient_state=0.9,
+            stress_exposure=0.15, culture_days=45.0,
+        ),
+        label="Lung-chip-like (high flow, high O2)",
+        description="Illustrative high-perfusion, atmospheric-oxygen, nutrient-replete profile "
+                     "evoking a lung-chip's air-liquid interface -- not a calibrated alveolar model.",
+    ),
+    # Nutrient-limited axis, evoking a gut-chip's variable/limited nutrient
+    # exposure relative to a well-fed culture.
+    "gut_chip_like": ChipPreset(
+        conditions=ChipConditions(
+            flow_rate=0.45, oxygen_tension=0.08, nutrient_state=0.25,
+            stress_exposure=0.35, culture_days=60.0,
+        ),
+        label="Gut-chip-like (nutrient-limited)",
+        description="Illustrative moderate-flow, low-oxygen, nutrient-depleted profile evoking a "
+                     "gut-chip's limited nutrient exposure -- not a calibrated epithelial model.",
+    ),
+    # High exogenous-stress axis (a toxicology/injury framing), the opposite
+    # end of the stress_exposure knob from the static-well control.
+    "injury_stress_chip_like": ChipPreset(
+        conditions=ChipConditions(
+            flow_rate=0.2, oxygen_tension=0.21, nutrient_state=0.45,
+            stress_exposure=0.9, culture_days=60.0,
+        ),
+        label="High-stress injury-chip-like",
+        description="Illustrative low-flow, high-exogenous-stress profile evoking a toxicology/"
+                     "injury framing -- the highest deliberate stressor of these presets.",
+    ),
+}
+
+
+def list_chip_presets() -> Dict[str, Dict[str, object]]:
+    """``{name: {conditions, label, description}}`` for the API/frontend.
+
+    ``conditions`` is a plain dict (``ChipConditions.to_dict()``); callers that
+    also want the derived model parameters should run each through
+    ``chip_to_model_params`` themselves (see ``backend/routers/meta.py``).
+    """
+    return {
+        name: {
+            "conditions": preset.conditions.to_dict(),
+            "label": preset.label,
+            "description": preset.description,
+        }
+        for name, preset in CHIP_PRESETS.items()
+    }

@@ -10,6 +10,7 @@ import { ApiError } from '../../api/client'
 import { compare as apiCompare } from '../../api/endpoints'
 import type { CompareResponse, CompareScenario, ModelConfig } from '../../api/types'
 import { useBounds } from '../../api/useBounds'
+import { useChipPresets } from '../../api/useChipPresets'
 import { Callout } from '../../components/Callout'
 import { ModelConfigForm } from '../../components/ModelConfigForm'
 import { NumberInput } from '../../components/NumberInput'
@@ -61,6 +62,7 @@ function summary(c: ModelConfig): string {
 
 export function Compare() {
   const { bounds, error: boundsError } = useBounds()
+  const { presets: chipPresets, error: chipPresetsError } = useChipPresets()
   const dark = usePrefersDark()
 
   // Hand-offs are read once per mount (they only change on other pages).
@@ -76,9 +78,40 @@ export function Compare() {
   const [response, setResponse] = useState<CompareResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // Organ-chip preset scenarios (ROADMAP.md candidate feature #3: run several
+  // chip condition profiles side by side). Each entry is one added scenario;
+  // the same preset may be added more than once (e.g. to bracket two
+  // durations), so entries are a list of {id, presetKey}, not a set.
+  const [chipEntries, setChipEntries] = useState<Array<{ id: string; presetKey: string }>>([])
+  const [chipPickerKey, setChipPickerKey] = useState('')
+
   const baseline = bounds ? (loadBaseline() ?? bounds.demo) : null
   const manualCfg = manual ?? baseline
   const commonSeed = seed ?? baseline?.seed ?? 42
+
+  function addChipScenario() {
+    if (!chipPickerKey) return
+    setChipEntries((es) => [...es, { id: `${chipPickerKey}-${es.length}-${Date.now()}`, presetKey: chipPickerKey }])
+  }
+  function removeChipScenario(id: string) {
+    setChipEntries((es) => es.filter((e) => e.id !== id))
+  }
+
+  // {label} for the first occurrence of a preset, "{label} (2)" etc. after
+  // that, so scenario names stay unique (the server rejects duplicates).
+  const chipScenarios = useMemo<CompareScenario[]>(() => {
+    if (!chipPresets) return []
+    const seen: Record<string, number> = {}
+    const out: CompareScenario[] = []
+    for (const entry of chipEntries) {
+      const preset = chipPresets.presets[entry.presetKey]
+      if (!preset) continue
+      seen[preset.label] = (seen[preset.label] ?? 0) + 1
+      const name = seen[preset.label] > 1 ? `${preset.label} (${seen[preset.label]})` : preset.label
+      out.push({ name, chip: preset.conditions })
+    }
+    return out
+  }, [chipEntries, chipPresets])
 
   const scenarios = useMemo<CompareScenario[]>(() => {
     if (!baseline) return []
@@ -86,8 +119,9 @@ export function Compare() {
     if (includeEvolved && evolved) out.push({ name: 'Best evolved', config: evolved.config })
     if (includePareto && pareto) out.push({ name: 'From Pareto page', config: pareto.config })
     if (includeManual && manualCfg) out.push({ name: 'Manual', config: manualCfg })
+    out.push(...chipScenarios)
     return out
-  }, [baseline, includeEvolved, evolved, includePareto, pareto, includeManual, manualCfg])
+  }, [baseline, includeEvolved, evolved, includePareto, pareto, includeManual, manualCfg, chipScenarios])
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -95,7 +129,14 @@ export function Compare() {
     setRunning(true)
     setError(null)
     try {
-      const res = await apiCompare({ scenarios, seed: sameSeed ? commonSeed : undefined })
+      const res = await apiCompare({
+        scenarios,
+        seed: sameSeed ? commonSeed : undefined,
+        // Chip scenarios' derived {stress_level, repair_rate, cycles} are
+        // merged onto this base -- the same override the Simulate page's
+        // ChipMapper does client-side, done server-side here instead.
+        base_config: baseline ?? undefined,
+      })
       setResponse(res)
     } catch (err: unknown) {
       if (err instanceof ApiError) setError(`${err.status === 400 ? 'Invalid configuration: ' : ''}${err.message}`)
@@ -234,6 +275,93 @@ export function Compare() {
               <div className="max-w-xl border-t border-slate-200 pt-4 dark:border-slate-800">
                 <ModelConfigForm bounds={bounds} value={manualCfg} onChange={setManual} idPrefix="cmp" disabled={running} />
               </div>
+            )}
+          </section>
+
+          <section className="card space-y-3 p-5" aria-label="Organ-chip preset scenarios">
+            <h2 className="text-lg font-semibold">Organ-chip presets</h2>
+            <p className="prose-muted text-xs">
+              Illustrative organ-chip condition profiles — a documented modelling assumption, not a validated
+              physiological model (docs/MODEL.md §6). Add one or more to compare their derived parameters side by side.
+            </p>
+            {chipPresetsError && (
+              <Callout tone="error" role="alert">
+                Could not load organ-chip presets: {chipPresetsError}
+              </Callout>
+            )}
+            {chipPresets && (
+              <div className="flex flex-wrap items-end gap-2">
+                <div>
+                  <label className="label" htmlFor="cmp-chip-picker">
+                    Preset
+                  </label>
+                  <select
+                    id="cmp-chip-picker"
+                    className="input !py-1.5 !text-sm"
+                    value={chipPickerKey}
+                    disabled={running}
+                    onChange={(e) => setChipPickerKey(e.target.value)}
+                  >
+                    <option value="">Choose a preset…</option>
+                    {Object.entries(chipPresets.presets).map(([key, preset]) => (
+                      <option key={key} value={key}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  className="btn-ghost !py-1.5 !text-sm"
+                  disabled={running || !chipPickerKey}
+                  onClick={addChipScenario}
+                >
+                  + Add scenario
+                </button>
+                {chipPickerKey && (
+                  <p className="prose-muted basis-full text-xs">{chipPresets.presets[chipPickerKey]?.description}</p>
+                )}
+              </div>
+            )}
+            {chipEntries.length > 0 && (
+              <ul className="space-y-2 text-sm" data-testid="chip-scenario-list">
+                {chipEntries.map((entry, i) => {
+                  const preset = chipPresets?.presets[entry.presetKey]
+                  const name = chipScenarios[i]?.name ?? preset?.label ?? entry.presetKey
+                  return (
+                    <li key={entry.id} className="flex items-start justify-between gap-2 rounded-md border border-slate-200 p-2 dark:border-slate-800">
+                      <div>
+                        <strong>{name}</strong>
+                        {preset && (
+                          <dl className="mt-1 grid grid-cols-3 gap-2 font-mono text-xs">
+                            <div>
+                              <dt className="prose-muted">stress_level</dt>
+                              <dd>{preset.derived.stress_level.toFixed(3)}</dd>
+                            </div>
+                            <div>
+                              <dt className="prose-muted">repair_rate</dt>
+                              <dd>{preset.derived.repair_rate.toFixed(3)}</dd>
+                            </div>
+                            <div>
+                              <dt className="prose-muted">cycles</dt>
+                              <dd>{preset.derived.cycles}</dd>
+                            </div>
+                          </dl>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        className="link text-xs"
+                        disabled={running}
+                        onClick={() => removeChipScenario(entry.id)}
+                        aria-label={`Remove ${name}`}
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
             )}
           </section>
 

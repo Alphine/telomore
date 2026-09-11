@@ -7,6 +7,7 @@ import type {
   BoundsResponse,
   ChipConditions,
   ChipParams,
+  ChipPresetsResponse,
   CompareRequest,
   CompareResponse,
   EnsembleRequest,
@@ -76,6 +77,11 @@ export function metaVersion(): Promise<VersionResponse> {
 /** Protected: organ-on-chip conditions -> derived stress_level / repair_rate / cycles. */
 export function chipToParams(body: ChipConditions): Promise<ChipParams> {
   return request<ChipParams>('/meta/chip-to-params', { method: 'POST', body })
+}
+
+/** Public: named illustrative organ-chip presets + their derived params (ROADMAP.md candidate feature #3). */
+export function metaChipPresets(): Promise<ChipPresetsResponse> {
+  return request<ChipPresetsResponse>('/meta/chip-presets', { token: null })
 }
 
 // --------------------------------------------------------------- simulate

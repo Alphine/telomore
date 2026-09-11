@@ -19,7 +19,7 @@ import numpy as np
 from fastapi import APIRouter, Depends
 
 from telomere_lab import db as _db
-from telomere_lab.adapters.chip import ChipConditions, chip_to_model_params
+from telomere_lab.adapters.chip import ChipConditions, chip_to_model_params, list_chip_presets
 from telomere_lab.config import CONFIG_DIR, load_model_config
 from telomere_lab.experiments.registry import environment_metadata
 from telomere_lab.schemas import (
@@ -138,3 +138,24 @@ def chip_to_params(body: api_schemas.ChipConditionsRequest,
     del user  # auth gate only
     derived = chip_to_model_params(ChipConditions(**body.model_dump()))
     return api_schemas.ChipParamsResponse(**_plain(derived))
+
+
+@router.get("/chip-presets", response_model=api_schemas.ChipPresetsResponse)
+def chip_presets() -> api_schemas.ChipPresetsResponse:
+    """Named, illustrative organ-chip condition profiles (ROADMAP.md candidate
+    feature #3: multi-chip comparison) plus their derived model parameters, so
+    the Compare page can show stress/repair/cycles per preset without one
+    ``/chip-to-params`` round trip each. Public, like ``/bounds``: static,
+    non-sensitive metadata. Kept as its own route rather than folded into
+    ``/bounds`` -- the presets are compare-specific and would otherwise
+    inflate a response every page loads on every visit."""
+    out = {}
+    for name, entry in list_chip_presets().items():
+        derived = chip_to_model_params(ChipConditions(**entry["conditions"]))
+        out[name] = api_schemas.ChipPresetInfo(
+            conditions=api_schemas.ChipConditionsRequest(**entry["conditions"]),
+            label=entry["label"],
+            description=entry["description"],
+            derived=api_schemas.ChipParamsResponse(**_plain(derived)),
+        )
+    return api_schemas.ChipPresetsResponse(presets=out)

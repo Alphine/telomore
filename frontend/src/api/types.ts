@@ -219,6 +219,21 @@ export interface ChipParams {
   cycles: number
 }
 
+// backend/schemas.py::ChipPresetInfo / ChipPresetsResponse (GET /api/meta/chip-presets,
+// ROADMAP.md candidate feature #3: multi-chip comparison). Named, illustrative
+// organ-chip condition profiles -- not calibrated to any organ's physiology
+// (docs/SCIENTIFIC_SCOPE.md "organ-on-a-chip bridge").
+export interface ChipPresetInfo {
+  conditions: ChipConditions
+  label: string
+  description: string
+  derived: ChipParams
+}
+
+export interface ChipPresetsResponse {
+  presets: Record<string, ChipPresetInfo>
+}
+
 // --------------------------------------------------------------- simulate
 export interface SimulateRequest {
   config: Partial<ModelConfig>
@@ -538,16 +553,21 @@ export interface ActiveLearningResult {
 export type ActiveLearningJob = JobStatusResponse<ActiveLearningRecord, ActiveLearningResult>
 
 // ---------------------------------------------------------------- compare
-// backend/schemas.py::CompareRequest / CompareResponse
-export interface CompareScenario {
-  name: string
-  config: Partial<ModelConfig>
-}
+// backend/schemas.py::CompareRequest / CompareScenario. A scenario is either
+// a full `config` or organ-chip `chip` conditions (ROADMAP.md candidate
+// feature #3: multi-chip comparison) -- never both, never neither; the
+// server maps `chip` through chip_to_model_params and merges it onto
+// CompareRequest.base_config.
+export type CompareScenario =
+  | { name: string; config: Partial<ModelConfig>; chip?: undefined }
+  | { name: string; chip: ChipConditions; config?: undefined }
 
 export interface CompareRequest {
   scenarios: CompareScenario[]
   /** Common random numbers: every scenario is re-seeded with this when set. */
   seed?: number
+  /** Base config a `chip` scenario's derived params are merged onto; defaults to ModelConfig() defaults. */
+  base_config?: Partial<ModelConfig>
 }
 
 // runner.deltas keys; fitness_pct is null when the baseline fitness is 0 / invalid.

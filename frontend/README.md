@@ -629,6 +629,34 @@ running on this origin can read it (XSS), unlike an HttpOnly cookie. This is
 acceptable for a research prototype with no third-party scripts; revisit if
 the threat model changes.
 
+## Theme (light/dark/system)
+
+`ThemeProvider` (`src/theme/ThemeProvider.tsx` + `src/theme/context.ts`) holds
+a three-way preference, `'system' | 'light' | 'dark'`, persisted to
+`localStorage` under `tel_theme` and defaulting to `'system'` for a
+first-time visitor. `resolvedDark` is `true` for `'dark'`, or for `'system'`
+while the OS `prefers-color-scheme` media query matches dark; the provider
+applies/removes a `dark` class on `<html>` accordingly (and syncs
+`documentElement.style.colorScheme` for native form controls/scrollbars).
+Tailwind's `dark:` variant is repointed at that class (`@custom-variant dark
+(&:where(.dark, .dark *));` in `src/index.css`) instead of the bare
+`prefers-color-scheme` media query, so every `dark:` utility in the app
+responds to the toggle, not just the OS setting. `main.tsx` also applies the
+resolved theme synchronously (`applyInitialThemeClass()`) before React
+mounts, to avoid a flash of the wrong theme on load.
+
+`usePrefersDark()` (`components/charts/theme.ts`, used by the Plotly charts
+and `DnaHelixCanvas`) now sources `resolvedDark` from `ThemeProvider`'s
+context instead of querying `matchMedia` directly — same name and signature,
+so none of its call sites changed. If rendered outside a `ThemeProvider` (a
+few component tests do this in isolation), it falls back to a raw
+`prefers-color-scheme` read rather than a hardcoded constant.
+
+The toggle itself (`components/ThemeToggle.tsx`) is a `radiogroup` of three
+plain buttons (🖥️ system / ☀️ light / 🌙 dark) in `Layout.tsx`'s sidebar
+footer and mobile top bar — reachable on every page, including the public
+Landing page, since `Layout` wraps the whole route tree.
+
 ## Dev-mode email links
 
 Without `RESEND_API_KEY`, the backend returns `dev_verification_link` /

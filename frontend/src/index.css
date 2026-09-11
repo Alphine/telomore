@@ -1,8 +1,15 @@
 @import "tailwindcss";
 
+/* Manual three-way theme toggle (system/light/dark, see frontend/src/theme/):
+   `dark:` no longer follows the bare prefers-color-scheme media query.
+   Instead it matches an explicit `.dark` class that ThemeProvider applies to
+   <html>, so every dark: utility in this app responds to the toggle instead
+   of only the OS setting. This is Tailwind v4's documented class-based
+   dark-mode recipe. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Inter for body, Sora for headings -- carried over from the Streamlit
-   polish pass (app/ui/components.py::inject_css). `dark:` variants follow
-   prefers-color-scheme (Tailwind v4 default), no manual toggle. */
+   polish pass (app/ui/components.py::inject_css). */
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-heading: "Sora", "Inter", ui-sans-serif, system-ui, sans-serif;
@@ -109,10 +116,8 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
-  @media (prefers-color-scheme: dark) {
-    .gradient-text {
-      background-image: linear-gradient(90deg, #38bdf8, #a78bfa);
-    }
+  .dark .gradient-text {
+    background-image: linear-gradient(90deg, #38bdf8, #a78bfa);
   }
 
   /* Subtle deep radial glow behind the hero, dark mode only -- light mode
@@ -133,9 +138,7 @@
       radial-gradient(30rem 20rem at 90% 30%, rgba(167, 139, 250, 0.14), transparent 60%);
     transition: opacity 0.3s ease;
   }
-  @media (prefers-color-scheme: dark) {
-    .hero-glow::before {
-      opacity: 1;
-    }
+  .dark .hero-glow::before {
+    opacity: 1;
   }
 }

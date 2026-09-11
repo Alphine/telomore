@@ -4,12 +4,15 @@ import { MemoryRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 
 import { AuthProvider } from '../auth/AuthContext'
+import { ThemeProvider } from '../theme/ThemeProvider'
 
-/** Render inside a MemoryRouter + AuthProvider (no localStorage token unless given). */
+/** Render inside a MemoryRouter + ThemeProvider + AuthProvider (no localStorage token unless given). */
 export function renderApp(ui: ReactNode, opts: { route?: string; token?: string | null } = {}) {
   return render(
     <MemoryRouter initialEntries={[opts.route ?? '/']}>
-      <AuthProvider initialToken={opts.token ?? null}>{ui}</AuthProvider>
+      <ThemeProvider>
+        <AuthProvider initialToken={opts.token ?? null}>{ui}</AuthProvider>
+      </ThemeProvider>
     </MemoryRouter>,
   )
 }

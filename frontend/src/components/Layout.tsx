@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../auth/context'
 import { NAV_FEATURES } from '../features'
+import { ThemeToggle } from './ThemeToggle'
 
 function navClass({ isActive }: { isActive: boolean }): string {
   return [
@@ -84,7 +85,8 @@ export function Layout() {
         <div className="flex-1 px-3">
           <Nav />
         </div>
-        <div className="border-t border-slate-200 px-5 py-4 dark:border-slate-800">
+        <div className="space-y-3 border-t border-slate-200 px-5 py-4 dark:border-slate-800">
+          <ThemeToggle />
           <AuthControls />
         </div>
       </aside>
@@ -95,15 +97,18 @@ export function Layout() {
           <Link to="/" className="font-heading text-base font-bold" onClick={close}>
             🧬 Telomere Evolution Lab
           </Link>
-          <button
-            type="button"
-            className="btn-ghost !px-3 !py-1.5"
-            aria-expanded={open}
-            aria-controls="mobile-nav"
-            onClick={() => setOpen((v) => !v)}
-          >
-            Menu
-          </button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <button
+              type="button"
+              className="btn-ghost !px-3 !py-1.5"
+              aria-expanded={open}
+              aria-controls="mobile-nav"
+              onClick={() => setOpen((v) => !v)}
+            >
+              Menu
+            </button>
+          </div>
         </div>
         {open && (
           <div id="mobile-nav" className="space-y-4 border-t border-slate-200 px-4 py-4 dark:border-slate-800">

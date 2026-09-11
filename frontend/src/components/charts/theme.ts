@@ -2,25 +2,36 @@
 // a light/dark switch. plotly.js has no named-template registry like the
 // Python `template="plotly_white"`, so the equivalent colours are set
 // explicitly here and swapped for dark mode.
-import { useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
 import type { Layout } from 'plotly.js-dist-min'
+
+import { ThemeContext } from '../../theme/context'
 
 export const PALETTE = ['#2563eb', '#dc2626', '#059669', '#d97706', '#7c3aed', '#0891b2']
 export const CURSOR_COLOR = '#14b8a6' // teal-500, matches the app accent
 
+/**
+ * True when the resolved theme is dark. Sourced from the app's
+ * `<ThemeProvider>` (frontend/src/theme/) so it stays in sync with the
+ * manual system/light/dark toggle -- falls back to a raw
+ * `prefers-color-scheme` read (the old behaviour) if no provider is mounted,
+ * which some tests render this component tree without.
+ */
 export function usePrefersDark(): boolean {
-  const [dark, setDark] = useState<boolean>(() => {
+  const ctx = useContext(ThemeContext)
+  const [fallbackDark, setFallbackDark] = useState<boolean>(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
     return window.matchMedia('(prefers-color-scheme: dark)').matches
   })
   useEffect(() => {
+    if (ctx) return // a ThemeProvider is present; its own resolvedDark is authoritative
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    const onChange = (e: MediaQueryListEvent) => setDark(e.matches)
+    const onChange = (e: MediaQueryListEvent) => setFallbackDark(e.matches)
     mq.addEventListener('change', onChange)
     return () => mq.removeEventListener('change', onChange)
-  }, [])
-  return dark
+  }, [ctx])
+  return ctx ? ctx.resolvedDark : fallbackDark
 }
 
 export interface LayoutOptions {

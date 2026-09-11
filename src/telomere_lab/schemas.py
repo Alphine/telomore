@@ -417,6 +417,14 @@ class SimulationResult:
     #: Empty dict when ``config.subclones`` is unset.
     clone_fraction: Dict[str, np.ndarray] = field(default_factory=dict)
     terminal_metrics: Dict[str, float] = field(default_factory=dict)
+    #: Synthetic "biological age" biomarker score (ROADMAP.md candidate
+    #: feature #5, docs/MODEL.md §4.1) -- a derived, documented composite of
+    #: this result's own terminal metrics, computed post-hoc from an already
+    #: -completed simulation. ``None`` until attached by the simulator
+    #: (`simulator/model.py`) or an explicit call to
+    #: ``simulator.biomarker.biological_age_score``; never NaN or a crash --
+    #: see `simulator/biomarker.py` for the full formula and its rationale.
+    biological_age: Optional[Any] = None
     valid: bool = True
     failure_reason: Optional[str] = None
     runtime_seconds: float = 0.0
@@ -456,6 +464,7 @@ class SimulationResult:
             },
             "applied_schedule": {k: np.asarray(v).tolist() for k, v in self.applied_schedule.items()},
             "clone_fraction": {k: np.asarray(v).tolist() for k, v in self.clone_fraction.items()},
+            "biological_age": self.biological_age.to_json_dict() if self.biological_age is not None else None,
         }
         if include_final_lengths:
             out["final_lengths_bp"] = self.final_lengths.tolist()

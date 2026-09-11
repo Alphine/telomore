@@ -187,6 +187,44 @@ block, a list shaped exactly like `ModelConfig.to_dict()` emits it
 
 Tests: `tests/test_api_subclones.py`.
 
+### Synthetic "biological age" biomarker score (candidate feature #5, 2026-09-11)
+
+Every `run` object returned by `POST /api/simulate` and `POST /api/compare`
+carries **`biological_age`** (`backend/schemas.py::BiologicalAgeScoreBody`),
+typed on `SimulationRunResponse` like `applied_schedule`/`clone_fraction`:
+
+```json
+{"biological_age": {
+  "score_over_time": [12.4, 18.9, "... one value per cycle, same axis as timeseries.cycle ..."],
+  "final_score": 41.2,
+  "scale_label": "synthetic age index, 0 (youthful reference) - 100 (senescent reference)",
+  "formula_note": "age_index = 100 * (1 - mean(normalized_survival, normalized_telomere_reserve, 1 - senescent_fraction)) ...",
+  "valid": true
+}}
+```
+
+* A **0-100 "synthetic age index"** computed purely from the model's own
+  already-reported terminal metrics (`docs/MODEL.md` §4.1) — never a new
+  measurement, never fed back into the simulator or any optimizer. `valid:
+  false` (with `final_score: null` and an empty `score_over_time`) whenever
+  the underlying run itself is invalid; never a crash, never `NaN`.
+  `formula_note`/`scale_label` are short strings safe to render verbatim as
+  a UI caption.
+* `POST /api/simulate/ensemble` surfaces a lighter **`biological_age_final`**
+  per seed on `EnsembleSeedResult` (the ensemble summary table's "spread of
+  the age index across seeds") rather than a full per-seed
+  `score_over_time` — a documented, deliberate scope reduction, since a full
+  per-seed series would be `n_seeds`x the payload for a figure the fan chart
+  doesn't otherwise need.
+* `POST /api/compare` needed no schema change: each scenario's `result` is
+  already a full `SimulationRunResponse`, so `result.biological_age` is
+  present per scenario out of the box — a natural fit for "which chip
+  profile/scenario ages the culture fastest" (the Compare page adds a
+  "synthetic age index" column reading `result.biological_age.final_score`).
+
+Tests: `tests/test_biological_age.py` (core), `tests/test_api_biological_age.py`
+(simulate/ensemble/compare wiring).
+
 ## Ensemble / uncertainty visualization (candidate feature #2, 2026-09-11)
 
 `POST /api/simulate/ensemble` `{config: {...ModelConfig fields...}, n_seeds: int, base_seed?: int}`
@@ -231,7 +269,9 @@ from `POST /api/simulate`, which is unchanged.
     summary table and the particle visualization need, nothing more. A run
     that failed for a given seed carries `valid: false` /
     `failure_reason` and is excluded from `bands` and from summary
-    statistics.
+    statistics. `biological_age_final` (candidate feature #5) is that seed's
+    final synthetic age index, `null` when invalid -- deliberately not a
+    full per-seed `score_over_time` (see above).
   * `applied_schedule`: shared by every seed (only the RNG differs across
     seeds, not the schedule), same shape/convention as `/api/simulate`'s
     `applied_schedule`; `{}` when the config has no schedule.

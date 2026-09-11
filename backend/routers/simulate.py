@@ -94,6 +94,7 @@ def simulate_ensemble(body: api_schemas.EnsembleRequest, user: _db.User = Depend
             proliferative_count=r.proliferative_count.tolist(),
             senescent_fraction=r.senescent_fraction.tolist(),
             terminal_metrics=r.terminal_metrics,
+            biological_age_final=r.biological_age.final_score if r.biological_age is not None else None,
         )
         for r in results
     ]

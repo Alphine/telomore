@@ -115,6 +115,41 @@ describe('Simulate page', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Invalid configuration: senescence_threshold=-1.0')
   })
 
+  it('shows the synthetic age index gauge with its disclaimer next to a successful run (ROADMAP.md #5)', async () => {
+    const run = fakeRun()
+    mockFetch({
+      'GET /api/meta/bounds': { status: 200, body: BOUNDS },
+      'POST /api/simulate': { status: 200, body: { run } },
+    })
+    renderApp(<Simulate />, { route: '/simulate', token: 'jwt' })
+    await screen.findByLabelText('Stress level (a.u.)')
+    fireEvent.click(screen.getByRole('button', { name: /Run simulation/ }))
+
+    const gauge = await screen.findByTestId('biological-age-gauge')
+    expect(gauge).toBeInTheDocument()
+    expect(screen.getByTestId('biological-age-value')).toHaveTextContent(run.biological_age!.final_score!.toFixed(1))
+    // The disclaimer must be in the DOM alongside the score, not merely documented elsewhere.
+    expect(screen.getByTestId('biological-age-disclaimer')).toHaveTextContent(
+      'not a measurement of biological age, not medical information.',
+    )
+  })
+
+  it('does not crash and still shows the disclaimer when biological_age is absent on an otherwise-invalid run', async () => {
+    const invalidRun = { ...fakeRun(), valid: false, failure_reason: 'invalid configuration', biological_age: null }
+    mockFetch({
+      'GET /api/meta/bounds': { status: 200, body: BOUNDS },
+      'POST /api/simulate': { status: 200, body: { run: invalidRun } },
+    })
+    renderApp(<Simulate />, { route: '/simulate', token: 'jwt' })
+    await screen.findByLabelText('Stress level (a.u.)')
+    fireEvent.click(screen.getByRole('button', { name: /Run simulation/ }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('invalid')
+    // The gauge itself is only mounted on the valid-run branch; the page must
+    // not throw when biological_age is null and there is simply no gauge to show.
+    expect(screen.queryByTestId('biological-age-gauge')).not.toBeInTheDocument()
+  })
+
   it('"Set as baseline" stores the config for the Evolve page', async () => {
     mockFetch({ 'GET /api/meta/bounds': { status: 200, body: BOUNDS } })
     renderApp(<Simulate />, { route: '/simulate', token: 'jwt' })
@@ -222,7 +257,12 @@ describe('Simulate page', () => {
       fireEvent.click(screen.getByRole('button', { name: /Run ensemble/ }))
 
       expect(await screen.findByText(/TEL-20260911-001/)).toBeInTheDocument()
-      expect(screen.getByTestId('ensemble-summary-table')).toBeInTheDocument()
+      const summaryTable = screen.getByTestId('ensemble-summary-table')
+      expect(summaryTable).toBeInTheDocument()
+      expect(summaryTable).toHaveTextContent('Synthetic age index')
+      expect(screen.getByTestId('biological-age-disclaimer')).toHaveTextContent(
+        'not a measurement of biological age, not medical information.',
+      )
       expect(screen.getByLabelText('Ensemble population visualization')).toBeInTheDocument()
       const fanTitles = screen.getAllByTestId('plot').map((el) => el.textContent)
       expect(fanTitles.some((t) => t?.includes('spread across seeds'))).toBe(true)

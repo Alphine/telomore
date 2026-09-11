@@ -145,6 +145,13 @@ export function fakeRun(cycles = 4): SimulationRun {
     applied_schedule: {},
     clone_fraction: {},
     final_lengths_bp: [6000, 6500, 7000],
+    biological_age: {
+      score_over_time: t.map((i) => Math.min(100, 10 + 8 * i)),
+      final_score: Math.min(100, 10 + 8 * cycles),
+      scale_label: 'synthetic age index, 0 (youthful reference) - 100 (senescent reference)',
+      formula_note: 'age_index = 100 * (1 - mean(normalized_survival, normalized_telomere_reserve, 1 - senescent_fraction))',
+      valid: true,
+    },
     run_id: 'TEL-20260909-001',
     fitness: { total: 0.512, survival: 0.9, reserve: 0.27, senescence: 0.12, instability: 0.2, cost: 0.02, valid: true, reason: null },
   }
@@ -190,6 +197,7 @@ export function fakeEnsemble(nSeeds = 3, cycles = 4): EnsembleResponse {
         final_length_cv: 0.1,
         extinct: false,
       },
+      biological_age_final: 25 + si * 3,
     })),
     applied_schedule: {},
   }

@@ -75,10 +75,14 @@ SCOPE_PATH = PROJECT_ROOT / "docs" / "SCIENTIFIC_SCOPE.md"
 #: tests/test_api_llm.py asserts this equals the file, so they cannot drift.
 _LANGUAGE_POLICY_FALLBACK = (
     'Avoid: "AI discovered how to extend lifespan", "optimal therapy",\n'
-    '"prevents ageing", "optimal dosing regimen", "fasting protocol that works".\n'
+    '"prevents ageing", "optimal dosing regimen", "fasting protocol that works",\n'
+    '"this shows the treatment reversed aging", "the culture\'s biological age is\n'
+    'now X" (stated as a measurement, not a computed number).\n'
     'Prefer: "AI identified parameter configurations that optimise the chosen\n'
     'objective within the simulation", "model output", "simulation parameter",\n'
-    '"scheduled parameter protocol (model result)".'
+    '"scheduled parameter protocol (model result)", "the synthetic age index for\n'
+    'this configuration is X, computed from this simulation\'s own survival,\n'
+    'telomere-reserve and senescence numbers".'
 )
 
 

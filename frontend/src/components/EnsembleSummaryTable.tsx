@@ -4,6 +4,7 @@
 // (POST /api/simulate/ensemble does not score every seed individually; see
 // docs/API.md), which keeps the response light per the build brief.
 import type { EnsembleSeedResult } from '../api/types'
+import { BIOLOGICAL_AGE_DISCLAIMER } from './biologicalAgeUtils'
 import { summaryRows } from './ensembleSummaryUtils'
 
 function fmt(v: number | null, unit: string): string {
@@ -45,6 +46,9 @@ export function EnsembleSummaryTable({ series }: { series: EnsembleSeedResult[] 
           {nInvalid} of {series.length} seeds produced an invalid run and are excluded from these statistics.
         </p>
       )}
+      <p className="prose-muted text-xs" data-testid="biological-age-disclaimer">
+        Synthetic age index (this table): {BIOLOGICAL_AGE_DISCLAIMER}
+      </p>
     </div>
   )
 }

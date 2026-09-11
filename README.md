@@ -157,7 +157,7 @@ behind the login gate.
 
 | Route | Page | Purpose |
 |---|---|---|
-| `/simulate` | **Simulate** | Inputs for every model parameter (plus an optional organ-on-chip condition mapper). A WebGL particle view of the culture and four interactive Plotly charts: length trajectories, final length distribution, senescence, population. JSON/CSV export and reproduction command. |
+| `/simulate` | **Simulate** | Inputs for every model parameter (plus an optional organ-on-chip condition mapper). A WebGL particle view of the culture, a synthetic 0-100 "biological age index" gauge (a documented composite of the model's own metrics, not a real biomarker), and interactive Plotly charts: length trajectories, final length distribution, senescence, population, and the age index over time. JSON/CSV export and reproduction command. |
 | `/evolve` | **Evolve** | Configure the objective weights and the genetic algorithm, press *Evolve*, watch best/mean fitness live generation by generation (with a Stop button), then diversity and the best candidate's parameter trajectory. Every run is registered. |
 | `/pareto` | **Pareto** | NSGA-II multi-objective search. Choose two or more objectives (e.g. survival vs. intervention cost) and get the **Pareto front** instead of one weighted winner; hypervolume by generation; send any front point to Compare. |
 | `/sensitivity` | **Sensitivity** | One-at-a-time (OAT) sensitivity analysis: perturb each evolvable parameter +/- a fraction of its range around the baseline, one at a time, and read off the fitness swing as a tornado chart — which single knob matters most, holding everything else fixed. |

@@ -103,6 +103,45 @@ describe('Compare page', () => {
     expect(body.scenarios[1].config.stress_level).toBe(0.2)
   })
 
+  it('shows the synthetic age index per scenario with its disclaimer (ROADMAP.md #5)', async () => {
+    saveBaseline({ ...BOUNDS.demo, seed: 7 })
+    mockFetch({
+      'GET /api/meta/bounds': { status: 200, body: BOUNDS },
+      ...CHIP_PRESETS_ROUTE,
+      'POST /api/compare': {
+        status: 200,
+        body: {
+          baseline: 'Baseline',
+          scenarios: [
+            scenario('Baseline', { seed: 7 }, 0.4, null),
+            scenario('Manual', { stress_level: 0.2, seed: 7 }, 0.55, {
+              fitness_abs: 0.15,
+              fitness_pct: 37.5,
+              senescence_pp: -4.2,
+              reserve_kb: 0.31,
+              mean_length_kb: 0.42,
+              survival_abs: 0.08,
+            }),
+          ],
+        } satisfies CompareResponse,
+      },
+    })
+    renderApp(<Compare />, { route: '/compare', token: 'jwt' })
+    await screen.findByText(/no Evolve result in this session yet/)
+
+    fireEvent.click(screen.getByLabelText(/Manual parameters/))
+    await screen.findByLabelText('Stress level (a.u.)')
+    fireEvent.click(screen.getByRole('button', { name: /Compare 2 scenarios/ }))
+
+    const table = await screen.findByTestId('params-table')
+    expect(table).toHaveTextContent('synthetic age index')
+    expect(screen.getByTestId('age-Baseline')).toHaveTextContent(fakeRun().biological_age!.final_score!.toFixed(1))
+    expect(screen.getByTestId('age-Manual')).toHaveTextContent(fakeRun().biological_age!.final_score!.toFixed(1))
+    expect(screen.getByTestId('biological-age-disclaimer')).toHaveTextContent(
+      'not a measurement of biological age, not medical information.',
+    )
+  })
+
   it('pre-selects the Evolve and Pareto hand-offs from sessionStorage and can drop the common seed', async () => {
     saveEvolveBest({ config: { ...BOUNDS.demo, stress_level: 0.31 }, label: 'Evolve run TEL-1 (fitness +0.700)', run_id: 'TEL-1' })
     saveCompareUserConfig({ config: { ...BOUNDS.demo, repair_rate: 0.9 }, label: 'Pareto front point #1', run_id: null })

@@ -6,6 +6,7 @@ import { simulate as apiSimulate, simulateEnsemble } from '../../api/endpoints'
 import type { ChipParams, EnsembleResponse, ModelConfig, SimulationRun } from '../../api/types'
 import { MAX_ENSEMBLE_SEEDS, MIN_ENSEMBLE_SEEDS } from '../../api/types'
 import { useBounds } from '../../api/useBounds'
+import { BiologicalAgeGauge } from '../../components/BiologicalAgeGauge'
 import { Callout } from '../../components/Callout'
 import { ChipMapper } from '../../components/ChipMapper'
 import { EnsemblePopulationCanvas } from '../../components/EnsemblePopulationCanvas'
@@ -19,6 +20,7 @@ import { ScheduleEditor } from '../../components/ScheduleEditor'
 import { SubcloneEditor } from '../../components/SubcloneEditor'
 import { clearBaseline, loadBaseline, saveBaseline } from '../../components/baseline'
 import { Plot } from '../../components/charts/Plot'
+import { biologicalAgeChart } from '../../components/charts/biologicalAgeCharts'
 import { ensembleFanChart } from '../../components/charts/ensembleCharts'
 import { appliedScheduleChart } from '../../components/charts/scheduleCharts'
 import {
@@ -162,6 +164,7 @@ export function Simulate() {
       dist: lengthDistribution(run, dark),
       sen: senescenceCurve(run, dark, cursor),
       pop: populationCurve(run, dark, cursor),
+      age: biologicalAgeChart(run, dark, cursor),
     }
   }, [run, dark, cursor])
   const breakdownFig = useMemo(
@@ -352,6 +355,8 @@ export function Simulate() {
                 <code className="font-mono">{run.config_hash}</code>
               </p>
 
+              <BiologicalAgeGauge score={run.biological_age} />
+
               <PopulationCanvas run={run} onCycleChange={onCycle} dark={dark} />
 
               {hasProtocol && figures.protocol && isScheduled(run.config) && (
@@ -404,6 +409,7 @@ export function Simulate() {
                 <Plot figure={figures.dist} />
                 <Plot figure={figures.sen} />
                 <Plot figure={figures.pop} />
+                {figures.age && <Plot figure={figures.age} />}
               </div>
 
               <details className="card p-5">

@@ -30,7 +30,7 @@ function stats(values: number[]): { min: number; mean: number; max: number; std:
 /** Pure transform: per-seed EnsembleSeedResult[] -> one summary row per key terminal metric. */
 export function summaryRows(series: EnsembleSeedResult[]): SummaryRow[] {
   const valid = series.filter((s) => s.valid)
-  return METRICS.map(([key, label, unit, scale]) => {
+  const rows = METRICS.map(([key, label, unit, scale]) => {
     const values = valid
       .map((s) => s.terminal_metrics[key as keyof typeof s.terminal_metrics])
       .filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
@@ -38,4 +38,16 @@ export function summaryRows(series: EnsembleSeedResult[]): SummaryRow[] {
     const s = stats(values)
     return { label, unit, min: s.min / scale, mean: s.mean / scale, max: s.max / scale, std: s.std / scale }
   })
+
+  // Synthetic "biological age" score (ROADMAP.md candidate feature #5) is a
+  // separate top-level field (not inside terminal_metrics), so it is folded
+  // in here rather than through the METRICS table above.
+  const ageValues = valid
+    .map((s) => s.biological_age_final)
+    .filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
+  const ageRow: SummaryRow = ageValues.length
+    ? { label: 'Synthetic age index', unit: '', ...stats(ageValues) }
+    : { label: 'Synthetic age index', unit: '', min: null, mean: null, max: null, std: null }
+
+  return [...rows, ageRow]
 }

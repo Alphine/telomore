@@ -408,6 +408,58 @@ each field's bounds come from that endpoint.
   `charts/subcloneCharts.test.ts`, plus the existing single-run Simulate
   suite is unchanged (regression check) — Vitest 115.
 
+## Synthetic "biological age" biomarker score (candidate feature #5, 2026-09-11)
+
+The last of the five originally-ranked ROADMAP.md candidate simulation
+features. `run.biological_age` (`docs/API.md`, `docs/MODEL.md` §4.1) is a
+0-100 "synthetic age index" the API attaches to every `run`/scenario
+result. **Mandatory UI copy discipline**: the exact caption text lives in
+one place, `components/biologicalAgeUtils.ts::BIOLOGICAL_AGE_DISCLAIMER`
+("A synthetic index computed from this simulation's own telomere reserve,
+senescence and survival numbers — not a measurement of biological age, not
+medical information."), and every component that renders the score renders
+that constant in the same viewport — never the number alone.
+
+* **`components/biologicalAgeUtils.ts`** (pure, exercised via
+  `BiologicalAgeGauge.test.tsx`; split out of the component file for the
+  same `react/only-export-components` reason as
+  `scheduleUtils.ts`/`subclonesUtils.ts`): `BIOLOGICAL_AGE_DISCLAIMER`,
+  `ageBandColor` / `ageBandLabel` (youthful/intermediate/senescent bands for
+  the gauge's colour), `clampScore`.
+* **`components/BiologicalAgeGauge.tsx`** — a big number + a plain CSS
+  linear gauge (no new chart library dependency), the disclaimer and the
+  API's own `formula_note` always rendered directly underneath. Mounted
+  prominently on Simulate right after the terminal-metrics `MetricRow`, so
+  it is the first thing visible under the headline numbers; handles a
+  `null`/`invalid` score without crashing (shows the disclaimer and an
+  "unavailable" message instead of a number).
+* **`components/charts/biologicalAgeCharts.ts::biologicalAgeChart`** — an
+  optional line trace of `score_over_time` alongside the other Simulate
+  trajectory charts (same theme/cursor conventions as
+  `charts/simulationCharts.ts`), shown only when the score is valid.
+* **Ensemble**: `EnsembleSeedResult.biological_age_final` (one float per
+  seed, not a full per-seed series — see `docs/API.md`) is folded into
+  `EnsembleSummaryTable`'s existing min/mean/max/std table as a "Synthetic
+  age index" row (`ensembleSummaryUtils.ts::summaryRows`), with the same
+  disclaimer rendered once under that table.
+* **Compare**: a "synthetic age index" column on the scenario parameters
+  table (`result.biological_age.final_score` per scenario — no schema
+  change needed, `result` is already a full run) plus the same disclaimer
+  rendered once under that table, covering the whole column.
+* **Not wired into Evolve / Pareto / Active Learning / Sensitivity** — a
+  display/narrative number over an already-completed run, not a new
+  optimizer objective (ROADMAP.md is explicit that this stays out of every
+  gene space).
+* Tests: `biologicalAgeUtils` is covered indirectly through
+  `BiologicalAgeGauge.test.tsx` (score rendering, disclaimer always present,
+  null/invalid score never crashes, out-of-range clamping) plus assertions
+  added to `Simulate.test.tsx` (gauge + disclaimer on a real run, an
+  invalid run with `biological_age: null` never crashes, the ensemble
+  summary table's age row + disclaimer) and `Compare.test.tsx` (per-scenario
+  age column + disclaimer); `ensembleSummaryUtils.test.ts`-style cases were
+  folded into `EnsembleSummaryTable.test.ts`. Existing Simulate/Compare
+  suites pass unchanged (regression check) — Vitest 125.
+
 ## `useJob` (`api/useJob.ts`)
 
 ```ts

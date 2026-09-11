@@ -16,6 +16,7 @@ import { ModelConfigForm } from '../../components/ModelConfigForm'
 import { NumberInput } from '../../components/NumberInput'
 import { PageHeader } from '../../components/PageHeader'
 import { loadBaseline } from '../../components/baseline'
+import { BIOLOGICAL_AGE_DISCLAIMER } from '../../components/biologicalAgeUtils'
 import { Plot } from '../../components/charts/Plot'
 import { overlayChart } from '../../components/charts/compareCharts'
 import { protocolOverlayChart } from '../../components/charts/scheduleCharts'
@@ -498,6 +499,9 @@ export function Compare() {
                   <tr>
                     <th className="px-3 py-2">scenario</th>
                     <th className="px-3 py-2 text-right">fitness</th>
+                    <th className="px-3 py-2 text-right" title={BIOLOGICAL_AGE_DISCLAIMER}>
+                      synthetic age index
+                    </th>
                     {PARAM_COLUMNS.map((k) => (
                       <th key={k} className="px-3 py-2 text-right">
                         {k}
@@ -515,6 +519,7 @@ export function Compare() {
                   {response.scenarios.map((s) => {
                     const cfg = s.result.config
                     const applied = s.result.applied_schedule ?? {}
+                    const age = s.result.biological_age
                     return (
                       <tr key={s.name} className="border-t border-slate-200 dark:border-slate-800">
                         <td className="px-3 py-1.5 font-sans">
@@ -526,6 +531,9 @@ export function Compare() {
                           )}
                         </td>
                         <td className="px-3 py-1.5 text-right">{s.fitness === null ? 'invalid' : s.fitness.toFixed(4)}</td>
+                        <td className="px-3 py-1.5 text-right" data-testid={`age-${s.name}`}>
+                          {age && age.valid && age.final_score !== null ? age.final_score.toFixed(1) : '—'}
+                        </td>
                         {PARAM_COLUMNS.map((k) => (
                           <td key={k} className="px-3 py-1.5 text-right">
                             {Number.isInteger(cfg[k]) ? String(cfg[k]) : Number(cfg[k]).toFixed(3)}
@@ -553,6 +561,9 @@ export function Compare() {
                 averages over the applied per-cycle values (what the cost term is charged on).
               </p>
             )}
+            <p className="prose-muted mt-1 text-xs" data-testid="biological-age-disclaimer">
+              Synthetic age index (0-100 per scenario above): {BIOLOGICAL_AGE_DISCLAIMER}
+            </p>
           </div>
 
           {breakdowns.length > 0 && (

@@ -253,7 +253,63 @@ Ranked by the account owner's stated priority:
 5. **Synthetic "biological age" biomarker score.** A single relatable
    demo-friendly number derived from the trajectory, with the same strict
    scope-language discipline as the rest of the project
-   (`docs/SCIENTIFIC_SCOPE.md`).
+   (`docs/SCIENTIFIC_SCOPE.md`). **DONE 2026-09-11** —
+   `simulator/biomarker.py::biological_age_score` is a pure, deterministic,
+   post-hoc function of an already-completed `SimulationResult` (no change
+   to `simulator/model.py`'s per-cycle arithmetic, `population.py`,
+   `evolution/`, or `analysis/`): a **0-100 "synthetic age index"** (0 =
+   youthful reference, 100 = senescent/collapsed reference), computed at
+   every recorded cycle (`BiologicalAgeScore.score_over_time`, same
+   `(T+1,)` axis as `time`) as well as at the end (`final_score`), as the
+   equal-weighted mean of three quantities the model already reports
+   (`docs/MODEL.md` §4.1): a progressive proliferative-cell AUC (the same
+   integrand `normalized_survival` integrates, reduces to that exact value
+   at the last cycle), the shortest-telomere reserve (identical formula to
+   `normalized_telomere_reserve`, every cycle instead of only the last),
+   and the complement of `senescent_fraction`. An extinct culture saturates
+   at 100 at every post-extinction cycle; an invalid result returns an
+   explicitly-flagged empty/`valid=False` score, never a crash or `NaN`.
+   Attached to `SimulationResult.biological_age` by `simulator/model.py`'s
+   `_assemble`/`_failed_result` (a one-line post-hoc attachment, not new
+   simulation mechanism) and exported by `to_json_dict()`. Deliberately
+   **not** wired into the GA/NSGA-II/active-learner objective functions — a
+   display/narrative number, not a new optimization target.
+   API: `backend/schemas.py::BiologicalAgeScoreBody` types the field on
+   `SimulationRunResponse` (so it flows through `/api/simulate` and
+   `/api/compare` automatically); `POST /api/simulate/ensemble` adds a
+   lighter per-seed `biological_age_final` (not a full per-seed series — a
+   documented scope reduction, since that would be `n_seeds`x the payload
+   for a figure the fan chart doesn't otherwise need); `/api/compare`
+   needed no schema change since each scenario's `result` is already a full
+   run. React: `components/BiologicalAgeGauge.tsx` (a big number + a plain
+   CSS gauge, no new chart dependency) mounted prominently on Simulate
+   right after the terminal-metrics row, plus an optional
+   `score_over_time` line trace (`charts/biologicalAgeCharts.ts`); the
+   ensemble summary table gained a "Synthetic age index" min/mean/max/std
+   row; Compare gained a per-scenario "synthetic age index" column. Not
+   added to Evolve/Pareto/Active Learning/Sensitivity (no optimizer-facing
+   surface for a display number). **Mandatory, verified UI copy
+   discipline**: every place the score renders also renders the exact same
+   disclaimer string
+   (`components/biologicalAgeUtils.ts::BIOLOGICAL_AGE_DISCLAIMER`, in the
+   `docs/SCIENTIFIC_SCOPE.md` register) in the same viewport — asserted by
+   Vitest, not just eyeballed. Docs: `docs/MODEL.md` §4.1,
+   `docs/SCIENTIFIC_SCOPE.md` ("Synthetic 'biological age' biomarker
+   score" + a language-policy example pair), `docs/API.md`,
+   `frontend/README.md`. Tests: `tests/test_biological_age.py` (12),
+   `tests/test_api_biological_age.py` (4) — pytest 251 total; `Vitest`
+   125 total (`BiologicalAgeGauge.test.tsx` + assertions added to
+   `Simulate.test.tsx`, `Compare.test.tsx`, `EnsembleSummaryTable.test.ts`).
+
+   **This completes all five originally-ranked candidate simulation
+   features from the 2026-09-09 brainstorm above** (scheduled protocols,
+   ensemble/uncertainty, multi-chip comparison, sub-clone competition,
+   synthetic biological-age score) — a genuine milestone; a future session
+   should not re-propose any of items 1-5 as new work. Possible future
+   ideas (not yet prioritized, not part of the ranked list above): a
+   literature-calibrated variant of the age-index weights; surfacing
+   `score_over_time` on the particle canvas itself (colour-coded by age
+   band) instead of only as a separate line chart.
 
 ## LLM agentic layer (decided 2026-09-09, two layers, both approved)
 

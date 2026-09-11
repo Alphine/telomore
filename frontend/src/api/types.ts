@@ -296,6 +296,22 @@ export interface SimulationTimeseries {
   length_cv: Array<number | null>
 }
 
+// simulator/biomarker.py::BiologicalAgeScore.to_json_dict() (ROADMAP.md
+// candidate feature #5). A synthetic, illustrative 0-100 "age index"
+// composed purely of this result's own already-reported terminal metrics --
+// `formula_note` is safe to surface verbatim as a UI caption/tooltip, and
+// every place this score is shown MUST show a disclaimer alongside it
+// (docs/SCIENTIFIC_SCOPE.md "Language policy"). `valid=false` (with
+// `final_score: null` and an empty `score_over_time`) when the underlying
+// simulation itself is invalid -- never NaN, never absent.
+export interface BiologicalAgeScore {
+  score_over_time: number[]
+  final_score: number | null
+  scale_label: string
+  formula_note: string
+  valid: boolean
+}
+
 /** SimulationResult.to_json_dict() + the run_id / fitness added by POST /api/simulate. */
 export interface SimulationRun {
   seed: number
@@ -321,6 +337,8 @@ export interface SimulationRun {
    */
   clone_fraction: Record<string, number[]>
   final_lengths_bp: number[]
+  /** Synthetic "biological age" biomarker score (ROADMAP.md candidate feature #5). */
+  biological_age: BiologicalAgeScore | null
   run_id: string
   fitness: FitnessBreakdown
 }
@@ -358,6 +376,8 @@ export interface EnsembleSeedResult {
   proliferative_count: number[]
   senescent_fraction: Array<number | null>
   terminal_metrics: Partial<TerminalMetrics>
+  /** Final synthetic "biological age" score for this seed (ROADMAP.md candidate feature #5); null when invalid. */
+  biological_age_final: number | null
 }
 
 /**

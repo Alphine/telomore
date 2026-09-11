@@ -79,10 +79,14 @@ permit?" — it still does not say which trade-off is biologically right.
 ## Language policy
 
 Avoid: "AI discovered how to extend lifespan", "optimal therapy",
-"prevents ageing", "optimal dosing regimen", "fasting protocol that works".
+"prevents ageing", "optimal dosing regimen", "fasting protocol that works",
+"this shows the treatment reversed aging", "the culture's biological age is
+now X" (stated as a measurement, not a computed number).
 Prefer: "AI identified parameter configurations that optimise the chosen
 objective within the simulation", "model output", "simulation parameter",
-"scheduled parameter protocol (model result)".
+"scheduled parameter protocol (model result)", "the synthetic age index for
+this configuration is X, computed from this simulation's own survival,
+telomere-reserve and senescence numbers".
 
 ## Organ-on-a-chip bridge
 
@@ -99,3 +103,15 @@ Sub-clones (`ModelConfig.subclones`, MODEL.md §2.2) are abstract per-cell
 parameter variants of the same model competing for shared carrying-capacity
 slots, not a model of real genetic heterogeneity, mutation, or clonal
 selection.
+
+## Synthetic "biological age" biomarker score
+
+The synthetic age index (`SimulationResult.biological_age`, MODEL.md §4.1)
+is a documented, transparent arithmetic composite of three quantities the
+model already reports (normalized survival, normalized telomere reserve,
+senescent fraction) — nothing more. It is a display/narrative convenience
+number, not a validated biomarker, not an epigenetic/methylation clock, and
+not evidence about lifespan, disease risk, or any real ageing process. Every
+place this number is rendered in the UI carries the same short caption
+verbatim (see `frontend/src/components/biologicalAgeUtils.ts`'s
+`BIOLOGICAL_AGE_DISCLAIMER`) so the number is never shown unqualified.

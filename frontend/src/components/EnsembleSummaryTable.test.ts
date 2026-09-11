@@ -3,7 +3,12 @@ import { describe, expect, it } from 'vitest'
 import type { EnsembleSeedResult } from '../api/types'
 import { summaryRows } from './ensembleSummaryUtils'
 
-function seed(n: number, terminal: Partial<EnsembleSeedResult['terminal_metrics']>, valid = true): EnsembleSeedResult {
+function seed(
+  n: number,
+  terminal: Partial<EnsembleSeedResult['terminal_metrics']>,
+  valid = true,
+  biologicalAgeFinal: number | null = null,
+): EnsembleSeedResult {
   return {
     seed: n,
     valid,
@@ -14,6 +19,7 @@ function seed(n: number, terminal: Partial<EnsembleSeedResult['terminal_metrics'
     proliferative_count: [],
     senescent_fraction: [],
     terminal_metrics: terminal,
+    biological_age_final: biologicalAgeFinal,
   }
 }
 
@@ -51,5 +57,20 @@ describe('summaryRows', () => {
   it('returns nulls for a metric with no finite values across any valid seed', () => {
     const rows = summaryRows([seed(1, {})])
     expect(rows.every((r) => r.min === null && r.mean === null)).toBe(true)
+  })
+
+  it('computes min/mean/max/std of the synthetic biological-age score across seeds', () => {
+    const series = [seed(1, {}, true, 20), seed(2, {}, true, 40)]
+    const rows = summaryRows(series)
+    const age = rows.find((r) => r.label === 'Synthetic age index')!
+    expect(age.min).toBeCloseTo(20)
+    expect(age.max).toBeCloseTo(40)
+    expect(age.mean).toBeCloseTo(30)
+  })
+
+  it('returns nulls for the biological-age row when every seed has none', () => {
+    const rows = summaryRows([seed(1, {}, true, null)])
+    const age = rows.find((r) => r.label === 'Synthetic age index')!
+    expect(age.min).toBeNull()
   })
 })

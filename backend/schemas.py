@@ -163,6 +163,25 @@ class SimulateRequest(BaseModel):
     config: ModelConfigBody = Field(default_factory=ModelConfigBody)
 
 
+class BiologicalAgeScoreBody(BaseModel):
+    """``telomere_lab.simulator.biomarker.BiologicalAgeScore.to_json_dict()``
+    (ROADMAP.md candidate feature #5, docs/MODEL.md §4.1).
+
+    A synthetic, illustrative 0-100 "age index" computed purely from this
+    result's own already-reported terminal metrics -- see ``formula_note``
+    (safe to surface verbatim as a UI caption/tooltip) and
+    ``docs/SCIENTIFIC_SCOPE.md``. ``valid=False`` (with ``final_score=None``
+    and an empty ``score_over_time``) whenever the underlying simulation
+    itself is invalid -- never a crash, never NaN.
+    """
+
+    score_over_time: List[float] = Field(default_factory=list)
+    final_score: Optional[float] = None
+    scale_label: str
+    formula_note: str
+    valid: bool
+
+
 class SimulationRunResponse(BaseModel):
     """``SimulationResult.to_json_dict()`` (+ ``run_id`` / ``fitness`` on /simulate).
 
@@ -178,6 +197,11 @@ class SimulationRunResponse(BaseModel):
     #: Per-clone population-fraction-of-total array (docs/MODEL.md §2.2,
     #: sub-clone competition); ``{}`` when ``config.subclones`` is unset.
     clone_fraction: Dict[str, List[float]] = Field(default_factory=dict)
+    #: Synthetic "biological age" biomarker score (ROADMAP.md candidate
+    #: feature #5); ``None`` only if the field was absent entirely (never
+    #: happens post-wiring -- an invalid run still gets an explicit
+    #: ``valid=False`` BiologicalAgeScoreBody, not ``None``).
+    biological_age: Optional[BiologicalAgeScoreBody] = None
 
 
 class SimulateResponse(BaseModel):
@@ -220,6 +244,13 @@ class EnsembleSeedResult(BaseModel):
     proliferative_count: List[int]
     senescent_fraction: List[float]
     terminal_metrics: Dict[str, float] = Field(default_factory=dict)
+    #: Synthetic "biological age" final score for this seed (ROADMAP.md
+    #: candidate feature #5) -- lets the ensemble summary table show the
+    #: spread of the age index across seeds without a full per-seed
+    #: ``score_over_time`` (which would be n_seeds x the payload for a
+    #: figure the fan chart doesn't otherwise need). ``None`` when the run
+    #: is invalid.
+    biological_age_final: Optional[float] = None
 
 
 class EnsembleBands(BaseModel):

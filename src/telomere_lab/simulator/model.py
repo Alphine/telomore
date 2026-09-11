@@ -32,6 +32,7 @@ import numpy as np
 
 from ..schemas import MODEL_VERSION, ConfigError, ModelConfig, SimulationResult, SubcloneSpec
 from . import metrics as M
+from .biomarker import biological_age_score
 from .population import allocate_clone_ids, divide, passage, remove_dead, update_senescence
 from .stochastic import division_noise, initial_lengths, make_rng
 
@@ -279,6 +280,10 @@ def _assemble(config, rows, snapshots, lengths, founder_senescence_cycle, applie
         threshold=config.senescence_threshold,
     )
     result.runtime_seconds = _time.perf_counter() - t0
+    # Synthetic "biological age" biomarker (ROADMAP.md candidate feature #5):
+    # a pure, post-hoc derived-metric pass over the already-completed result,
+    # not a new simulation mechanism -- see simulator/biomarker.py.
+    result.biological_age = biological_age_score(result)
     return result
 
 
@@ -287,7 +292,7 @@ def _failed_result(config: ModelConfig, reason: str, t0: float) -> SimulationRes
     n = int(getattr(config, "cycles", 1)) + 1
     nan = np.full(n, np.nan)
     zeros = np.zeros(n, dtype=int)
-    return SimulationResult(
+    result = SimulationResult(
         seed=int(getattr(config, "seed", -1)),
         config=config,
         model_version=MODEL_VERSION,
@@ -302,6 +307,8 @@ def _failed_result(config: ModelConfig, reason: str, t0: float) -> SimulationRes
         failure_reason=reason,
         runtime_seconds=_time.perf_counter() - t0,
     )
+    result.biological_age = biological_age_score(result)  # explicit empty/invalid, never a crash
+    return result
 
 
 _DEFAULT_MODEL = SimpleTelomereModel()

@@ -266,6 +266,75 @@ Terminal metrics (`metrics.terminal_metrics`):
 * `final_senescent_fraction`, `time_to_50pct_senescence` (`inf` if never
   reached), `final_length_cv`, population sizes, `extinct`.
 
+### 4.1 Synthetic "biological age" biomarker score
+
+ROADMAP.md candidate feature #5 (the last of the five originally-ranked
+candidate simulation features). `simulator/biomarker.py::biological_age_score`
+turns a completed `SimulationResult` into ONE relatable, demo-friendly number
+on a **0-100 "synthetic age index"** (0 = fully youthful reference state, 100
+= fully senescent/collapsed reference state) — computed at every recorded
+cycle (`BiologicalAgeScore.score_over_time`, same `(T+1,)` axis as `time`) as
+well as at the end (`final_score`), so a running simulation can be watched as
+an age number ticking up, not just read off a static terminal value.
+
+**This is a pure, deterministic, post-hoc re-expression of three quantities
+already named in §4 above — not a new measurement, not a new simulation
+mechanism, and not anything validated against real biology.** It is computed
+*after* `simulate()` finishes (`simulator/model.py::_assemble` /
+`_failed_result`, a one-line attachment, not part of the per-cycle
+arithmetic of §2) and never feeds back into the model, the fitness function,
+or any optimizer gene space.
+
+Formula, for every recorded cycle `t`:
+
+```
+survival_t   = cumulative AUC of proliferative_count[0..t] / (carrying_capacity · t)
+               (clipped to [0, 1]; the same integrand normalized_survival
+               integrates over the whole run, evaluated progressively so it
+               reduces to that exact terminal value at the last cycle)
+reserve_t    = clip((mean_shortest_per_cell[t] − senescence_threshold)
+                     / (initial_length − senescence_threshold), 0, 1)
+               (identical formula to normalized_telomere_reserve, evaluated
+               at every cycle instead of only the last one)
+non_senesc_t = 1 − senescent_fraction[t]           (complement of final_senescent_fraction)
+
+vitality_t   = mean(survival_t, reserve_t, non_senesc_t)     -- equal weights
+age_index_t  = 100 · (1 − vitality_t)                        -- clipped [0, 100]
+```
+
+An extinct culture at cycle `t` (`population_size[t] == 0`) is forced to
+`age_index_t = 100` regardless of the formula above — a culture that has
+ended is, by construction, at the fully senescent/collapsed end of the
+scale, even though the *cumulative* survival term can still be positive from
+cycles when the culture was alive. `final_score` equals `score_over_time` at
+the last recorded cycle, which by construction equals the same weighted
+combination of the three *terminal* metrics named in §4
+(`normalized_survival`, `normalized_telomere_reserve`,
+`final_senescent_fraction`) — this function invents no new underlying
+measurement.
+
+Each of the three terms is chosen because it is already a first-class,
+documented output of this model (§4): survival is the strongest "still
+young and dividing" signal the model has; telomere reserve is the buffer
+remaining before the model's own senescence trigger; senescent fraction is
+the direct population-level readout of the terminal state. Deterministic
+and pure (no RNG): the same `SimulationResult` in always gives the same
+score out.
+
+**Explicitly not modelled.** This is **not** a validated biological-age
+clock (e.g. an epigenetic/methylation clock), not a claim about lifespan or
+disease risk, and not fit to any real dataset — a documented, transparent
+arithmetic function of numbers this simulation already produced (see
+`docs/SCIENTIFIC_SCOPE.md`). An invalid `SimulationResult` (`valid=False`)
+never crashes or produces NaN: `biological_age_score` returns an explicitly
+flagged empty score (`valid=False`, `final_score=None`,
+`score_over_time=[]`) instead.
+
+**Output.** `SimulationResult.biological_age` carries a `BiologicalAgeScore`
+(`score_over_time`, `final_score`, `scale_label`, `formula_note`, `valid`);
+exported in `to_json_dict()`. `formula_note`/`scale_label` are short,
+machine-readable strings safe to surface verbatim as a UI caption/tooltip.
+
 ## 5. Fitness (optimisation objective)
 
 ```
@@ -403,3 +472,11 @@ summing to ~1.0 of the living population at every non-extinct cycle, a
 resilient-vs-fragile competition scenario where the higher-maintenance/
 repair clone's share measurably increases, the extinction edge case, and
 composition with an active schedule.
+`tests/test_biological_age.py` checks the synthetic "biological age"
+biomarker score (§4.1): a youthful configuration scores near the youthful
+end and a heavily-stressed/senescent-by-end one scores near the senescent
+end, the score's front-half/back-half trend over a declining-health
+trajectory, `score_over_time` length matches `time`, an invalid result
+returns an explicit empty/`valid=False` score rather than crashing or NaN,
+an extinct culture saturates every post-extinction cycle at exactly 100,
+determinism (same input twice → identical output), and the [0, 100] bound.

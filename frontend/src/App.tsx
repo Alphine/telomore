@@ -3,6 +3,7 @@ import { Route, Routes } from 'react-router-dom'
 import { RequireAuth } from './auth/RequireAuth'
 import { Layout } from './components/Layout'
 import { FEATURES } from './features'
+import { Docs } from './pages/Docs'
 import { ForgotPassword } from './pages/ForgotPassword'
 import { Landing } from './pages/Landing'
 import { Login } from './pages/Login'
@@ -38,6 +39,9 @@ export default function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Landing />} />
+        {/* `/guide`, not `/docs` -- see features.ts's PUBLIC_NAV_LINKS comment: */}
+        {/* FastAPI's own Swagger UI already owns `/docs` in production. */}
+        <Route path="/guide" element={<Docs />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />

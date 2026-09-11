@@ -246,7 +246,8 @@ export function Landing() {
           simulation parameters on the Simulate page. The mapping is a documented{' '}
           <strong>modelling assumption</strong>; the model does not reproduce a physical chip. See{' '}
           <code className="font-mono text-sm">docs/MODEL.md</code> and{' '}
-          <code className="font-mono text-sm">docs/SCIENTIFIC_SCOPE.md</code>.
+          <code className="font-mono text-sm">docs/SCIENTIFIC_SCOPE.md</code> -- both readable in full, alongside the
+          program overview, on the <Link to="/guide" className="link">in-app Docs page</Link>.
         </p>
         <p className="prose-muted">
           Fitness ≠ biological truth. The optimizer optimises the chosen computational objective under the chosen

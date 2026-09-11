@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../auth/context'
-import { NAV_FEATURES } from '../features'
+import { NAV_FEATURES, PUBLIC_NAV_LINKS } from '../features'
 import { ThemeToggle } from './ThemeToggle'
 
 function navClass({ isActive }: { isActive: boolean }): string {
@@ -59,6 +59,11 @@ function Nav({ onNavigate }: { onNavigate?: () => void }) {
       <NavLink to="/" end className={navClass} onClick={onNavigate}>
         <span aria-hidden>🏠</span> Home
       </NavLink>
+      {PUBLIC_NAV_LINKS.map((f) => (
+        <NavLink key={f.path} to={f.path} className={navClass} onClick={onNavigate}>
+          <span aria-hidden>{f.icon}</span> {f.title}
+        </NavLink>
+      ))}
       <div className="my-2 border-t border-slate-200 dark:border-slate-800" />
       {NAV_FEATURES.map((f) => (
         <NavLink key={f.path} to={f.path} className={navClass} onClick={onNavigate}>

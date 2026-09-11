@@ -74,6 +74,27 @@ export const NAV_FEATURES: Feature[] = NAV_ORDER.map(
   (p) => FEATURES.find((f) => f.path === p) as Feature,
 )
 
+// Public, unauthenticated nav links -- same tier as Landing (`/`), reachable
+// without login. Deliberately NOT part of FEATURES/NAV_FEATURES: those drive
+// the Landing feature-card grid and the "N lab tools" stat pill, and Docs is
+// explanatory material, not a lab tool.
+//
+// Route is `/guide`, not `/docs`: this app serves the FastAPI backend and the
+// React SPA from one origin (`backend/main.py`), and FastAPI's own
+// interactive API docs already own `/docs` (Swagger UI, registered before the
+// SPA catch-all) -- a React route at `/docs` would be permanently
+// unreachable in production. Confirmed by hitting `/docs` on a real built +
+// served app during this feature's e2e check.
+export interface NavLink {
+  icon: string
+  title: string
+  path: string
+}
+
+export const PUBLIC_NAV_LINKS: NavLink[] = [
+  { icon: '📖', title: 'Docs', path: '/guide' },
+]
+
 // Copied verbatim from app/ui/components.py::DISCLAIMER (markdown emphasis
 // rendered as JSX in <Disclaimer />).
 export const DISCLAIMER_PARTS = {

@@ -98,6 +98,7 @@ src/
                        sensitivityCharts.ts, activeLearningCharts.ts, compareCharts.ts,
                        scheduleCharts.ts (step-line protocol figures)
   pages/      Landing, Login, Register, ForgotPassword, ResetPassword, Verify,
+              Docs/ (index.tsx, toc.ts -- see "Docs page" below),
               Simulate/ (index.tsx, metrics.ts), Evolve/ (index.tsx, form.ts),
               Pareto/ (index.tsx, form.ts), Sensitivity/, ActiveLearning/,
               Compare/, Experiments/ (index.tsx, ledger.ts),
@@ -666,3 +667,106 @@ Without `RESEND_API_KEY`, the backend returns `dev_verification_link` /
 `/verify?token=…` and `/reset-password?token=…` — both when rendering them
 as clickable dev-mode links (`src/api/devLinks.ts`) and when such a link is
 opened directly (the landing route redirects on those query params).
+
+## Docs page (`pages/Docs/`)
+
+A public, unauthenticated in-app page (route `/guide`, same tier as Landing —
+**not** behind `RequireAuth`) that renders a README-style explanation of the
+program plus the full content of `docs/MODEL.md` and
+`docs/SCIENTIFIC_SCOPE.md`, so a prospective user can read what this lab
+actually is and how it works before registering, without leaving the app or
+going to GitHub. Reachable from the sidebar/top-bar nav (`features.ts`'s
+`PUBLIC_NAV_LINKS`, deliberately separate from `FEATURES`/`NAV_FEATURES`
+since Docs is explanatory material, not a lab tool — it must not count
+towards the Landing "N lab tools" stat pill) and cross-linked from Landing's
+"Organ-on-a-chip framing" section.
+
+**Route is `/guide`, not `/docs`.** This app serves the FastAPI backend and
+the built React SPA from one origin (`backend/main.py`'s `_mount_frontend`
+SPA-fallback catch-all), and FastAPI's own interactive API docs (Swagger UI)
+already own the bare `/docs` path, registered before that catch-all — a React
+route at `/docs` would 200 in `npm run dev` (no FastAPI in front) but be
+**permanently unreachable** once served through `uvicorn backend.main:app`,
+i.e. exactly the production shape. This was actually hit and confirmed via a
+real `vite build` + `uvicorn backend.main:app` + browser check while building
+this page, not just reasoned about — `curl http://127.0.0.1:8000/docs`
+returns the Swagger UI HTML regardless of the SPA build.
+
+**Getting the three source files into the bundle.** `README.md`,
+`docs/MODEL.md` and `docs/SCIENTIFIC_SCOPE.md` all live outside `frontend/`
+(repo root and `../docs/`), so `pages/Docs/index.tsx` imports each with
+Vite's `?raw` suffix (`import readmeSource from '../../../../README.md?raw'`,
+etc. — `vite/client`'s ambient types already declare `*?raw` as `string`, no
+extra `.d.ts` needed), which inlines the raw markdown text as a plain string
+**at build time**. This is the same static-snapshot discipline already
+established for `BUILD_INFO` / the Landing stat pills (`pages/Landing.tsx`):
+the page shows exactly what those three files contained the last time this
+app was built, not a live read of the working tree, so it silently goes
+stale if a doc is edited without a rebuild — an accepted, documented
+trade-off, not a bug. The one-line caption under the page's tabs
+(`docs-source-caption` in the rendered page) says so explicitly for whoever
+is reading it.
+
+Vite's dev server enforces `server.fs.allow` for reads outside its project
+root (`frontend/`), so `vite.config.ts` explicitly adds the repo root
+(`path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')`) to that
+allowlist — without it, `npm run dev` throws a 403-style "not allowed to
+serve file" error the first time a page hits one of the `?raw` imports; `npm
+run build` was unaffected either way (the production bundler has no such
+runtime restriction), but the file-access question had to be checked against
+both, since only `npm run dev` can hit it. Verified concretely, not just "no
+build error": `grep` on the built `dist/assets/*.js` for a string unique to
+each of the three source files (e.g. "AI4S Open Innovation" from README.md,
+"Telomere dynamics model" from MODEL.md, "Not a predictor of human lifespan"
+from SCIENTIFIC_SCOPE.md) all hit, confirming the content is genuinely
+inlined and not just present at dev time.
+
+**Tabs and long-document navigation.** Three tabs (**Overview** / **Model &
+Methods** / **Scientific Scope**, `?doc=overview|model|scope` so a tab is
+linkable, same `role="tablist"`/`role="tab"` pattern as Experiments' "My
+experiments"/"All experiments" toggle). `docs/MODEL.md` is long (482 lines as
+of writing), so the page also builds an in-page table of contents:
+`pages/Docs/toc.ts::extractHeadings` (pure, unit-tested) is a small regex
+scan of the raw markdown for `#`/`##` ATX headings (skipping fenced code
+blocks, so a shell comment like `# 1. API on :8000` inside README's Quick
+start snippet is not mistaken for a heading), producing `{level, text, slug}`
+in document order with de-duplicated slugs. Since `MarkdownView` (below) is
+reused exactly as-is with no extra props, the component cannot ask
+react-markdown to attach heading ids itself; instead a `MutationObserver` on
+the rendered content assigns each extracted slug onto the matching `<h1>`/
+`<h2>` DOM node **in the same document order** once the markdown actually
+renders (a `MutationObserver` rather than a plain `useEffect` because
+`MarkdownView` loads through `<Suspense>`, see below, so its headings appear
+asynchronously with no re-render of `Docs` itself to hang an effect on). The
+sidebar/top TOC (`nav[aria-label="On this page"]`) is then just anchor links
+(`href="#slug"`), plus a plain "↑ Back to top" anchor back to `#doc-top` at
+the bottom of the content — the browser's own anchor-scrolling handles both,
+no scroll library needed.
+
+**Rendering.** `components/MarkdownView.tsx` (the same `react-markdown`
+wrapper `InterpretPanel` uses for LLM narratives) is reused verbatim, loaded
+lazily exactly like `InterpretPanel`'s `LazyMarkdown` (`React.lazy` +
+`Suspense`, plain-text fallback) — **not** a static import, even though Docs
+itself is imported eagerly in `App.tsx` like every other page. A static
+import was tried first and produced Rollup's `INEFFECTIVE_DYNAMIC_IMPORT`
+warning at build time: it would have pulled `react-markdown` into the main
+chunk unconditionally (since `App.tsx` imports `Docs` eagerly), defeating
+`InterpretPanel`'s own lazy-loading of the identical module and inflating the
+bundle every Landing/auth-page visitor pays for. Switching back to a lazy
+import removed the warning and shrank the main chunk (`~522 kB` → `~406 kB`
+minified) while giving `MarkdownView` its own small chunk, shared by both
+call sites.
+
+Tests (`Docs.test.tsx`, `toc.test.ts` — Vitest total after this feature:
+160): rendered through the same unauthenticated `renderApp` harness
+`Landing.test.tsx` uses (no auth token) to prove the page needs no login;
+each tab switch is asserted against a distinctive real string unique to that
+source file (not just "something rendered"); the TOC and back-to-top link
+are asserted present with a real, known heading. `toc.test.ts` covers
+`extractHeadings` with small hand-written fixtures (ordering, heading-level
+filtering, code-fence skipping, slug de-duplication) **and** one case run
+directly against the real imported `docs/MODEL.md` content — deliberately
+coupled to the real file rather than a mock, but robust to future doc edits
+by computing its own expected heading count independently (a plain
+line-based regex count over the same string) instead of hardcoding a number
+that a doc edit would otherwise break.

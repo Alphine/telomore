@@ -1,4 +1,7 @@
 /// <reference types="vitest/config" />
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
@@ -16,6 +19,16 @@ export default defineConfig({
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
+    },
+    fs: {
+      // The Docs page (pages/Docs/index.tsx) inlines the repo-root README.md
+      // and docs/*.md via Vite's `?raw` import suffix, so the dev server
+      // must be allowed to read outside this Vite project root (`frontend/`)
+      // -- the repo root one level up. Vite's default `fs.allow` normally
+      // walks up to the nearest workspace root (lockfile/.git), which would
+      // already cover this, but pinning it explicitly keeps the dev server
+      // working regardless of how that auto-detection behaves.
+      allow: [path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')],
     },
   },
   build: {

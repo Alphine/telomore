@@ -3,6 +3,7 @@ import { Link, Navigate, useSearchParams } from 'react-router-dom'
 
 import { health } from '../api/endpoints'
 import { Disclaimer } from '../components/Callout'
+import { DnaHelixCanvas } from '../components/DnaHelixCanvas'
 import { FEATURES } from '../features'
 
 // Static for now (Phase 2): values mirror telomere_lab.__version__,
@@ -93,12 +94,22 @@ export function Landing() {
   return (
     <div className="space-y-12">
       {/* ---------------------------------------------------------- hero */}
-      <section className="space-y-4">
-        <h1 className="text-4xl font-bold sm:text-5xl">🧬 Telomere Evolution Lab</h1>
-        <h2 className="text-xl font-semibold text-slate-700 sm:text-2xl dark:text-slate-300">
+      <section className="relative space-y-4 overflow-hidden">
+        {/* Decorative only -- aria-hidden inside the component, no data dependency.
+            Absolutely positioned behind the text on narrow screens (low opacity so
+            the hero copy stays the clear focal point), a contained side panel on
+            wider screens. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-10 sm:static sm:float-right sm:ms-4 sm:mb-2 sm:h-40 sm:w-40 sm:opacity-90"
+        >
+          <DnaHelixCanvas />
+        </div>
+        <h1 className="relative text-4xl font-bold sm:text-5xl">🧬 Telomere Evolution Lab</h1>
+        <h2 className="relative text-xl font-semibold text-slate-700 sm:text-2xl dark:text-slate-300">
           Simulate. Evolve. Compare. Learn.
         </h2>
-        <p className="max-w-3xl text-base leading-relaxed text-slate-700 dark:text-slate-300">
+        <p className="relative max-w-3xl text-base leading-relaxed text-slate-700 dark:text-slate-300">
           An interactive AI-for-Science laboratory where an <strong>evolutionary optimizer</strong> searches a{' '}
           <strong>telomere-dynamics model</strong> for virtual experiment conditions that optimise an explicit,
           user-defined objective.

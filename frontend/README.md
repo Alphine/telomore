@@ -493,6 +493,19 @@ current cycle is pushed to the Simulate charts as a vertical cursor
 
 It is **not** shown on Evolve: the evolve job result has no per-cycle
 simulation payload for the best candidate. *Set best as baseline* → Simulate
+
+## Landing hero animation (`components/DnaHelixCanvas.tsx`)
+
+Purely decorative double-helix animation behind/beside the `🧬 Telomere
+Evolution Lab` title on the public `/` landing page (`pages/Landing.tsx`) —
+no data dependency, no API calls. Canvas 2D only (no WebGL2 needed for two
+sine strands + rungs); geometry math lives in the pure
+`components/dnaHelixGeometry.ts` so the component file only exports the
+component (oxlint `react/only-export-components`). Teal/rose accent palette
+matching `PopulationCanvas`, dark-mode aware via the shared `usePrefersDark`
+hook (`components/charts/theme.ts`). Respects `prefers-reduced-motion:
+reduce` (renders one static frame instead of animating) and pauses its
+`requestAnimationFrame` loop while the tab is hidden.
 is the way to see it.
 
 ## Ensemble (uncertainty) mode (ROADMAP.md candidate feature #2, 2026-09-11)

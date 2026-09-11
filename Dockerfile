@@ -12,6 +12,18 @@ WORKDIR /build
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
+# frontend/src/pages/Docs/index.tsx inlines these three docs at build time via
+# Vite's `?raw` import (`../../../../README.md`, `../../../../docs/MODEL.md`,
+# `../../../../docs/SCIENTIFIC_SCOPE.md`, resolved relative to that file's
+# path four levels under the repo root) -- with WORKDIR /build holding only
+# `frontend/`'s own contents, those imports resolve to the container root, so
+# the three files must land there explicitly. docs/ is otherwise excluded
+# from the build context (.dockerignore) except these two carved-out
+# exceptions (the runtime stage below also needs SCIENTIFIC_SCOPE.md, for the
+# LLM interpreter's system prompt).
+COPY README.md /README.md
+COPY docs/MODEL.md /docs/MODEL.md
+COPY docs/SCIENTIFIC_SCOPE.md /docs/SCIENTIFIC_SCOPE.md
 RUN npm run build
 
 # ---------------------------------------------------------------- runtime

@@ -18,6 +18,7 @@ experiments/reports/*.html
 tests
 docs
 !docs/SCIENTIFIC_SCOPE.md
+!docs/MODEL.md
 scripts
 Telomere_Evolution_Lab_SDD.md
 Procfile

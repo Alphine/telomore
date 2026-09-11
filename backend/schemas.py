@@ -165,6 +165,70 @@ class SimulateResponse(BaseModel):
 
 
 # --------------------------------------------------------------------------- #
+# ensemble -- run N seeds of one config, show the full spread (ROADMAP.md
+# candidate feature #2). Kept separate from SimulateResponse: a full
+# to_json_dict() per seed would be n_seeds x the single-run payload, so this
+# response ships only what the fan chart / summary table / particle
+# visualization actually need.
+# --------------------------------------------------------------------------- #
+MIN_ENSEMBLE_SEEDS = 2
+MAX_ENSEMBLE_SEEDS = 50
+
+
+class EnsembleRequest(BaseModel):
+    """``n_seeds`` / ``base_seed`` are validated in the router (not as pydantic
+    field constraints) so an out-of-range value surfaces the same 400 +
+    plain-text-detail contract as every other config error, instead of a 422."""
+
+    config: ModelConfigBody = Field(default_factory=ModelConfigBody)
+    n_seeds: int = 10
+    base_seed: Optional[int] = None
+
+
+class EnsembleSeedResult(BaseModel):
+    """Light-weight per-seed series -- the arrays ``PopulationCanvas``'s
+    per-cycle frame mapping and the terminal-metrics summary table need, on the
+    shared ``EnsembleBands.cycle`` axis. NOT a full ``SimulationResult.to_json_dict()``
+    (no ``final_lengths_bp``, no ``distribution_snapshots``, no per-seed config)."""
+
+    seed: int
+    valid: bool
+    failure_reason: Optional[str] = None
+    mean_length: List[float]
+    shortest_length: List[float]
+    population_size: List[int]
+    proliferative_count: List[int]
+    senescent_fraction: List[float]
+    terminal_metrics: Dict[str, float] = Field(default_factory=dict)
+
+
+class EnsembleBands(BaseModel):
+    """p10 / p50 (median) / p90 + mean of ``mean_length`` across seeds, taken
+    independently at each cycle (see ``telomere_lab.experiments.runner.summarize_ensemble``
+    for why this is not a per-trajectory confidence band)."""
+
+    cycle: List[float]
+    p10: List[float]
+    p50: List[float]
+    p90: List[float]
+    mean: List[float]
+
+
+class EnsembleResponse(BaseModel):
+    run_id: str
+    n_seeds: int
+    base_seed: int
+    seeds: List[int]
+    config: Dict[str, Any]
+    config_hash: str
+    bands: EnsembleBands
+    series: List[EnsembleSeedResult]
+    #: Shared by every seed (only the RNG differs), populated only when
+    #: ``config.schedule`` is set -- same convention as SimulationRunResponse.
+    applied_schedule: Dict[str, List[float]] = Field(default_factory=dict)
+
+
+# --------------------------------------------------------------------------- #
 # long-running jobs (evolve / pareto / sensitivity / active-learning / benchmark)
 # --------------------------------------------------------------------------- #
 class EvolveRequest(BaseModel):

@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resetBoundsCache } from '../../api/useBounds'
-import { BOUNDS, fakeRun } from '../../test/fixtures'
+import { BOUNDS, fakeEnsemble, fakeRun } from '../../test/fixtures'
 import { mockFetch, renderApp } from '../../test/helpers'
 import { Simulate } from './index'
 
@@ -184,5 +184,92 @@ describe('Simulate page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Reset to constant' }))
     expect(screen.getByLabelText('Vary stress_level over time')).not.toBeChecked()
     expect(screen.getByLabelText('Stress level (a.u.)')).not.toBeDisabled()
+  })
+
+  describe('ensemble (uncertainty) mode', () => {
+    it('is off by default and does not affect the single-run flow', async () => {
+      mockFetch({ 'GET /api/meta/bounds': { status: 200, body: BOUNDS } })
+      renderApp(<Simulate />, { route: '/simulate', token: 'jwt' })
+      await screen.findByLabelText('Stress level (a.u.)')
+      expect(screen.getByLabelText(/Ensemble \(uncertainty\)/)).not.toBeChecked()
+      expect(screen.queryByLabelText('Number of seeds')).not.toBeInTheDocument()
+      expect(screen.queryByText('Ensemble (uncertainty)', { selector: 'h2' })).not.toBeInTheDocument()
+    })
+
+    it('shows the seed-count input and an empty state once enabled, before running', async () => {
+      mockFetch({ 'GET /api/meta/bounds': { status: 200, body: BOUNDS } })
+      renderApp(<Simulate />, { route: '/simulate', token: 'jwt' })
+      await screen.findByLabelText('Stress level (a.u.)')
+
+      fireEvent.click(screen.getByLabelText(/Ensemble \(uncertainty\)/))
+      expect(screen.getByLabelText('Number of seeds')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Run ensemble/ })).toBeInTheDocument()
+      expect(screen.getByText(/set the number of seeds/i)).toBeInTheDocument()
+    })
+
+    it('builds the right request body (config + n_seeds + base_seed) and renders the fan chart, summary table and particle cloud', async () => {
+      const ensemble = fakeEnsemble(3)
+      const fetchMock = mockFetch({
+        'GET /api/meta/bounds': { status: 200, body: BOUNDS },
+        'POST /api/simulate/ensemble': { status: 200, body: ensemble },
+      })
+      renderApp(<Simulate />, { route: '/simulate', token: 'jwt' })
+      await screen.findByLabelText('Stress level (a.u.)')
+
+      fireEvent.click(screen.getByLabelText(/Ensemble \(uncertainty\)/))
+      const nSeeds = screen.getByLabelText('Number of seeds') as HTMLInputElement
+      fireEvent.change(nSeeds, { target: { value: '3' } })
+      fireEvent.click(screen.getByRole('button', { name: /Run ensemble/ }))
+
+      expect(await screen.findByText(/TEL-20260911-001/)).toBeInTheDocument()
+      expect(screen.getByTestId('ensemble-summary-table')).toBeInTheDocument()
+      expect(screen.getByLabelText('Ensemble population visualization')).toBeInTheDocument()
+      const fanTitles = screen.getAllByTestId('plot').map((el) => el.textContent)
+      expect(fanTitles.some((t) => t?.includes('spread across seeds'))).toBe(true)
+
+      const call = fetchMock.mock.calls.find(([u]) => String(u).includes('/api/simulate/ensemble'))
+      expect(call).toBeTruthy()
+      const body = JSON.parse(String((call![1] as RequestInit).body))
+      expect(body.n_seeds).toBe(3)
+      expect(typeof body.base_seed).toBe('number')
+      expect(body.config.stress_level).toBe(0.6)
+    })
+
+    it('shows a loading state while the ensemble request is in flight', async () => {
+      let resolveFn: (() => void) | undefined
+      // A fetch whose ensemble call we control the timing of, to observe the loading state.
+      const pending = new Promise<Response>((resolve) => {
+        resolveFn = () =>
+          resolve(new Response(JSON.stringify({ run: null }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      })
+      const fetchSpy = vi.fn((input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.includes('/api/meta/bounds')) {
+          return Promise.resolve(new Response(JSON.stringify(BOUNDS), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+        }
+        return pending
+      })
+      vi.stubGlobal('fetch', fetchSpy)
+
+      renderApp(<Simulate />, { route: '/simulate', token: 'jwt' })
+      await screen.findByLabelText('Stress level (a.u.)')
+      fireEvent.click(screen.getByLabelText(/Ensemble \(uncertainty\)/))
+      fireEvent.click(screen.getByRole('button', { name: /Run ensemble/ }))
+
+      expect(await screen.findByText(/Running \d+ seeds…/)).toBeInTheDocument()
+      resolveFn?.()
+    })
+
+    it('shows the API error on a 400', async () => {
+      mockFetch({
+        'GET /api/meta/bounds': { status: 200, body: BOUNDS },
+        'POST /api/simulate/ensemble': { status: 400, body: { detail: 'n_seeds=1 outside [2, 50]' } },
+      })
+      renderApp(<Simulate />, { route: '/simulate', token: 'jwt' })
+      await screen.findByLabelText('Stress level (a.u.)')
+      fireEvent.click(screen.getByLabelText(/Ensemble \(uncertainty\)/))
+      fireEvent.click(screen.getByRole('button', { name: /Run ensemble/ }))
+      expect(await screen.findByRole('alert')).toHaveTextContent('Invalid request: n_seeds=1 outside [2, 50]')
+    })
   })
 })

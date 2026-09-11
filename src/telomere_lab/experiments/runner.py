@@ -8,7 +8,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Sequence
+
+import numpy as np
 
 from ..adapters.published_model import TelomereModelAdapter, get_model
 from ..evolution.engine import EvolutionEngine, EvolutionResult, GenerationRecord
@@ -69,6 +71,86 @@ def record_simulation(
         notes=notes,
         extra={"terminal_metrics": result.terminal_metrics, "valid": result.valid,
                "failure_reason": result.failure_reason},
+    )
+
+
+def run_ensemble(
+    base_config: ModelConfig,
+    seeds: Sequence[int],
+    model: Optional[TelomereModelAdapter] = None,
+) -> List[SimulationResult]:
+    """Run the existing, unmodified ``simulate()`` once per seed (ROADMAP.md
+    candidate feature #2: ensemble / uncertainty visualization).
+
+    A simple Python loop: each run is sub-second (``test_runtime_target_default_config``),
+    so multiprocessing is not worth the added complexity at the API's n_seeds<=50
+    cap -- revisit only if a measured runtime becomes a real problem.
+    """
+    model = model or get_model()
+    return [model.simulate(base_config.replace(seed=int(s))) for s in seeds]
+
+
+def summarize_ensemble(results: Sequence[SimulationResult]) -> Dict[str, Any]:
+    """p10 / p50 (median) / p90 + mean of ``mean_length`` across seeds, computed
+    independently at each cycle.
+
+    Percentiles are taken *per cycle*, not per seed-trajectory: the p10 curve at
+    cycle 5 and the p10 curve at cycle 50 may come from different seeds. This is
+    an honest, distribution-free description of the spread across independent
+    stochastic realizations of the same configuration -- it is NOT a confidence
+    band around any single seed's path, and (docs/SCIENTIFIC_SCOPE.md) it says
+    nothing about biological population variability beyond the model's own
+    per-division noise term.
+    """
+    valid = [r for r in results if r.valid]
+    if not valid:
+        return {"cycle": [], "p10": [], "p50": [], "p90": [], "mean": []}
+    n = len(valid[0].mean_length)
+    cycle = valid[0].time.tolist()
+    stacked = np.stack([r.mean_length for r in valid if len(r.mean_length) == n])
+    return {
+        "cycle": cycle,
+        "p10": np.percentile(stacked, 10, axis=0).tolist(),
+        "p50": np.percentile(stacked, 50, axis=0).tolist(),
+        "p90": np.percentile(stacked, 90, axis=0).tolist(),
+        "mean": np.mean(stacked, axis=0).tolist(),
+    }
+
+
+def record_ensemble(
+    base_config: ModelConfig,
+    results: Sequence[SimulationResult],
+    seeds: Sequence[int],
+    registry: Optional[ExperimentRegistry] = None,
+    weights: Optional[FitnessWeights] = None,
+    notes: str = "",
+) -> dict:
+    """Register exactly ONE ledger entry for the whole ensemble (not N)."""
+    registry = registry or ExperimentRegistry()
+    run_id = registry.new_run_id()
+    weights = weights or FitnessWeights()
+    breakdowns = [score(r, weights) for r in results]
+    valid_totals = [bd.total for bd in breakdowns if bd.valid]
+    mean_fitness = float(np.mean(valid_totals)) if valid_totals else None
+    return registry.register(
+        kind="ensemble",
+        run_id=run_id,
+        seed=int(seeds[0]),
+        configuration={
+            "model": base_config.to_dict(),
+            "weights": weights.to_dict(),
+            "n_seeds": len(seeds),
+            "seeds": [int(s) for s in seeds],
+        },
+        fitness=mean_fitness,
+        runtime_seconds=float(sum(r.runtime_seconds for r in results)),
+        notes=notes or f"ensemble of {len(seeds)} seeds",
+        extra={
+            "n_seeds": len(seeds),
+            "seeds": [int(s) for s in seeds],
+            "n_valid": len(valid_totals),
+            "n_invalid": len(results) - len(valid_totals),
+        },
     )
 
 

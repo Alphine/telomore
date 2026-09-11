@@ -139,7 +139,35 @@ Ranked by the account owner's stated priority:
    (fan chart / particle cloud) instead of a single mean trajectory —
    scientifically more honest about the model's stochasticity, and a
    natural fit for a particle-based renderer (many trajectories = many
-   particle streams).
+   particle streams). **DONE 2026-09-11** — `POST /api/simulate/ensemble`
+   (`backend/routers/simulate.py`, a new route alongside the unchanged
+   `POST /api/simulate`) runs the existing, unmodified `simulate()` once per
+   seed (`telomere_lab.experiments.runner.run_ensemble`, a plain Python
+   loop — each run is sub-second, so multiprocessing was not added; noted
+   as a future optimization if `n_seeds=50` runtime ever becomes a measured
+   problem) for seeds `base_seed .. base_seed + n_seeds - 1` (`n_seeds` in
+   `[2, 50]`), and returns p10/p50(median)/p90 + mean bands of `mean_length`
+   computed independently at each cycle across seeds
+   (`runner.summarize_ensemble` — an honest, distribution-free description
+   of the spread, not a per-trajectory confidence band), light-weight
+   per-seed series (not a full `to_json_dict()` each — that would be
+   `n_seeds`x the single-run payload) and per-seed terminal metrics, with
+   exactly one ledger entry per ensemble call (`kind: "ensemble"`). React:
+   an "Ensemble (uncertainty)" section on Simulate, additive and never
+   affecting the existing single-run flow — a fan chart (p10-p90 shaded
+   band + median/mean lines, `components/charts/ensembleCharts.ts`), a
+   min/mean/max/std terminal-metrics summary table across seeds
+   (`components/EnsembleSummaryTable.tsx`), and `EnsemblePopulationCanvas.tsx`,
+   a multi-stream sibling of `PopulationCanvas` rendering up to 5 overlaid
+   seed streams with reduced per-stream opacity — Canvas 2D only
+   (documented scope reduction vs. the single-run canvas's WebGL2 renderer,
+   to keep a second, independently-timed multi-stream program from
+   multiplying that renderer's complexity for a feature the build brief
+   explicitly allows a lighter-touch treatment). Docs:
+   `docs/API.md` "Ensemble / uncertainty visualization",
+   `frontend/README.md` "Ensemble (uncertainty) mode". Tests:
+   `tests/test_api_ensemble.py`, `charts/ensembleCharts.test.ts`,
+   `EnsembleSummaryTable.test.ts`, ensemble cases in `Simulate.test.tsx`.
 3. **Multi-chip / multi-organ parallel comparison.** Run several organ-chip
    condition profiles (e.g. liver-chip vs lung-chip stress signatures)
    side by side. Strengthens the "AI + Organ-on-a-Chip" theme, which is

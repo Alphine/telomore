@@ -1,6 +1,6 @@
 // Shared fixtures for page tests. Shapes copied from the real API responses
 // (GET /api/meta/bounds mirrors PARAMETER_BOUNDS / ModelConfig defaults).
-import type { BoundsResponse, ModelConfig, SimulationRun } from '../api/types'
+import type { BoundsResponse, EnsembleResponse, ModelConfig, SimulationRun } from '../api/types'
 
 export const MODEL_DEFAULTS: ModelConfig = {
   initial_length: 7500,
@@ -121,5 +121,50 @@ export function fakeRun(cycles = 4): SimulationRun {
     final_lengths_bp: [6000, 6500, 7000],
     run_id: 'TEL-20260909-001',
     fitness: { total: 0.512, survival: 0.9, reserve: 0.27, senescence: 0.12, instability: 0.2, cost: 0.02, valid: true, reason: null },
+  }
+}
+
+export function fakeEnsemble(nSeeds = 3, cycles = 4): EnsembleResponse {
+  const cycle = Array.from({ length: cycles + 1 }, (_, i) => i)
+  const seeds = Array.from({ length: nSeeds }, (_, i) => 42 + i)
+  return {
+    run_id: 'TEL-20260911-001',
+    n_seeds: nSeeds,
+    base_seed: 42,
+    seeds,
+    config: { ...BOUNDS.demo, cycles },
+    config_hash: 'ens123',
+    bands: {
+      cycle,
+      p10: cycle.map((i) => 7000 - 200 * i),
+      p50: cycle.map((i) => 7500 - 250 * i),
+      p90: cycle.map((i) => 8000 - 300 * i),
+      mean: cycle.map((i) => 7500 - 250 * i),
+    },
+    series: seeds.map((seed, si) => ({
+      seed,
+      valid: true,
+      failure_reason: null,
+      mean_length: cycle.map((i) => 7500 - (250 + si * 10) * i),
+      shortest_length: cycle.map((i) => 6000 - 450 * i),
+      population_size: cycle.map((i) => 100 + 20 * i),
+      proliferative_count: cycle.map((i) => 100 + 15 * i),
+      senescent_fraction: cycle.map((i) => 0.03 * i),
+      terminal_metrics: {
+        final_mean_length_bp: 6500 - si * 50,
+        final_mean_shortest_bp: 4200,
+        telomere_reserve_bp: 1200,
+        normalized_telomere_reserve: 0.27,
+        normalized_survival: 0.9,
+        final_senescent_fraction: 0.12,
+        final_population_size: 180,
+        peak_population_size: 200,
+        time_to_50pct_senescence: null,
+        time_to_90pct_senescence: null,
+        final_length_cv: 0.1,
+        extinct: false,
+      },
+    })),
+    applied_schedule: {},
   }
 }

@@ -143,6 +143,64 @@ shaped exactly like `ModelConfig.to_dict()` emits it (`docs/MODEL.md` §2.1):
 
 Tests: `tests/test_api_schedule.py`.
 
+## Ensemble / uncertainty visualization (candidate feature #2, 2026-09-11)
+
+`POST /api/simulate/ensemble` `{config: {...ModelConfig fields...}, n_seeds: int, base_seed?: int}`
+(protected) runs the existing, unmodified `simulate()` once per seed (a plain
+Python loop -- each run is sub-second per
+`test_runtime_target_default_config`, so multiprocessing was not added; revisit
+only if a measured runtime at `n_seeds=50` becomes a real problem) and returns
+the spread across seeds instead of one trajectory. It is a *separate* route
+from `POST /api/simulate`, which is unchanged.
+
+* **Seeds**: `base_seed, base_seed + 1, ..., base_seed + n_seeds - 1`
+  (`base_seed` defaults to the config's own `seed` field when omitted). This
+  is an explicit range convention specific to this endpoint -- distinct from
+  the free-form `eval_seeds` tuples the GA/NSGA-II/active-learner take
+  (`EvolutionConfig.eval_seeds` etc.), which are user-supplied lists rather
+  than a range generated server-side.
+* **`n_seeds`** must be in `[2, 50]` (`backend/schemas.py::MIN_ENSEMBLE_SEEDS`
+  / `MAX_ENSEMBLE_SEEDS`) or the request is rejected with **`400`**
+  (`n_seeds=1 outside [2, 50]`) -- deliberately a plain `400` like a
+  `ConfigError`, not a pydantic `422`, since it is a request-shape rule
+  specific to this route rather than a `ModelConfig` field. An invalid
+  `config` still surfaces the core `ConfigError` as `400`, exactly like
+  `/api/simulate`.
+* **Response** (`EnsembleResponse`) is deliberately *not* `n_seeds` copies of
+  `SimulationResult.to_json_dict()` -- that would be `n_seeds`x the
+  single-run payload. Instead:
+  * `bands` (`EnsembleBands`): **p10 / p50 (median) / p90 + mean of
+    `mean_length`, taken independently at each cycle** across the valid
+    seeds -- the percentile at cycle 5 and the percentile at cycle 50 may
+    come from different seeds. This is the documented, honest choice: a
+    distribution-free description of the spread across independent
+    stochastic realizations of the same configuration, **not** a confidence
+    band around any single seed's trajectory, and (per
+    `docs/SCIENTIFIC_SCOPE.md`) not a claim about biological population
+    variability beyond the model's own per-division noise term.
+  * `series` (`EnsembleSeedResult[]`, one per seed): light-weight per-seed
+    arrays only -- `mean_length`, `shortest_length`, `population_size`,
+    `proliferative_count`, `senescent_fraction` (each `cycles + 1` long) plus
+    `terminal_metrics`. No `final_lengths_bp`, no `distribution_snapshots`,
+    no per-seed `config` (all seeds share `config`/`config_hash` at the top
+    level) -- these are exactly what the fan chart, the terminal-metrics
+    summary table and the particle visualization need, nothing more. A run
+    that failed for a given seed carries `valid: false` /
+    `failure_reason` and is excluded from `bands` and from summary
+    statistics.
+  * `applied_schedule`: shared by every seed (only the RNG differs across
+    seeds, not the schedule), same shape/convention as `/api/simulate`'s
+    `applied_schedule`; `{}` when the config has no schedule.
+* **Ledger**: exactly **one** entry per ensemble call (`kind: "ensemble"`,
+  `configuration.seeds`/`n_seeds`, `fitness` = mean of the valid seeds'
+  total fitness), not `n_seeds` entries -- tagged and owned by the calling
+  user the same way as `/api/simulate`.
+* `GET /api/meta/bounds` needed no changes: `n_seeds`'s `[2, 50]` range is a
+  request-shape rule of this one route, not a `ModelConfig`/optimizer bound
+  the forms need to mirror.
+
+Tests: `tests/test_api_ensemble.py`.
+
 ## Long-running jobs (evolve / pareto / sensitivity / active-learning / benchmark)
 
 These `POST` a config body and return `{"job_id": "..."}` immediately,

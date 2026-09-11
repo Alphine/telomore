@@ -296,6 +296,64 @@ export interface SimulateResponse {
   run: SimulationRun
 }
 
+// --------------------------------------------------------------- ensemble
+// backend/schemas.py::Ensemble* (POST /api/simulate/ensemble, ROADMAP.md
+// candidate feature #2). Runs the existing, unmodified simulator once per
+// seed and returns the spread across seeds instead of one trajectory.
+export const MIN_ENSEMBLE_SEEDS = 2
+export const MAX_ENSEMBLE_SEEDS = 50
+
+export interface EnsembleRequest {
+  config: Partial<ModelConfig>
+  n_seeds: number
+  base_seed?: number
+}
+
+/**
+ * Light-weight per-seed series -- NOT a full SimulationResult.to_json_dict()
+ * (no final_lengths_bp / distribution_snapshots / per-seed config), just the
+ * arrays the fan chart, terminal-metrics summary table and the multi-stream
+ * particle visualization need, on the shared EnsembleBands.cycle axis.
+ */
+export interface EnsembleSeedResult {
+  seed: number
+  valid: boolean
+  failure_reason: string | null
+  mean_length: Array<number | null>
+  shortest_length: Array<number | null>
+  population_size: number[]
+  proliferative_count: number[]
+  senescent_fraction: Array<number | null>
+  terminal_metrics: Partial<TerminalMetrics>
+}
+
+/**
+ * p10 / p50 (median) / p90 + mean of mean_length across seeds, taken
+ * independently at each cycle -- an honest, distribution-free description of
+ * the spread across independent stochastic realizations of the same
+ * configuration, NOT a confidence band around any single seed's trajectory.
+ */
+export interface EnsembleBands {
+  cycle: number[]
+  p10: Array<number | null>
+  p50: Array<number | null>
+  p90: Array<number | null>
+  mean: Array<number | null>
+}
+
+export interface EnsembleResponse {
+  run_id: string
+  n_seeds: number
+  base_seed: number
+  seeds: number[]
+  config: ModelConfig
+  config_hash: string
+  bands: EnsembleBands
+  series: EnsembleSeedResult[]
+  /** Shared by every seed (only the RNG differs); {} when the config has no schedule. */
+  applied_schedule: Record<string, number[]>
+}
+
 // ------------------------------------------------------------------- jobs
 export interface EvolveRequest {
   model: Partial<ModelConfig>

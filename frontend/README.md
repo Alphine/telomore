@@ -374,6 +374,61 @@ It is **not** shown on Evolve: the evolve job result has no per-cycle
 simulation payload for the best candidate. *Set best as baseline* → Simulate
 is the way to see it.
 
+## Ensemble (uncertainty) mode (ROADMAP.md candidate feature #2, 2026-09-11)
+
+An additive section on Simulate (`pages/Simulate/index.tsx`), separate from
+and never affecting the single-run "Run simulation" flow above it. An
+"Ensemble (uncertainty)" checkbox reveals a `n_seeds` number input (default
+10, bounds `[MIN_ENSEMBLE_SEEDS, MAX_ENSEMBLE_SEEDS]` = `[2, 50]`,
+`api/types.ts`) and its own "Run ensemble (N seeds)" button, which posts
+`POST /api/simulate/ensemble` (`{config, n_seeds, base_seed: effective.seed}`,
+`api/endpoints.ts::simulateEnsemble`) — see `../docs/API.md` "Ensemble /
+uncertainty visualization" for the response shape and the seed-offset /
+percentile-band conventions.
+
+Three pieces render once a run completes:
+
+* **Fan chart** (`components/charts/ensembleCharts.ts::ensembleFanChart`) —
+  a pure data → Plotly-figure transform (unit-tested,
+  `ensembleCharts.test.ts`): the p10-p90 band as a shaded area
+  (`fill: 'tonexty'` between the p90 and p10 traces) plus the p50 (median)
+  and mean lines, for the same primary series (mean telomere length) the
+  single-run `lengthTrajectory` chart plots, so the two are visually
+  comparable. Reuses `components/charts/theme.ts`'s palette/dark-mode
+  handling like every other chart.
+* **Terminal-metrics summary table**
+  (`components/EnsembleSummaryTable.tsx` / its pure `summaryRows`
+  transform, unit-tested) — min/mean/max/std across seeds for five key
+  terminal metrics (final mean length, mean shortest/cell, senescent
+  fraction, normalized survival, final living cells). Per-seed *fitness* is
+  not shown: the ensemble response does not score every seed individually
+  (`docs/API.md`), which keeps the payload light per the build brief: this
+  is a deliberate, documented scope choice, not an oversight.
+* **`EnsemblePopulationCanvas`** (`components/EnsemblePopulationCanvas.tsx` +
+  the pure `components/ensembleFrames.ts` frame mapping) — the multi-stream
+  sibling of `PopulationCanvas`. **Documented scope reduction**: unlike the
+  single-run canvas's WebGL2-with-Canvas-2D-fallback renderer, this
+  component is **Canvas 2D only**, for up to `MAX_STREAMS = 5` seeds (picked
+  from the ensemble's seeds, extra seeds are not rendered as particles even
+  when `n_seeds` is larger — the fan chart and summary table above already
+  cover the full seed count numerically). Building a second WebGL2 program
+  that independently times and colours N overlaid streams would multiply
+  the single-run renderer's complexity by the stream cap for a feature the
+  build brief explicitly allows a lighter-touch treatment; Canvas 2D with
+  reduced per-stream opacity (denser/brighter where streams agree, hazier
+  where they diverge) was judged the better complexity/fidelity trade-off
+  for a first version. Play/pause, speed and a shared timeline scrubber,
+  same interaction pattern as `PopulationCanvas`.
+
+Copy throughout says "independent stochastic realizations of the same
+configuration", never implying biological population variability beyond the
+model's own noise term (`docs/SCIENTIFIC_SCOPE.md`).
+
+Tests: `charts/ensembleCharts.test.ts`, `EnsembleSummaryTable.test.ts`, plus
+ensemble-mode cases in `pages/Simulate/Simulate.test.tsx` (request body,
+loading/error/empty states, and that the existing single-run tests are
+unaffected) — Vitest total after this feature: 96.
+
 ## Auth state
 
 `AuthProvider` (`src/auth/AuthContext.tsx`) holds

@@ -9,6 +9,8 @@ import type {
   ChipParams,
   CompareRequest,
   CompareResponse,
+  EnsembleRequest,
+  EnsembleResponse,
   EvolveRequest,
   ExperimentDetail,
   ExperimentSummary,
@@ -79,6 +81,11 @@ export function chipToParams(body: ChipConditions): Promise<ChipParams> {
 // --------------------------------------------------------------- simulate
 export function simulate(body: SimulateRequest): Promise<SimulateResponse> {
   return request<SimulateResponse>('/simulate', { method: 'POST', body })
+}
+
+/** Run N seeds of one config and return the spread across seeds (ROADMAP.md candidate feature #2). */
+export function simulateEnsemble(body: EnsembleRequest): Promise<EnsembleResponse> {
+  return request<EnsembleResponse>('/simulate/ensemble', { method: 'POST', body })
 }
 
 // ------------------------------------------------------------------- jobs

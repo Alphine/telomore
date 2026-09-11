@@ -13,6 +13,32 @@ const BUILD_INFO = `package    0.1.0
 model      0.1.0
 optimizer  0.1.0`
 
+// Hero stat pills (2026-09-11 landing polish pass): every number here was
+// actually counted, not guessed -- like BUILD_INFO above, this is a
+// documented, dated, static snapshot, not a live measurement. Re-run these
+// counts and update the literals below whenever a future session revisits
+// this section, rather than letting them go stale silently (see
+// `frontend/README.md`'s "Landing hero" section for the exact commands):
+//   - backend tests: `python -m pytest --collect-only -q` summed per file
+//     = 231 (2026-09-11)
+//   - frontend tests: `cd frontend && npx vitest run` = 130 (2026-09-11)
+//   - lab tools: `FEATURES.length` (features.ts) = 7
+//   - documented experiments: `## N. Experiment` headers in
+//     docs/EXPERIMENT_PROTOCOL.md = 6 (A-F)
+const STATS: { icon: string; value: string; label: string }[] = [
+  { icon: '✅', value: '361', label: 'automated tests (231 backend + 130 frontend)' },
+  { icon: '🧪', value: `${FEATURES.length}`, label: 'lab tools' },
+  { icon: '📒', value: '6', label: 'documented experiments' },
+  { icon: '💻', value: 'CPU-only', label: 'no GPU required' },
+]
+
+const STEPS: { title: string; sub: string }[] = [
+  { title: 'Simulate', sub: 'run the stressed baseline culture' },
+  { title: 'Evolve', sub: 'search parameters for the objective' },
+  { title: 'Compare', sub: 'overlay baseline vs. evolved' },
+  { title: 'Experiments', sub: 'inspect the reproducibility ledger' },
+]
+
 const LOOP = `biological hypothesis / objective
         ↓
   parameter genome  (stress, maintenance, repair, ...)
@@ -94,18 +120,28 @@ export function Landing() {
   return (
     <div className="space-y-12">
       {/* ---------------------------------------------------------- hero */}
-      <section className="relative space-y-4 overflow-hidden">
+      <section className="hero-glow relative space-y-5 overflow-hidden rounded-2xl px-1 py-2 sm:px-2">
         {/* Decorative only -- aria-hidden inside the component, no data dependency.
             Absolutely positioned behind the text on narrow screens (low opacity so
             the hero copy stays the clear focal point), a contained side panel on
             wider screens. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-10 sm:static sm:float-right sm:ms-4 sm:mb-2 sm:h-40 sm:w-40 sm:opacity-90"
+          className="pointer-events-none absolute inset-0 opacity-10 sm:static sm:float-right sm:ms-4 sm:mb-2 sm:h-56 sm:w-56 sm:opacity-90"
         >
           <DnaHelixCanvas />
         </div>
-        <h1 className="relative text-4xl font-bold sm:text-5xl">🧬 Telomere Evolution Lab</h1>
+
+        <p className="relative text-xs font-semibold tracking-[0.2em] text-sky-700 uppercase dark:text-sky-400">
+          Simulate · Evolve · Compare · Learn
+        </p>
+        <h1 className="relative text-4xl font-bold sm:text-5xl">
+          <span className="block">🧬 Telomere</span>
+          <span className="gradient-text block">Evolution Lab</span>
+        </h1>
+        <p className="relative text-xs font-semibold tracking-[0.15em] text-slate-500 uppercase dark:text-slate-400">
+          AI-for-science telomere simulation lab
+        </p>
         <h2 className="relative text-xl font-semibold text-slate-700 sm:text-2xl dark:text-slate-300">
           Simulate. Evolve. Compare. Learn.
         </h2>
@@ -114,7 +150,25 @@ export function Landing() {
           <strong>telomere-dynamics model</strong> for virtual experiment conditions that optimise an explicit,
           user-defined objective.
         </p>
-        <Disclaimer />
+
+        {/* ------------------------------------------------- stat pills */}
+        <div className="relative flex flex-wrap gap-3 pt-1">
+          {STATS.map((s) => (
+            <div key={s.label} className="glass-pill">
+              <span aria-hidden className="text-lg leading-none">
+                {s.icon}
+              </span>
+              <div>
+                <div className="text-sm font-bold text-slate-900 dark:text-slate-50">{s.value}</div>
+                <div className="text-xs text-slate-600 dark:text-slate-400">{s.label}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="relative">
+          <Disclaimer />
+        </div>
       </section>
 
       {/* -------------------------------------------------- feature cards */}
@@ -126,7 +180,7 @@ export function Landing() {
               key={f.path}
               to={f.path}
               data-testid="feature-card"
-              className="card card-hover flex flex-col p-5 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+              className="glass-panel glass-panel-hover flex flex-col p-5 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
             >
               <div aria-hidden className="text-3xl leading-none">
                 {f.icon}
@@ -152,21 +206,30 @@ export function Landing() {
         <pre className="mono-block">{LOOP}</pre>
       </section>
 
+      {/* ---------------------------------------------------- step flow */}
       <section>
-        <h3 className="mb-4 text-lg font-semibold">Suggested demo flow</h3>
-        <ol className="list-decimal space-y-1.5 pl-5 text-slate-700 dark:text-slate-300">
-          <li>
-            <strong>Simulate</strong> – run the stressed baseline culture and watch telomere reserve collapse.
-          </li>
-          <li>
-            <strong>Evolve</strong> – define the objective weights and click <em>Evolve</em>; watch fitness climb.
-          </li>
-          <li>
-            <strong>Compare</strong> – overlay baseline vs. best evolved candidate; read the deltas.
-          </li>
-          <li>
-            <strong>Experiments</strong> – open the reproducibility ledger and export the run bundle.
-          </li>
+        <h3 className="mb-6 text-lg font-semibold">Suggested demo flow</h3>
+        <ol className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {STEPS.map((step, i) => (
+            <li key={step.title} className="relative flex items-start gap-3 sm:flex-col sm:items-center sm:text-center">
+              {i < STEPS.length - 1 && (
+                <span
+                  aria-hidden
+                  className="absolute top-4 left-[calc(2rem+1px)] hidden h-px w-[calc(100%-2rem)] bg-gradient-to-r from-sky-400/70 to-violet-400/70 sm:block"
+                />
+              )}
+              <span
+                aria-hidden
+                className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-violet-500 text-sm font-bold text-white shadow-[0_0_12px_-2px_rgba(96,165,250,0.7)]"
+              >
+                {i + 1}
+              </span>
+              <div>
+                <div className="font-semibold text-slate-900 dark:text-slate-50">{step.title}</div>
+                <div className="prose-muted">{step.sub}</div>
+              </div>
+            </li>
+          ))}
         </ol>
       </section>
 

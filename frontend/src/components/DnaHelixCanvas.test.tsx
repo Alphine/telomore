@@ -17,6 +17,8 @@ function stubContext2D() {
     stroke: vi.fn(),
     arc: vi.fn(),
     fill: vi.fn(),
+    save: vi.fn(),
+    restore: vi.fn(),
   } as unknown as CanvasRenderingContext2D
 }
 

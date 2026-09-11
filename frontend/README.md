@@ -498,15 +498,63 @@ simulation payload for the best candidate. *Set best as baseline* → Simulate
 
 Purely decorative double-helix animation behind/beside the `🧬 Telomere
 Evolution Lab` title on the public `/` landing page (`pages/Landing.tsx`) —
-no data dependency, no API calls. Canvas 2D only (no WebGL2 needed for two
-sine strands + rungs); geometry math lives in the pure
-`components/dnaHelixGeometry.ts` so the component file only exports the
-component (oxlint `react/only-export-components`). Teal/rose accent palette
-matching `PopulationCanvas`, dark-mode aware via the shared `usePrefersDark`
-hook (`components/charts/theme.ts`). Respects `prefers-reduced-motion:
-reduce` (renders one static frame instead of animating) and pauses its
-`requestAnimationFrame` loop while the tab is hidden.
-is the way to see it.
+no data dependency, no API calls. Canvas 2D only (no WebGL2 needed); geometry
+math lives in the pure `components/dnaHelixGeometry.ts` so the component file
+only exports the component (oxlint `react/only-export-components`). Respects
+`prefers-reduced-motion: reduce` (renders one static frame instead of
+animating) and pauses its `requestAnimationFrame` loop while the tab is
+hidden.
+
+**Premium-glow polish pass (2026-09-11)**, matching a dark-navy/glass
+reference mockup the account owner shared: the palette shifted from the
+original teal/rose to a blue -> violet direction (`STRAND_A` sky-blue,
+`STRAND_B` violet/fuchsia in `DnaHelixCanvas.tsx`) so the "premium glow"
+aesthetic reads well on the app's dark background while staying legible in
+light mode too (checked both). Each strand segment's color is a per-segment
+lerp (`dnaHelixGeometry.ts::lerpHexColor`) from its top hue to its bottom hue,
+further brightened/dimmed by the existing pseudo-3D depth value
+(`depthToLitFactor`) for a lit-near/shadowed-far feel; strands and rung nodes
+both use `ctx.shadowBlur`/`shadowColor` for glow rather than a separate blur
+pass. Rungs are now small glowing circles (`ctx.arc` + shadow) instead of
+plain connecting lines. A small deterministic (seeded) field of pulsing
+"bokeh" dots (`dnaHelixGeometry.ts::buildBokehField`, `BOKEH_COUNT = 20`)
+renders behind the helix for the ambient-particle feel of the reference
+image — fixed count, no physics, cheap enough to run on every anonymous
+landing-page visit. `dnaHelixGeometry.test.ts` covers the new pure functions
+(`lerpHexColor`, `depthToLitFactor`, `buildBokehField`) in addition to the
+existing `buildHelixFrame` coverage; `DnaHelixCanvas.test.tsx`'s mount/
+animate/unmount/reduced-motion smoke tests are unchanged (its canvas stub
+gained `save`/`restore` mocks for the new `ctx.save()`/`ctx.restore()` calls
+around each glow-styled draw call).
+
+The same pass re-skinned the Landing hero itself: a small uppercase eyebrow
+line, a two-line gradient heading (`.gradient-text` in `index.css`,
+`background-clip: text` with a solid-color fallback and a `dark:`-equivalent
+`@media (prefers-color-scheme: dark)` block for the gradient stops, following
+this file's existing `dark:`-variant convention rather than a new theming
+mechanism), a `.hero-glow` radial-gradient backdrop scoped to dark mode only,
+a row of glassmorphism "stat pill" cards (`.glass-pill`), the feature-card
+grid re-skinned with `.glass-panel`/`.glass-panel-hover` (content/links/
+`data-testid="feature-card"` unchanged — a pure visual re-skin), and the
+existing "Suggested demo flow" list restyled into a circled-number horizontal
+step flow (same four steps, no new/duplicate list added).
+
+**Stat pill numbers are a static, dated snapshot** (same discipline as this
+file's own `BUILD_INFO` precedent in `pages/Landing.tsx`) — not a live
+computation, so they *will* drift as the codebase grows. The exact counting
+commands are documented as a comment directly above the `STATS` constant in
+`pages/Landing.tsx`; re-run them and update the literals whenever revisiting
+this section:
+- automated tests: `python -m pytest --collect-only -q` (sum the per-file
+  counts) for the backend + `cd frontend && npx vitest run` for the frontend,
+  added together (231 + 130 = 361 as of 2026-09-11)
+- lab tools: `FEATURES.length` from `features.ts` (computed inline, so this
+  one number cannot go stale on its own)
+- documented experiments: count of `## N. Experiment` headers in
+  `docs/EXPERIMENT_PROTOCOL.md` (6 as of 2026-09-11)
+- the fourth pill ("CPU-only, no GPU required") is a qualitative badge, not a
+  count — see `docs/ROADMAP.md`'s "GPU strategy" section for why that claim
+  is accurate.
 
 ## Ensemble (uncertainty) mode (ROADMAP.md candidate feature #2, 2026-09-11)
 

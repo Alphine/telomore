@@ -74,4 +74,68 @@
     @apply overflow-x-auto rounded-lg border border-slate-200 bg-slate-100 p-4 font-mono text-sm
       leading-relaxed text-slate-800 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200;
   }
+
+  /* Glassmorphism treatment for the Landing hero polish pass (stat pills,
+     re-skinned feature cards, step-flow nodes). Light mode stays a plain,
+     bright card (this app is used in both themes, so the "glass" read is a
+     dark-mode-only effect layered on top of the same base as `.card`) --
+     dark mode adds the translucent/backdrop-blur/glow look from the
+     reference mockup. Follows this file's existing `dark:` convention, no
+     new theming mechanism. */
+  .glass-panel {
+    @apply rounded-xl border border-slate-200 bg-white shadow-sm transition
+      dark:border-white/10 dark:bg-white/5 dark:shadow-none dark:backdrop-blur-md;
+  }
+  .glass-panel-hover {
+    @apply hover:-translate-y-px hover:shadow-md
+      dark:hover:border-blue-400/40 dark:hover:shadow-[0_0_24px_-4px_rgba(96,165,250,0.35)];
+  }
+  /* Tailwind v4 cannot @apply a custom component class (see `.btn-primary`
+     above), so `.glass-panel`'s rules are repeated here rather than
+     `@apply`-ed. */
+  .glass-pill {
+    @apply flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2.5 shadow-sm transition
+      dark:border-white/10 dark:bg-white/5 dark:shadow-none dark:backdrop-blur-md;
+  }
+
+  /* Two-tone gradient heading text (reference mockup's cyan/blue wordmark).
+     `background-clip: text` support is near-universal, but the fallback
+     solid color below still renders correctly if a browser ever lacks it,
+     since it is overridden only when the gradient clip actually applies. */
+  .gradient-text {
+    color: #0891b2; /* cyan-600 fallback if background-clip: text is unsupported */
+    background-image: linear-gradient(90deg, #0ea5e9, #7c3aed);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  @media (prefers-color-scheme: dark) {
+    .gradient-text {
+      background-image: linear-gradient(90deg, #38bdf8, #a78bfa);
+    }
+  }
+
+  /* Subtle deep radial glow behind the hero, dark mode only -- light mode
+     stays the plain page background (rule: heavier glow scoped to dark
+     mode, per this file's `dark:` convention rather than a new mechanism). */
+  .hero-glow {
+    @apply relative;
+  }
+  .hero-glow::before {
+    content: "";
+    position: absolute;
+    inset: -2rem -1rem;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0;
+    background:
+      radial-gradient(40rem 22rem at 15% 0%, rgba(56, 189, 248, 0.16), transparent 60%),
+      radial-gradient(30rem 20rem at 90% 30%, rgba(167, 139, 250, 0.14), transparent 60%);
+    transition: opacity 0.3s ease;
+  }
+  @media (prefers-color-scheme: dark) {
+    .hero-glow::before {
+      opacity: 1;
+    }
+  }
 }

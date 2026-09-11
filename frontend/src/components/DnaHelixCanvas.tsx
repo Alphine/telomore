@@ -8,18 +8,31 @@
 import { useEffect, useRef } from 'react'
 
 import { usePrefersDark } from './charts/theme'
-import { buildHelixFrame } from './dnaHelixGeometry'
+import { buildBokehField, buildHelixFrame, depthToLitFactor, lerpHexColor } from './dnaHelixGeometry'
 
-// Same accent palette as PopulationCanvas / the rest of the app: teal-500
-// for one backbone, rose-500 for the other, base-pair rungs in slate.
-const STRAND_A = { light: '#0d9488', dark: '#2dd4bf' } // teal-600 / teal-400
-const STRAND_B = { light: '#e11d48', dark: '#fb7185' } // rose-600 / rose-400
-const RUNG = { light: 'rgba(100, 116, 139, 0.35)', dark: 'rgba(148, 163, 184, 0.35)' } // slate-500/400
+// Premium-glow palette (2026-09-11 polish pass): blue -> violet gradient per
+// strand, matching the reference mockup's blue/purple/cyan glow direction,
+// while keeping the two backbones visually distinct (cyan-blue vs.
+// violet-purple) so the double helix still reads as two strands rather than
+// one blended ribbon. Each strand fades from its "top" hue to its "bottom"
+// hue along its length via `lerpHexColor` (see the draw loop).
+const STRAND_A = {
+  light: { top: '#0284c7', bottom: '#0369a1' }, // sky-600 / sky-700
+  dark: { top: '#38bdf8', bottom: '#0ea5e9' }, // sky-400 / sky-500
+}
+const STRAND_B = {
+  light: { top: '#7c3aed', bottom: '#a21caf' }, // violet-600 / purple-700
+  dark: { top: '#a78bfa', bottom: '#e879f9' }, // violet-400 / fuchsia-400
+}
+const RUNG_GLOW = { light: '#0ea5e9', dark: '#38bdf8' } // sky-500 / sky-400
+const BOKEH_COLOR = { light: 'rgba(56, 189, 248, 0.5)', dark: 'rgba(167, 139, 250, 0.55)' }
 
 const ROWS = 48
 const RUNG_COUNT = 14
 const TURNS = 2.5
 const RADIANS_PER_SECOND = 0.6 // slow, ambient rotation
+const BOKEH_COUNT = 20
+const BOKEH_SEED = 7
 
 function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
@@ -80,38 +93,83 @@ export function DnaHelixCanvas({ className }: DnaHelixCanvasProps) {
     fit()
     window.addEventListener('resize', fit)
 
+    // Deterministic, built once -- the bokeh field's layout never changes,
+    // only its opacity pulses over time (see `bokehPulse` in `draw`).
+    const bokeh = buildBokehField(BOKEH_COUNT, BOKEH_SEED)
+
     const draw = (phase: number) => {
       const dark = darkRef.current
       c2d.clearRect(0, 0, width, height)
       const { strandA, strandB, rungs } = buildHelixFrame({ rows: ROWS, rungCount: RUNG_COUNT, turns: TURNS, phase })
 
       const toPx = (p: { x: number; y: number }) => ({ x: p.x * width, y: p.y * height })
-      const depthAlpha = (depth: number) => 0.45 + 0.55 * ((depth + 1) / 2)
-      const depthWidth = (depth: number) => (1.4 + 1.6 * ((depth + 1) / 2)) * dpr
+      const depthWidth = (depth: number) => (1.6 + 1.8 * ((depth + 1) / 2)) * dpr
 
-      // Base-pair rungs first, so the strands draw on top of them.
-      c2d.strokeStyle = RUNG[dark ? 'dark' : 'light']
-      for (const [a, b] of rungs) {
-        const pa = toPx(a)
-        const pb = toPx(b)
-        c2d.lineWidth = 1 * dpr
+      // Ambient background bokeh dots, drawn first so everything else sits
+      // on top. Cheap: fixed count, no physics, opacity gently pulses per
+      // dot using its own phase offset so they don't blink in lockstep.
+      const bokehColor = BOKEH_COLOR[dark ? 'dark' : 'light']
+      for (const dot of bokeh) {
+        const pulse = 0.35 + 0.35 * (0.5 + 0.5 * Math.sin(phase * 0.8 + dot.phase))
+        c2d.save()
+        c2d.globalAlpha = pulse
+        c2d.shadowColor = bokehColor
+        c2d.shadowBlur = 6 * dpr
+        c2d.fillStyle = bokehColor
         c2d.beginPath()
-        c2d.moveTo(pa.x, pa.y)
-        c2d.lineTo(pb.x, pb.y)
-        c2d.stroke()
+        c2d.arc(dot.x * width, dot.y * height, dot.r * Math.min(width, height), 0, Math.PI * 2)
+        c2d.fill()
+        c2d.restore()
       }
 
-      const strokeStrand = (points: { x: number; y: number; depth: number }[], color: string) => {
+      // Base-pair rungs as small glowing nodes (shadowBlur'd circles) rather
+      // than plain connecting lines, sized/brightened by depth.
+      const rungColor = RUNG_GLOW[dark ? 'dark' : 'light']
+      for (const [a, b] of rungs) {
+        for (const p of [a, b]) {
+          const lit = depthToLitFactor(p.depth)
+          const px = toPx(p)
+          const radius = (2 + 1.6 * lit) * dpr
+          c2d.save()
+          c2d.globalAlpha = 0.55 + 0.35 * lit
+          c2d.shadowColor = rungColor
+          c2d.shadowBlur = 8 * dpr * lit
+          c2d.fillStyle = rungColor
+          c2d.beginPath()
+          c2d.arc(px.x, px.y, radius, 0, Math.PI * 2)
+          c2d.fill()
+          c2d.restore()
+        }
+      }
+
+      // Strands: a gradient from each strand's "top" hue to its "bottom"
+      // hue along its length (lerpHexColor), further lit/shadowed per
+      // segment by the pseudo-3D depth (depthToLitFactor) so the near phase
+      // of the rotation reads brighter than the far phase. A soft glow
+      // (shadowBlur) sits under a sharper core stroke for the "luminous
+      // strand" look without a blurry mess.
+      const strokeStrand = (points: { x: number; y: number; depth: number }[], hues: { top: string; bottom: string }) => {
         for (let i = 0; i < points.length - 1; i++) {
           const p0 = points[i]
           const p1 = points[i + 1]
           const depth = (p0.depth + p1.depth) / 2
-          c2d.strokeStyle = withAlpha(color, depthAlpha(depth))
-          c2d.lineWidth = depthWidth(depth)
+          const lit = depthToLitFactor(depth)
+          const t = (p0.y + p1.y) / 2
+          const baseColor = lerpHexColor(hues.top, hues.bottom, t)
+          const alpha = 0.4 + 0.5 * lit
+          const width_ = depthWidth(depth)
+
+          c2d.save()
+          c2d.shadowColor = withAlpha(baseColor, Math.min(1, alpha + 0.2))
+          c2d.shadowBlur = 5 * dpr * lit
+          c2d.strokeStyle = withAlpha(baseColor, alpha)
+          c2d.lineWidth = width_
+          c2d.lineCap = 'round'
           c2d.beginPath()
           c2d.moveTo(p0.x * width, p0.y * height)
           c2d.lineTo(p1.x * width, p1.y * height)
           c2d.stroke()
+          c2d.restore()
         }
       }
       strokeStrand(strandA, STRAND_A[dark ? 'dark' : 'light'])

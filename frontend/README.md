@@ -545,9 +545,10 @@ computation, so they *will* drift as the codebase grows. The exact counting
 commands are documented as a comment directly above the `STATS` constant in
 `pages/Landing.tsx`; re-run them and update the literals whenever revisiting
 this section:
-- automated tests: `python -m pytest --collect-only -q` (sum the per-file
-  counts) for the backend + `cd frontend && npx vitest run` for the frontend,
-  added together (231 + 130 = 361 as of 2026-09-11)
+- automated tests: `python -m pytest -q` (the real run's `tests=` total, not
+  a manual per-file sum from `--collect-only -q`, which undercounts
+  parametrized tests) for the backend + `cd frontend && npx vitest run` for
+  the frontend, added together (251 + 139 = 390 as of 2026-09-11)
 - lab tools: `FEATURES.length` from `features.ts` (computed inline, so this
   one number cannot go stale on its own)
 - documented experiments: count of `## N. Experiment` headers in

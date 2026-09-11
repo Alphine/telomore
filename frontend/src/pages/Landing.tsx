@@ -19,14 +19,15 @@ optimizer  0.1.0`
 // counts and update the literals below whenever a future session revisits
 // this section, rather than letting them go stale silently (see
 // `frontend/README.md`'s "Landing hero" section for the exact commands):
-//   - backend tests: `python -m pytest --collect-only -q` summed per file
-//     = 231 (2026-09-11)
-//   - frontend tests: `cd frontend && npx vitest run` = 130 (2026-09-11)
+//   - backend tests: `python -m pytest -q` (junitxml `tests=` count, NOT a
+//     manual per-file sum from --collect-only -q, which undercounted
+//     parametrized tests when this was first written) = 251 (2026-09-11)
+//   - frontend tests: `cd frontend && npx vitest run` = 139 (2026-09-11)
 //   - lab tools: `FEATURES.length` (features.ts) = 7
 //   - documented experiments: `## N. Experiment` headers in
 //     docs/EXPERIMENT_PROTOCOL.md = 6 (A-F)
 const STATS: { icon: string; value: string; label: string }[] = [
-  { icon: '✅', value: '361', label: 'automated tests (231 backend + 130 frontend)' },
+  { icon: '✅', value: '390', label: 'automated tests (251 backend + 139 frontend)' },
   { icon: '🧪', value: `${FEATURES.length}`, label: 'lab tools' },
   { icon: '📒', value: '6', label: 'documented experiments' },
   { icon: '💻', value: 'CPU-only', label: 'no GPU required' },

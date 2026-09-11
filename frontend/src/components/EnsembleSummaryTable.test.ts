@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { EnsembleSeedResult } from '../api/types'
-import { summaryRows } from './EnsembleSummaryTable'
+import { summaryRows } from './ensembleSummaryUtils'
 
 function seed(n: number, terminal: Partial<EnsembleSeedResult['terminal_metrics']>, valid = true): EnsembleSeedResult {
   return {

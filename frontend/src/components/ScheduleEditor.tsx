@@ -21,7 +21,10 @@ export interface ScheduleEditorProps {
   idPrefix?: string
 }
 
-const PRESET_LABELS: Record<string, string> = { demo_fasting: 'Load fasting demo' }
+const PRESET_LABELS: Record<string, string> = {
+  demo_fasting: 'Load fasting demo',
+  demo_fasting_evolved: 'Load evolved fasting response',
+}
 
 export function ScheduleEditor({
   bounds,
@@ -177,8 +180,13 @@ export function ScheduleEditor({
         )}
       </div>
       <p className="prose-muted text-xs">
-        A protocol is a sequence of model parameters, not a dosing regimen. In Experiment E an evolved 6-phase protocol did
-        not beat the best constant dose (docs/EXPERIMENT_PROTOCOL.md §10).
+        A protocol is a sequence of model parameters, not a dosing regimen. Timing alone does not help under
+        <em> constant</em> stress: in Experiment E an evolved 6-phase protocol barely beat the best constant dose
+        (docs/EXPERIMENT_PROTOCOL.md §10). It matters more when the <em>stress itself</em> varies: in Experiment G, an
+        intervention schedule synced to an alternating stress rhythm clearly beat a constant response to the same
+        rhythm -- compare "Load fasting demo" (fixed response, ends fully senescent) against "Load evolved fasting
+        response" (scheduled response to the identical stress, ends with zero senescence) (docs/EXPERIMENT_PROTOCOL.md
+        §12).
       </p>
     </fieldset>
   )

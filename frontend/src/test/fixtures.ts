@@ -67,7 +67,8 @@ export const BOUNDS: BoundsResponse = {
   },
   schedulable: ['stress_level', 'maintenance_rate', 'repair_rate'],
   max_phases: 8,
-  // configs/demo_fasting.yaml as GET /api/meta/bounds returns it (ModelConfig.to_dict()).
+  // configs/demo_fasting.yaml / demo_fasting_evolved.yaml as GET /api/meta/bounds returns them
+  // (ModelConfig.to_dict()).
   presets: {
     demo_fasting: {
       ...MODEL_DEFAULTS,
@@ -76,6 +77,21 @@ export const BOUNDS: BoundsResponse = {
       repair_rate: 0.15,
       record_distribution_every: 20,
       schedule: { phases: 6, values: { stress_level: [0.9, 0.3, 0.9, 0.3, 0.9, 0.3] } },
+    },
+    demo_fasting_evolved: {
+      ...MODEL_DEFAULTS,
+      stress_level: 0.9,
+      maintenance_rate: 1.0,
+      repair_rate: 1.0,
+      record_distribution_every: 20,
+      schedule: {
+        phases: 6,
+        values: {
+          stress_level: [0.9, 0.3, 0.9, 0.3, 0.9, 0.3],
+          maintenance_rate: [1.0, 0.7778947810637213, 0.31856705261563456, 1.0, 1.0, 0.7942940605139408],
+          repair_rate: [1.0, 0.42237513028941837, 0.9778380176446633, 0.0, 0.7355764681008359, 0.0],
+        },
+      },
     },
   },
   subclone_overridable: ['shortening_rate', 'maintenance_rate', 'repair_rate', 'stress_sensitivity'],

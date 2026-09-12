@@ -66,7 +66,10 @@ def _demo_config() -> ModelConfig:
 
 #: Named example protocols exposed as ``presets`` (name -> configs/<file>.yaml).
 #: Only files that exist are listed, so a missing YAML degrades to no preset.
-PRESET_FILES = {"demo_fasting": "demo_fasting.yaml"}
+PRESET_FILES = {
+    "demo_fasting": "demo_fasting.yaml",
+    "demo_fasting_evolved": "demo_fasting_evolved.yaml",
+}
 
 
 def _presets() -> Dict[str, Dict[str, Any]]:

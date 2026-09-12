@@ -373,6 +373,15 @@ propose a candidate `ModelConfig` / intervention schedule (e.g. a
 fasting-like cyclic pattern — high stress N cycles, repair boost M cycles,
 repeat), inspired by real biological analogies the user cares about
 (caloric restriction / intermittent fasting as an intervention motif).
+**2026-09-12 update**: this motif is no longer purely hypothetical —
+Experiment G (`docs/EXPERIMENT_PROTOCOL.md` §12) found a real, mechanistic
+case where a repair schedule synced to an intermittent stress rhythm beats
+a constant response to the same rhythm, shipped as the
+`demo_fasting_evolved` preset. A Layer-2 agent proposing "repair boost
+during a fasting-like phase" would now be proposing something this
+codebase has independently verified can help, not just a plausible-sounding
+guess — still gated on the same safety boundary below (every proposal goes
+through the same `validate()` every other config does).
 
 **Hard safety boundary (this is the direct answer to "tanpa merusak dan
 mengubah DNA"):** the LLM never executes biology and never bypasses

@@ -64,6 +64,11 @@ describe('ScheduleEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Load fasting demo' }))
     expect(onLoad).toHaveBeenCalledWith('demo_fasting', BOUNDS.presets.demo_fasting)
 
+    // docs/EXPERIMENT_PROTOCOL.md Experiment G: same stress rhythm, an
+    // evolved maintenance/repair response instead of the fixed baseline.
+    fireEvent.click(screen.getByRole('button', { name: 'Load evolved fasting response' }))
+    expect(onLoad).toHaveBeenCalledWith('demo_fasting_evolved', BOUNDS.presets.demo_fasting_evolved)
+
     render(
       <ScheduleEditor
         bounds={BOUNDS}

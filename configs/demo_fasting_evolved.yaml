@@ -1,0 +1,46 @@
+# "Evolved fasting response" demo (docs/EXPERIMENT_PROTOCOL.md Experiment G).
+#
+# Same alternating stress_level schedule as demo_fasting.yaml (0.90/0.30 over
+# six 20-cycle phases, mean 0.60) -- but here maintenance_rate and repair_rate
+# are ALSO scheduled, using the genome a real GA run found when it was
+# allowed to evolve a maintenance/repair response synced to that exact
+# stress rhythm (scripts/explore_fasting_variants.py, "demo_pattern_protocol"
+# scenario; genome and fitness independently reproduced before this file was
+# written -- see Experiment G's Setup for the exact command).
+#
+# demo_fasting.yaml (fixed, un-evolved 0.10/0.15 intervention under this same
+# stress rhythm) reaches 100% senescent by the end. This evolved response
+# reaches 0% senescent under the IDENTICAL stress schedule -- the difference
+# is entirely in HOW maintenance/repair are timed, not the environment.
+# Notice repair_rate is pinned near 1.0 during the high-stress phases (0, 2,
+# 4) and drops toward 0 during the low-stress phases (1, 3, 5): in this
+# model repair only offsets STRESS-induced loss (it multiplies stress_level
+# in the per-cycle update, docs/MODEL.md §2), so its marginal value is
+# highest exactly when stress is high -- concentrating it there is cheaper
+# (the cost term is charged on the time-averaged dose) than holding it
+# constant. This is a model result under the stated objective, not a
+# dosing regimen (docs/SCIENTIFIC_SCOPE.md).
+model:
+  initial_length: 7500.0
+  initial_length_sd: 800.0
+  population_size: 100
+  carrying_capacity: 400
+  telomeres_per_cell: 32
+  shortening_rate: 55.0
+  stress_level: 0.90            # phase-0 / fallback value; the schedule below overrides per cycle
+  stress_sensitivity: 100.0
+  maintenance_rate: 1.0         # phase-0 / fallback value
+  maintenance_max_gain: 120.0
+  repair_rate: 1.0              # phase-0 / fallback value
+  senescence_threshold: 3000.0
+  noise_sd: 30.0
+  senescent_death_rate: 0.03
+  cycles: 120
+  seed: 42
+  record_distribution_every: 20
+  schedule:
+    phases: 6                   # cycles 0-19, 20-39, ..., 100-119
+    values:
+      stress_level:     [0.90, 0.30, 0.90, 0.30, 0.90, 0.30]
+      maintenance_rate: [1.0, 0.7778947810637213, 0.31856705261563456, 1.0, 1.0, 0.7942940605139408]
+      repair_rate:      [1.0, 0.42237513028941837, 0.9778380176446633, 0.0, 0.7355764681008359, 0.0]

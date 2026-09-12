@@ -577,7 +577,128 @@ whole story).
 python scripts/run_simulation.py --config configs/demo_subclone_competition.yaml --seed 42
 ```
 
-## 12. Performance (scripts/benchmark.py, same machine)
+## 12. Experiment G — Timed intervention beats a fixed one under intermittent (fasting-like) stress
+
+### Question
+
+Experiment E found that scheduling `maintenance_rate`/`repair_rate` buys
+essentially nothing when `stress_level` is held **constant** — timing only
+matters through threshold/reserve nonlinearities, and the constant optimum
+already sits on that plateau. `demo_fasting.yaml`'s existing "fasting-like"
+stress schedule (0.90/0.30 alternating, same mean as constant 0.60) was
+similarly found to be slightly *worse* than constant stress — but only
+under a **fixed, un-evolved** intervention (maintenance=0.10, repair=0.15).
+Neither test answers the actual question an intermittent-fasting analogy
+raises: if the *organism's own response* (maintenance/repair) is free to
+adapt to a stress pattern that itself varies over time, does timing that
+response help? This experiment evolves maintenance_rate/repair_rate — both
+as a single constant and as a 6-phase schedule synced to the stress rhythm
+— under five different mean-matched alternating stress patterns.
+
+### Setup
+
+`scripts/explore_fasting_variants.py`. Same GA settings as Experiment E
+(population 32, generations 20, `eval_seeds=(1,2,3)`, default weights,
+`n_workers=4`) applied to five stress schedules, each six 20-cycle phases
+with **mean stress = 0.60** (matching the constant-stress control) but a
+different amplitude/duty-cycle, evolving `maintenance_rate`/`repair_rate`
+either as one constant value (`schedule_phases=1`) or as a 6-phase schedule
+locked to the same phase boundaries as the stress rhythm
+(`schedule_phases=6`):
+
+| Pattern | Stress by phase (0–5) | Analogy |
+|---|---|---|
+| `demo_pattern` | 0.90, 0.30, 0.90, 0.30, 0.90, 0.30 | existing `demo_fasting.yaml` shape |
+| `mild` | 0.75, 0.45, 0.75, 0.45, 0.75, 0.45 | smaller swing, same mean |
+| `extreme` | 1.00, 0.20, 1.00, 0.20, 1.00, 0.20 | largest swing within `stress_level`'s [0, 1] bounds |
+| `short_fast` | 0.80, 0.80, 0.80, 0.80, 0.20, 0.20 | mostly high, brief low block (16:8-like) |
+| `long_fast` | 1.00, 0.40, 0.40, 1.00, 0.40, 0.40 | mostly low, brief high block (5:2-like) |
+
+**A bug was found and fixed during this work**: a first version of
+`long_fast` used `[0.80, 0.20, 0.20, 0.80, 0.20, 0.20]`, which averages to
+0.40, not 0.60 — its early fitness advantage was confounded with simply
+having a lower mean stress burden, not a timing effect. It was caught by
+checking every pattern's mean before writing up results, corrected to the
+table above, and rerun before any number below was recorded.
+
+Not registered in the experiment ledger (exploratory sweep across many
+scenarios); the one config promoted to a permanent, reproducible artifact
+is `configs/demo_fasting_evolved.yaml` (the `demo_pattern` protocol
+genome), covered below.
+
+### Result (mean fitness, training seeds 1–3; reference: constant stress 0.60, evolved constant intervention = +0.5234, Experiment E)
+
+| Pattern | Constant intervention | Scheduled intervention (synced to stress) | Gain from syncing |
+|---|---|---|---|
+| `demo_pattern` | +0.5234 | **+0.5508** | +0.0274 |
+| `mild` | +0.5235 | +0.5394 | +0.0159 |
+| `extreme` | +0.5233 | **+0.5688** | +0.0454 |
+| `short_fast` | +0.5233 | +0.5487 | +0.0254 |
+| `long_fast` | +0.5234 | +0.5504 | +0.0270 |
+
+Every "constant intervention" column is within noise of the +0.5234
+constant-stress reference regardless of the stress pattern's shape — a
+constant response only sees the *mean* stress, exactly as Experiment E's
+linear-dynamics argument predicts. Every "scheduled intervention" column
+clearly beats it, and the gain grows with the stress swing's amplitude
+(`extreme` > `demo_pattern`/`long_fast`/`short_fast` > `mild`). Held-out
+check on `demo_pattern` at seed 42 (not one of the training `eval_seeds`):
+constant intervention +0.5223, scheduled intervention +0.5501 — the same
+gap, confirming this isn't a training-seed artifact.
+
+### The evolved schedule (demo_pattern, phases of 20 cycles; stress 0.90/0.30/0.90/0.30/0.90/0.30)
+
+| Phase | 0 (stress 0.90) | 1 (stress 0.30) | 2 (stress 0.90) | 3 (stress 0.30) | 4 (stress 0.90) | 5 (stress 0.30) |
+|---|---|---|---|---|---|---|
+| `maintenance_rate` | 1.00 | 0.78 | 0.32 | 1.00 | 1.00 | 0.79 |
+| `repair_rate` | **1.00** | 0.42 | **0.98** | **0.00** | **0.74** | **0.00** |
+
+### Interpretation (within the model)
+
+* **Timing a response to a fixed environment (Experiment E) is not the
+  same question as timing a response to a *varying* one (this
+  experiment) — and they have different answers.** Both are honest,
+  neither contradicts the other; they probe different parts of the
+  model's behaviour.
+* **The mechanism is visible in the evolved schedule, not just the
+  fitness number.** `repair_rate` tracks the stress phase closely: high
+  (0.74–1.00) during every high-stress phase, near zero during every
+  low-stress phase, in 4 of 5 patterns. This falls directly out of the
+  per-cycle update (`docs/MODEL.md` §2): stress-induced loss is
+  `stress_level · stress_sensitivity · (1 − repair_rate)`, so repair's
+  marginal benefit is proportional to the *current* `stress_level` — it is
+  nearly free to skip during a low-stress phase and most valuable exactly
+  when stress is high. Since the cost term is charged on the
+  *time-averaged* dose (`docs/MODEL.md` §2.1), concentrating repair into
+  the high-stress phases buys the same protection for less average cost.
+  `maintenance_rate` does not show the same clean phase-lock, which also
+  makes sense: its gain term has no `stress_level` factor, so its optimal
+  timing depends on the telomere-length trajectory rather than the current
+  stress phase.
+* **This is a real result, not a re-run of the fasting demo's original
+  finding.** `demo_fasting.yaml` (fixed maintenance=0.10/repair=0.15 under
+  this exact stress rhythm) ends 100% senescent. The evolved schedule under
+  the *identical* stress rhythm (`configs/demo_fasting_evolved.yaml`) ends
+  0% senescent, every seed tested. The only difference is the timing of
+  the response, not the environment.
+* **Still not a dosing regimen.** This is a model result under an explicit
+  computational objective, not evidence about real intermittent fasting,
+  caloric restriction, or any clinical protocol (`docs/SCIENTIFIC_SCOPE.md`).
+  The result says: *in this simplified model*, a repair response that
+  concentrates into periods of higher modelled stress is more
+  cost-efficient than a constant one, because of how the stress and repair
+  terms multiply in the update equation — a mechanistic, interpretable
+  finding about this specific set of equations, not a biological claim.
+
+### Reproduce
+
+```bash
+python scripts/explore_fasting_variants.py                                 # the full sweep -> experiments/reports/fasting_sweep.json
+python scripts/run_simulation.py --config configs/demo_fasting.yaml --no-register           # fixed response: 100% senescent
+python scripts/run_simulation.py --config configs/demo_fasting_evolved.yaml --no-register    # evolved response: 0% senescent
+```
+
+## 13. Performance (scripts/benchmark.py, same machine)
 
 | Measurement | Value |
 |---|---|

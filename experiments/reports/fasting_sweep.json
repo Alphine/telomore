@@ -1,0 +1,132 @@
+{
+  "demo_pattern_constant": {
+    "fitness": 0.5233958675740422,
+    "genome": {
+      "maintenance_rate": 0.9268563427367573,
+      "repair_rate": 0.5034613787549747
+    },
+    "evaluations": 1179
+  },
+  "demo_pattern_protocol": {
+    "fitness": 0.5508087066591759,
+    "genome": {
+      "maintenance_rate@0": 1.0,
+      "maintenance_rate@1": 0.7778947810637213,
+      "maintenance_rate@2": 0.31856705261563456,
+      "maintenance_rate@3": 1.0,
+      "maintenance_rate@4": 1.0,
+      "maintenance_rate@5": 0.7942940605139408,
+      "repair_rate@0": 1.0,
+      "repair_rate@1": 0.42237513028941837,
+      "repair_rate@2": 0.9778380176446633,
+      "repair_rate@3": 0.0,
+      "repair_rate@4": 0.7355764681008359,
+      "repair_rate@5": 0.0
+    },
+    "evaluations": 1827
+  },
+  "mild_constant": {
+    "fitness": 0.5234898064975689,
+    "genome": {
+      "maintenance_rate": 0.9268563427367573,
+      "repair_rate": 0.5034613787549747
+    },
+    "evaluations": 1179
+  },
+  "mild_protocol": {
+    "fitness": 0.5394023781905642,
+    "genome": {
+      "maintenance_rate@0": 0.8111926129524051,
+      "maintenance_rate@1": 1.0,
+      "maintenance_rate@2": 0.5491503380025489,
+      "maintenance_rate@3": 0.9049189234808085,
+      "maintenance_rate@4": 0.9415235475173759,
+      "maintenance_rate@5": 0.9541217401242309,
+      "repair_rate@0": 1.0,
+      "repair_rate@1": 0.06015192240473194,
+      "repair_rate@2": 0.94787468573851,
+      "repair_rate@3": 0.0,
+      "repair_rate@4": 1.0,
+      "repair_rate@5": 0.1288087361216298
+    },
+    "evaluations": 1821
+  },
+  "extreme_constant": {
+    "fitness": 0.52334119714369,
+    "genome": {
+      "maintenance_rate": 0.9268563427367573,
+      "repair_rate": 0.5034613787549747
+    },
+    "evaluations": 1179
+  },
+  "extreme_protocol": {
+    "fitness": 0.5687984396130313,
+    "genome": {
+      "maintenance_rate@0": 0.9548906770034209,
+      "maintenance_rate@1": 0.6621005565049077,
+      "maintenance_rate@2": 0.4052070378995433,
+      "maintenance_rate@3": 0.6072640316117999,
+      "maintenance_rate@4": 0.8264937243551007,
+      "maintenance_rate@5": 1.0,
+      "repair_rate@0": 1.0,
+      "repair_rate@1": 0.0,
+      "repair_rate@2": 1.0,
+      "repair_rate@3": 0.0,
+      "repair_rate@4": 1.0,
+      "repair_rate@5": 0.0
+    },
+    "evaluations": 1821
+  },
+  "short_fast_constant": {
+    "fitness": 0.5232739305408348,
+    "genome": {
+      "maintenance_rate": 0.9268563427367573,
+      "repair_rate": 0.5034613787549747
+    },
+    "evaluations": 1179
+  },
+  "short_fast_protocol": {
+    "fitness": 0.54866581996296,
+    "genome": {
+      "maintenance_rate@0": 0.9434776566142317,
+      "maintenance_rate@1": 0.9819915051889249,
+      "maintenance_rate@2": 0.50416879007401,
+      "maintenance_rate@3": 0.7576906645183887,
+      "maintenance_rate@4": 0.5916792449241044,
+      "maintenance_rate@5": 1.0,
+      "repair_rate@0": 0.5209284221498367,
+      "repair_rate@1": 1.0,
+      "repair_rate@2": 0.8226858712841496,
+      "repair_rate@3": 1.0,
+      "repair_rate@4": 0.0,
+      "repair_rate@5": 0.0
+    },
+    "evaluations": 1830
+  },
+  "long_fast_constant": {
+    "fitness": 0.5233748516054328,
+    "genome": {
+      "maintenance_rate": 0.9268563427367573,
+      "repair_rate": 0.5034613787549747
+    },
+    "evaluations": 1179
+  },
+  "long_fast_protocol": {
+    "fitness": 0.5504086574123632,
+    "genome": {
+      "maintenance_rate@0": 0.7425025275587629,
+      "maintenance_rate@1": 1.0,
+      "maintenance_rate@2": 0.7883186960754843,
+      "maintenance_rate@3": 0.815696277849657,
+      "maintenance_rate@4": 0.8248909313327624,
+      "maintenance_rate@5": 1.0,
+      "repair_rate@0": 1.0,
+      "repair_rate@1": 0.04943929791645031,
+      "repair_rate@2": 0.5186304724784092,
+      "repair_rate@3": 1.0,
+      "repair_rate@4": 0.0,
+      "repair_rate@5": 0.0
+    },
+    "evaluations": 1821
+  }
+}

@@ -28,6 +28,7 @@ if str(SRC) not in sys.path:
 from telomere_lab import db as db_module  # noqa: E402
 from telomere_lab.config import CONFIG_DIR, load_model_config  # noqa: E402
 from telomere_lab.evolution.genome import split_gene_name  # noqa: E402
+from telomere_lab.experiments.runner import run_simulation  # noqa: E402
 from telomere_lab.schemas import MAX_PHASES, SCHEDULABLE_PARAMETERS, ModelConfig  # noqa: E402
 
 FAST_MODEL = {
@@ -204,6 +205,29 @@ def test_bounds_exposes_schedulable_max_phases_and_presets(client):
     assert demo_fasting["schedule"]["values"]["stress_level"] == [0.9, 0.3, 0.9, 0.3, 0.9, 0.3]
     ModelConfig.from_dict(demo_fasting).validate()
     assert body["evolution_default"]["schedule_phases"] == 1
+
+    # docs/EXPERIMENT_PROTOCOL.md Experiment G: same stress rhythm as
+    # demo_fasting, but maintenance_rate/repair_rate are ALSO scheduled
+    # (evolved to sync with it) instead of held at the fixed baseline.
+    evolved = body["presets"]["demo_fasting_evolved"]
+    assert evolved == load_model_config(CONFIG_DIR / "demo_fasting_evolved.yaml").to_dict()
+    assert evolved["schedule"]["values"]["stress_level"] == demo_fasting["schedule"]["values"]["stress_level"]
+    assert "maintenance_rate" in evolved["schedule"]["values"]
+    assert "repair_rate" in evolved["schedule"]["values"]
+    ModelConfig.from_dict(evolved).validate()
+
+
+def test_demo_fasting_evolved_reaches_zero_senescence_where_the_fixed_response_reaches_full(client):
+    # The headline, independently-verifiable claim behind the "evolved
+    # fasting response" preset: identical stress schedule, only the
+    # maintenance/repair response differs, and that alone is the difference
+    # between fully senescent and fully healthy by the end of the run.
+    demo_fasting = load_model_config(CONFIG_DIR / "demo_fasting.yaml")
+    demo_fasting_evolved = load_model_config(CONFIG_DIR / "demo_fasting_evolved.yaml")
+    fixed_result = run_simulation(demo_fasting, use_cache=False)
+    evolved_result = run_simulation(demo_fasting_evolved, use_cache=False)
+    assert fixed_result.terminal_metrics["final_senescent_fraction"] == 1.0
+    assert evolved_result.terminal_metrics["final_senescent_fraction"] == 0.0
 
 
 # ------------------------------------------------------------------- compare

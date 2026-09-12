@@ -388,6 +388,18 @@ protocol actually runs (no fully autonomous unattended agent loop for v1).
   Karlseder 2002, Cristofari & Lingner 2006, and others); no defaults
   changed, all were already inside or close to the literature ranges found.
 - Organ-on-chip coefficient calibration against physical chip data.
+  **DONE 2026-09-12** — `docs/MODEL.md` §6.1, checked via web search
+  (Consensus.app quota exhausted mid-session, so this one used general web
+  search instead). The weighting coefficients themselves aren't checkable
+  (they map to this model's own unitless `stress_level`/`repair_rate`
+  abstractions, not a measured physical quantity), but the two anchors that
+  are — oxygen tension and doubling time — were checked: oxygen tensions
+  hold up well (liver ~6% O2 matches `liver_chip_like` almost exactly); the
+  single global `ASSUMED_DOUBLING_TIME_DAYS=1.0` does not — it fits
+  fibroblast-like presets but is 4-6x too fast for `liver_chip_like` and
+  likely similarly off for `gut_chip_like`, a genuine known gap left
+  unfixed pending its own review (changing it would shift every existing
+  chip-preset test/experiment's `cycles`).
 - GitHub Actions CI. **DONE 2026-09-12** — `.github/workflows/ci.yml` runs
   backend pytest + frontend typecheck/lint/vitest/build on every push/PR to
   master.

@@ -41,6 +41,14 @@ class ChipConditions:
 
 
 #: Assumed population-doubling time used to convert days -> cell cycles.
+#: A single global constant applied to every chip preset -- checked against
+#: the literature (docs/MODEL.md Sec 6.1, 2026-09-12): it matches standard
+#: fibroblast culture (~18-24h doubling, close to 1 day) but is 4-6x too
+#: fast for primary hepatocyte/liver-organoid culture (~3.5-5.8 days) and
+#: intestinal organoids (~7-10+ days), so `liver_chip_like`/`gut_chip_like`
+#: effectively run several times more cell divisions per `culture_days` than
+#: the tissue they're framed around would. Known, documented gap; not fixed
+#: here (see docs/MODEL.md Sec 6.1 for why).
 ASSUMED_DOUBLING_TIME_DAYS = 1.0
 
 

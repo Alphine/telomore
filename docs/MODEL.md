@@ -486,6 +486,68 @@ can be compared side by side on the Compare page. The names are framing
 devices only — they still go through the one, unmodified mapping above, and
 are not a claim of calibration to any organ's real physiology.
 
+### 6.1 Literature check against physical chip data (2026-09-12)
+
+Two of the mapping's numbers describe a real, measurable physical quantity
+and were checked against the literature (web search, human-reviewed); the
+rest (the `0.35`/`0.55`/`0.25`/`0.15`/`0.10`/`0.30`/`0.20` weights) are
+**not** checkable the same way — `stress_level` and `repair_rate` are this
+model's own unitless `[0, 1]` abstractions, not quantities any chip paper
+reports a number for, so those remain a documented modelling choice, same as
+before this check.
+
+**Oxygen tension anchors** — the `0.05` "physioxia" reference and the chip
+presets' `oxygen_tension` values hold up well:
+- General physioxia (most tissues) is commonly reported as ~3–10% O₂
+  (pO₂ ≈ 23–70 mmHg) — the model's `0.05` (5%) sits inside this band.
+- Liver tissue pO₂ ≈ 46 mmHg ≈ 6% O₂ — matches `liver_chip_like`'s
+  `oxygen_tension=0.06` closely.
+- Intestinal wall pO₂ spans a steep gradient: ~6% in the vascularized
+  submucosa down to <2% at the crypt–lumen interface and ~3% at the villus
+  tip — `gut_chip_like`'s `oxygen_tension=0.08` is the right order of
+  magnitude but on the high side of most of this range; the preset doesn't
+  attempt to model the gradient itself.
+- Lung alveolar pO₂ ≈ 100–110 mmHg ≈ 13–14% O₂ on the tissue/blood side —
+  `lung_chip_like`'s `oxygen_tension=0.21` (atmospheric) doesn't match that
+  number directly, but is defensible for a different reason: an
+  air-liquid-interface lung-chip's apical epithelial surface is exposed to
+  inhaled air (~21% O₂) directly, not the blood-side tissue value. Framed as
+  "the air-facing side," not "lung tissue," 0.21 is reasonable; framed as
+  "lung tissue pO₂," it is not — worth keeping this distinction in mind
+  when reading the preset's label.
+
+**Doubling time** — `ASSUMED_DOUBLING_TIME_DAYS = 1.0` is a single global
+constant applied to every chip preset, and the literature says this should
+not be one number:
+- Human dermal fibroblasts in standard culture: ~18–24 h doubling time —
+  matches the model's 1-day assumption closely, and is the best fit for the
+  `static_well` and `injury_stress_chip_like` presets (both fibroblast-like
+  in framing).
+- Primary hepatocyte/liver-organoid cultures: doubling times of
+  ~3.5–5.8 days depending on passage/duration — **4–6× slower** than the
+  model assumes for `liver_chip_like`, a genuine, unresolved calibration gap
+  rather than a close match.
+- Intestinal organoids: typically 7–10+ days to the next split/maturity —
+  also far slower than 1 day, affecting `gut_chip_like`.
+- No specific doubling-time literature was found for air-liquid-interface
+  lung epithelial culture (`lung_chip_like`); differentiated airway
+  epithelium in ALI culture is often minimally proliferative once mature,
+  which would make even "slower" an understatement rather than a specific
+  number to adopt.
+
+**What this means in practice**: `cycles = culture_days / 1` converts a
+chosen experiment duration into simulator cycles uniformly across every
+preset, so `liver_chip_like`/`gut_chip_like` runs effectively simulate
+several times more cell divisions over the same `culture_days` than the
+real tissue they're framed around would undergo. This is now a documented,
+known gap rather than a silent one — fixing it (a per-preset doubling time)
+is a real, scoped follow-up, deliberately not done in this pass: it would
+change `CHIP_PRESETS`' derived `cycles` and therefore the population
+dynamics every existing chip-preset test and recorded experiment currently
+sees, which needs its own review rather than a drive-by numeric edit.
+`adapters/chip.py`'s own docstring and this section are both updated so the
+gap is visible; no defaults were changed as a result of this check.
+
 ## 7. Known simplifications
 
 * No cell-cycle arrest heterogeneity, no DNA-damage checkpoints beyond

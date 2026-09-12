@@ -383,9 +383,14 @@ protocol actually runs (no fully autonomous unattended agent loop for v1).
 ## Explicitly deferred / out of scope for now
 
 - Literature calibration of default parameters (needs real citation work,
-  not just coding).
+  not just coding). **DONE 2026-09-12** — `docs/MODEL.md` §3.1, checked via
+  Consensus.app against real papers (Allsopp 1992, Levy 1992, Saretzki 1995,
+  Karlseder 2002, Cristofari & Lingner 2006, and others); no defaults
+  changed, all were already inside or close to the literature ranges found.
 - Organ-on-chip coefficient calibration against physical chip data.
-- GitHub Actions CI.
+- GitHub Actions CI. **DONE 2026-09-12** — `.github/workflows/ci.yml` runs
+  backend pytest + frontend typecheck/lint/vitest/build on every push/PR to
+  master.
 - Kaggle notebook submission packaging.
 - An in-GUI "Assumptions" page rendering `docs/MODEL.md` equations.
 - 3-objective Pareto front for the locked-stress scenario (NSGA-II engine

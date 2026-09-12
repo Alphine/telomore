@@ -2,8 +2,83 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 
 import { health } from '../api/endpoints'
+import type { SimulationRun } from '../api/types'
 import { Disclaimer } from '../components/Callout'
+import { PopulationCanvas } from '../components/PopulationCanvas'
+import { usePrefersDark } from '../components/charts/theme'
 import { FEATURES } from '../features'
+
+// A real, recorded simulation run (configs/demo.yaml's stressed baseline
+// culture, the same scenario Simulate defaults to) -- not fabricated data,
+// not a live simulation. Same "dated snapshot" discipline as BUILD_INFO/
+// STATS below: generated once via the Python core and registered in the
+// real experiment ledger under its own run_id (see the caption in
+// LiveDemoSection), so it is independently reproducible and auditable, not
+// a one-off throwaway. Regenerate with:
+//   python -c "
+//     from telomere_lab.config import load_model_config
+//     from telomere_lab.experiments.registry import ExperimentRegistry
+//     from telomere_lab.experiments.runner import record_simulation, run_simulation, score
+//     config = load_model_config('configs/demo.yaml')
+//     result = run_simulation(config, use_cache=False)
+//     record = record_simulation(result, ExperimentRegistry(), notes='Landing page demo run')
+//     payload = result.to_json_dict()
+//     payload['run_id'] = record['run_id']
+//     payload['fitness'] = score(result).to_dict()
+//     # write payload as JSON to frontend/src/data/landingDemoRun.json
+//   "
+// then copy the result into frontend/src/data/landingDemoRun.json.
+//
+// Loaded via a dynamic import (not a static one) so its ~59 kB isn't paid by
+// every route -- Landing itself is statically imported by App.tsx, so a
+// static JSON import here would land in the app's main chunk, downloaded on
+// every page, not just "/". A dynamic import makes this its own chunk,
+// fetched only when a visitor actually lands on the Landing page.
+function LiveDemoSection({ dark }: { dark: boolean }) {
+  const [run, setRun] = useState<SimulationRun | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    import('../data/landingDemoRun.json').then((mod) => {
+      if (!cancelled) setRun(mod.default as unknown as SimulationRun)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  return (
+    <section>
+      <h3 className="mb-1 text-lg font-semibold">See it run</h3>
+      <p className="prose-muted mb-4 max-w-3xl">
+        A real, recorded simulation — the stressed baseline culture from{' '}
+        <code className="font-mono text-sm">configs/demo.yaml</code>
+        {run ? (
+          <>
+            , run{' '}
+            <Link to={`/experiments/${run.run_id}`} className="link">
+              {run.run_id}
+            </Link>{' '}
+            in the real experiment ledger
+          </>
+        ) : null}{' '}
+        — not a live simulation and not fabricated data: this exact result is baked into the app (see the comment
+        above <code className="font-mono text-sm">LiveDemoSection</code> in <code className="font-mono text-sm">Landing.tsx</code>{' '}
+        to regenerate it). Log in to run your own.
+      </p>
+      {run ? (
+        <PopulationCanvas run={run} dark={dark} />
+      ) : (
+        <div
+          className="card flex h-[280px] items-center justify-center p-4 text-sm text-slate-400 dark:text-slate-500"
+          aria-live="polite"
+        >
+          loading recorded run…
+        </div>
+      )}
+    </section>
+  )
+}
 
 // Static for now (Phase 2): values mirror telomere_lab.__version__,
 // MODEL_VERSION and OPTIMIZER_VERSION at the time of writing. A
@@ -110,6 +185,7 @@ function BuildSection() {
 }
 
 export function Landing() {
+  const dark = usePrefersDark()
   // The backend builds emailed / dev-mode links as `/?token=` and
   // `/?reset_token=` on the root path (backend/routers/auth.py). Redirect
   // those onto the routes that handle them.
@@ -161,6 +237,9 @@ export function Landing() {
           <Disclaimer />
         </div>
       </section>
+
+      {/* --------------------------------------------- live demo run */}
+      <LiveDemoSection dark={dark} />
 
       {/* -------------------------------------------------- feature cards */}
       <section>

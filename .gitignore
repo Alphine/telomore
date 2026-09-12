@@ -11,6 +11,6 @@ experiments/runs/*
 experiments/reports/*.png
 experiments/reports/*.html
 .cache/
-data/
+/data/
 frontend/node_modules/
 frontend/dist/

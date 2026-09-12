@@ -41,6 +41,14 @@ describe('Landing page', () => {
     expect(screen.getByText('Simulate. Evolve. Compare. Learn.')).toBeInTheDocument()
   })
 
+  it('loads the recorded demo run asynchronously and shows the population canvas', async () => {
+    mockFetch({})
+    renderApp(<Landing />)
+    expect(screen.getByText(/loading recorded run/)).toBeInTheDocument()
+    expect(await screen.findByRole('img', { name: /cell population/i })).toBeInTheDocument()
+    expect(screen.queryByText(/loading recorded run/)).not.toBeInTheDocument()
+  })
+
   it('redirects backend-style /?token= and /?reset_token= links onto their routes', async () => {
     mockFetch({})
     const tree = (

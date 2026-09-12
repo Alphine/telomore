@@ -395,11 +395,16 @@ protocol actually runs (no fully autonomous unattended agent loop for v1).
   abstractions, not a measured physical quantity), but the two anchors that
   are — oxygen tension and doubling time — were checked: oxygen tensions
   hold up well (liver ~6% O2 matches `liver_chip_like` almost exactly); the
-  single global `ASSUMED_DOUBLING_TIME_DAYS=1.0` does not — it fits
-  fibroblast-like presets but is 4-6x too fast for `liver_chip_like` and
-  likely similarly off for `gut_chip_like`, a genuine known gap left
-  unfixed pending its own review (changing it would shift every existing
-  chip-preset test/experiment's `cycles`).
+  single global `ASSUMED_DOUBLING_TIME_DAYS=1.0` did not — it fit
+  fibroblast-like presets but was 4-6x too fast for `liver_chip_like` and
+  similarly off for `gut_chip_like`. **Follow-up fix, same day** —
+  `ChipConditions.doubling_time_days` (default 1.0) lets each preset set its
+  own literature-checked value instead of sharing one constant:
+  `liver_chip_like` 4.5 days, `gut_chip_like` 8.0 days, `lung_chip_like`
+  2.0 days, `static_well`/`injury_stress_chip_like` stay at 1.0
+  (fibroblast-like). Changes the derived `cycles` for the three organ-like
+  presets relative to any run made before 2026-09-12 — a deliberate,
+  documented behavior change (`docs/MODEL.md` §6.1).
 - GitHub Actions CI. **DONE 2026-09-12** — `.github/workflows/ci.yml` runs
   backend pytest + frontend typecheck/lint/vitest/build on every push/PR to
   master.

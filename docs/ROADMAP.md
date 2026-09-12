@@ -502,9 +502,3 @@ the Anthropic call and maps the resulting connection error to a friendly
   unchanged serial path), bit-for-bit identical trajectory to serial since
   the RNG only ever runs in the main process. `scripts/run_evolution.py
   --workers N`.
-- Combining with the unrelated `Baby_Monster` project (evolutionary-RL
-  cognitive-architecture research, PyTorch/notebook-driven, entirely
-  different compute profile and maturity stage) into one app — decided
-  2026-09-09 to keep fully separate. A lightweight shared "portal" linking
-  out to both independent apps was floated as a much later, optional idea
-  if the "private lab" framing is wanted — not planned yet.

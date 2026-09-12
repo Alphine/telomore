@@ -262,33 +262,8 @@ current default already falls inside, or close to, the ranges below.
 | `senescence_threshold` | 3000 bp | Not a fixed universal value in the literature: the *shortest* telomere in a cell, not the mean, triggers senescence (Allsopp et al., 1995; Xu et al., 2013); short telomeres accumulate at ~1–2 kb before senescence, individual telomeres as low as 0.5–1 kb (Martens et al., 2000); TRF2 overexpression can shift the senescence setpoint from ~7 kb down to ~4 kb without accelerating senescence (Karlseder et al., 2002), showing telomere *protection state*, not length alone, governs the trigger | Plausible single-threshold approximation of a "shortest-telomere-driven, protection-state-dependent" mechanism the model deliberately simplifies — documented here as a known simplification, not silently assumed |
 | `repair_rate` | 0.20 (0–1, a.u.) | No direct bp/cycle repair-rate analog found; conceptually maps to shelterin-mediated protection and DNA-damage-response suppression at telomeres (de Lange, 2018; Denchi & de Lange, 2007) rather than a literature-quantified "repair rate" | Qualitative abstraction only — flagged as not literature-calibrated in the same numeric sense as the others |
 
-**References** (author/year as cited above; DOIs given where captured from the
-search):
-- Allsopp et al., 1992, *PNAS*, "Telomere length predicts replicative
-  capacity of human fibroblasts"
-- Allsopp et al., 1995, *Exp. Cell Res.*
-- Levy et al., 1992, *J. Mol. Biol.*, "Telomere end-replication problem and
-  cell aging"
-- Harris et al., 2025 (in vivo telomere-shortening-per-division estimate via
-  sex/DKC1 dosage differences)
-- Zheng et al., 2024 (single-telomere array-FISH telomere length survey)
-- Sabharwal et al., 2018 (pediatric multi-tissue telomere length)
-- Karlseder et al., 2002, *Science* (TRF2 overexpression and the senescence
-  setpoint)
-- Martens et al., 2000 (short-telomere accumulation before senescence)
-- Xu et al., 2013 (shortest telomere as the senescence determinant)
-- Saretzki, Docke & Lotze, 1995, *Exp. Cell Res.*,
-  doi:10.1006/excr.1995.1305, "Mild hyperoxia shortens telomeres and
-  inhibits proliferation of fibroblasts: a model for senescence?"
-- Tchirkov & Lansdorp, 2003, *Hum. Mol. Genet.*, doi:10.1093/hmg/ddg023,
-  "Role of oxidative stress in telomere shortening in cultured fibroblasts
-  from normal individuals and patients with ataxia-telangiectasia"
-- Cristofari & Lingner, 2006, *EMBO J.*, doi:10.1038/sj.emboj.7600952,
-  "Telomere length homeostasis requires that telomerase levels are
-  limiting"
-- de Lange, 2018, "Shelterin-Mediated Telomere Protection"
-- Denchi & de Lange, 2007, "Protection of telomeres through independent
-  control of ATM and ATR by TRF2 and POT1"
+Full citations for every source named above: **§9 References**, "Telomere
+biology (§3.1 parameter calibration)".
 
 This is a calibration *check* against literature-reported ranges, not a
 parameter re-fit — the model remains a deliberately abstract, coarse-grained
@@ -362,6 +337,7 @@ own internal `survival`/`reserve`/`non_senescent` quantities have no
 counterpart of. A "literature-calibrated" reweighting isn't buildable here
 without inventing a fake target dataset, so equal weighting stays the
 default (`simulator/biomarker.py` docstring carries the same finding).
+Full citations: **§9 References**, "Age-index equal weighting (§4.1)".
 
 An extinct culture at cycle `t` (`population_size[t] == 0`) is forced to
 `age_index_t = 100` regardless of the formula above — a culture that has
@@ -564,6 +540,8 @@ to any run made before 2026-09-12 — a deliberate, documented behavior
 change, not a silent one. `stress_level`/`repair_rate` formulas and every
 other coefficient are unaffected.
 
+Sources: **§9 References**, "Organ-on-a-chip calibration (§6.1)".
+
 ## 7. Known simplifications
 
 * No cell-cycle arrest heterogeneity, no DNA-damage checkpoints beyond
@@ -611,3 +589,105 @@ trajectory, `score_over_time` length matches `time`, an invalid result
 returns an explicit empty/`valid=False` score rather than crashing or NaN,
 an extinct culture saturates every post-extinction cycle at exactly 100,
 determinism (same input twice → identical output), and the [0, 100] bound.
+
+## 9. References
+
+Every literature source cited anywhere in this document, grouped by which
+section used it. These are calibration *checks* against reported values,
+not a systematic review — see the section itself for what each source was
+used to check and what the verdict was. Retrieved via Consensus.app
+(peer-reviewed paper search, full bibliographic detail available) or
+general web search (mixed peer-reviewed papers and technical/vendor
+documentation, marked below where that distinction matters).
+
+### Telomere biology (§3.1 parameter calibration)
+
+Retrieved via Consensus.app.
+
+- Allsopp, R.C. et al., 1992, *PNAS*, "Telomere length predicts replicative
+  capacity of human fibroblasts" — fibroblast shortening rate, initial
+  length.
+- Allsopp, R.C. et al., 1995, *Experimental Cell Research* — shortest
+  telomere as the senescence trigger.
+- Levy, M.Z. et al., 1992, *Journal of Molecular Biology*, "Telomere
+  end-replication problem and cell aging" — shortening rate.
+- Harris, R.A. et al., 2025 — in vivo telomere-shortening-per-division
+  estimate via sex/DKC1 dosage differences.
+- Zheng, Y.-L. et al., 2024 — single-telomere array-FISH telomere length
+  survey (initial length).
+- Sabharwal, S. et al., 2018 — pediatric multi-tissue telomere length
+  (initial length SD).
+- Karlseder, J. et al., 2002, *Science* — TRF2 overexpression and the
+  senescence setpoint.
+- Martens, U.M. et al., 2000 — short-telomere accumulation before
+  senescence.
+- Xu, L. et al., 2013 — shortest telomere as the senescence determinant.
+- Saretzki, G., Docke, W. & Lotze, C., 1995, *Experimental Cell Research*,
+  doi:10.1006/excr.1995.1305, "Mild hyperoxia shortens telomeres and
+  inhibits proliferation of fibroblasts: a model for senescence?" —
+  oxidative-stress shortening-rate acceleration.
+- Tchirkov, A. & Lansdorp, P.M., 2003, *Human Molecular Genetics*,
+  doi:10.1093/hmg/ddg023, "Role of oxidative stress in telomere shortening
+  in cultured fibroblasts from normal individuals and patients with
+  ataxia-telangiectasia" — oxidative-stress shortening-rate acceleration.
+- Cristofari, G. & Lingner, J., 2006, *The EMBO Journal*,
+  doi:10.1038/sj.emboj.7600952, "Telomere length homeostasis requires that
+  telomerase levels are limiting" — telomerase elongation-rate ceiling.
+- de Lange, T., 2018, "Shelterin-Mediated Telomere Protection" — `repair_rate`
+  conceptual mapping.
+- Denchi, E.L. & de Lange, T., 2007, "Protection of telomeres through
+  independent control of ATM and ATR by TRF2 and POT1" — `repair_rate`
+  conceptual mapping.
+
+### Organ-on-a-chip calibration (§6.1)
+
+Retrieved via general web search (Consensus.app quota was exhausted that
+session) — a mix of peer-reviewed papers and technical/vendor
+documentation, marked below.
+
+- Carreau, A. et al., 2011, *Journal of Cellular and Molecular Medicine*,
+  "Why is the partial oxygen pressure of human tissues a crucial
+  parameter? Small molecules and hypoxia" — general tissue physioxia range.
+- Review, *American Journal of Physiology-Cell Physiology*, "Physiologic
+  hypoxia and oxygen homeostasis in the healthy intestine" — intestinal
+  oxygen gradient.
+- Liver tissue pO₂ and lung alveolar pO₂ figures — general physiology
+  reference sources returned by web search, not a single named paper.
+- Sigma-Aldrich / ZenBio primary human dermal fibroblast culture protocols
+  (technical/vendor documentation, not peer-reviewed) — standard fibroblast
+  doubling time.
+- "Expansion of human primary hepatocytes in vitro through their
+  amplification as liver progenitors in a 3D organoid system," *Scientific
+  Reports*, 2018 — hepatocyte/liver-organoid doubling time.
+- "Drug metabolic activity is a critical cell-intrinsic determinant for
+  selection of hepatocytes during long-term culture" — long-term hepatocyte
+  culture doubling time.
+- STEMCELL Technologies / PromoCell airway epithelial cell culture protocols
+  (technical/vendor documentation, not peer-reviewed) and a PMC protocol
+  paper on differentiating primary human small airway epithelial cells at
+  the air-liquid interface — airway epithelial expansion-phase doubling
+  time.
+
+### Age-index equal weighting (§4.1)
+
+Retrieved via general web search.
+
+- "Development and external validation of the electronic frailty index 2
+  using routine primary care electronic health record data," *Age and
+  Ageing* (Oxford Academic) — frailty index construction/weighting
+  conventions.
+- "Index or illusion: The case of frailty indices in the Health and
+  Retirement Study," *PLOS ONE* — frailty index equal-weighting critique.
+- "Feature Selection Algorithms Enhance the Accuracy of Frailty Indexes as
+  Measures of Biological Age" (PMC) — regression/feature-selection-weighted
+  alternatives to equal weighting.
+- "The Frailty Index Constructed Using Feature Selection Methods Is the
+  Best Measure of Biological Age" (PMC) — regression/feature-selection-
+  weighted alternatives to equal weighting.
+
+### Optimisation algorithm (§5.1)
+
+- Deb, K., Pratap, A., Agarwal, S. & Meyarivan, T., 2002, "A Fast and
+  Elitist Multiobjective Genetic Algorithm: NSGA-II," *IEEE Transactions on
+  Evolutionary Computation*, 6(2), 182–197 — the NSGA-II algorithm this
+  codebase implements (`evolution/multiobjective.py`).

@@ -22,6 +22,23 @@ function stubContext2D() {
   } as unknown as CanvasRenderingContext2D
 }
 
+// jsdom has no IntersectionObserver implementation. This stub immediately
+// reports "intersecting" (matching a freshly mounted, on-screen hero) and
+// exposes `trigger` so tests can simulate scrolling the canvas in/out of view.
+class StubIntersectionObserver {
+  static instances: StubIntersectionObserver[] = []
+  callback: (entries: { isIntersecting: boolean }[]) => void
+  constructor(callback: (entries: { isIntersecting: boolean }[]) => void) {
+    this.callback = callback
+    StubIntersectionObserver.instances.push(this)
+  }
+  observe = vi.fn(() => this.callback([{ isIntersecting: true }]))
+  disconnect = vi.fn()
+  trigger(isIntersecting: boolean) {
+    this.callback([{ isIntersecting }])
+  }
+}
+
 describe('DnaHelixCanvas', () => {
   let rafCallbacks: FrameRequestCallback[]
   let rafId: number
@@ -31,6 +48,7 @@ describe('DnaHelixCanvas', () => {
     rafCallbacks = []
     rafId = 0
     cancelSpy = vi.fn()
+    StubIntersectionObserver.instances = []
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(stubContext2D())
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
       rafCallbacks.push(cb)
@@ -38,6 +56,7 @@ describe('DnaHelixCanvas', () => {
       return rafId
     })
     vi.stubGlobal('cancelAnimationFrame', cancelSpy)
+    vi.stubGlobal('IntersectionObserver', StubIntersectionObserver)
   })
 
   afterEach(() => {
@@ -81,5 +100,22 @@ describe('DnaHelixCanvas', () => {
     const { unmount } = render(<DnaHelixCanvas />)
     expect(rafCallbacks).toHaveLength(0)
     expect(() => unmount()).not.toThrow()
+  })
+
+  it('stops scheduling frames once scrolled out of view, and resumes when back in view', () => {
+    render(<DnaHelixCanvas />)
+    const observer = StubIntersectionObserver.instances[0]
+    expect(rafCallbacks.length).toBeGreaterThan(0)
+    const scheduledBeforePause = rafCallbacks.length
+
+    observer.trigger(false)
+    expect(cancelSpy).toHaveBeenCalled()
+
+    const scheduledAtPause = rafCallbacks.length
+    observer.trigger(false) // redundant pause: must not schedule/cancel again
+    expect(rafCallbacks.length).toBe(scheduledAtPause)
+
+    observer.trigger(true)
+    expect(rafCallbacks.length).toBeGreaterThan(scheduledBeforePause)
   })
 })

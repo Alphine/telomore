@@ -178,31 +178,69 @@ export function DnaHelixCanvas({ className }: DnaHelixCanvasProps) {
 
     let raf = 0
     let start = performance.now()
+    let elapsedAtPause = 0
 
     if (reduceMotion) {
       // Static single frame -- respect the OS preference instead of ignoring it.
       draw(0)
     } else {
+      // Each frame costs ~140 shadowBlur'd fills/strokes (bokeh + rungs +
+      // strand segments) -- one of the most expensive Canvas2D operations.
+      // Throttled to ~30fps (imperceptible for this slow ambient rotation,
+      // RADIANS_PER_SECOND=0.6) so it costs half as much main-thread time
+      // per second as a naive 60fps loop.
+      const FRAME_INTERVAL_MS = 1000 / 30
+      let lastFrame = 0
+
       const loop = (now: number) => {
+        raf = requestAnimationFrame(loop)
+        if (now - lastFrame < FRAME_INTERVAL_MS) return
+        lastFrame = now
         const t = (now - start) / 1000
         draw(t * RADIANS_PER_SECOND)
-        raf = requestAnimationFrame(loop)
       }
-      const onVisibility = () => {
-        if (document.visibilityState === 'hidden') {
+
+      const stop = () => {
+        if (raf) {
+          elapsedAtPause = performance.now() - start
           cancelAnimationFrame(raf)
           raf = 0
-        } else if (raf === 0) {
-          start = performance.now()
+        }
+      }
+      const resume = () => {
+        if (raf === 0) {
+          start = performance.now() - elapsedAtPause
+          lastFrame = 0
           raf = requestAnimationFrame(loop)
         }
       }
+
+      const onVisibility = () => {
+        if (document.visibilityState === 'hidden') stop()
+        else resume()
+      }
       document.addEventListener('visibilitychange', onVisibility)
-      raf = requestAnimationFrame(loop)
+
+      // Purely decorative and only shown in the Landing hero -- no reason to
+      // keep spending frame budget once the user has scrolled past it, which
+      // is the main source of felt scroll jank (the loop used to run
+      // forever regardless of scroll position). Feature-detected, like the
+      // matchMedia check above: fall back to always-on if unsupported.
+      let io: IntersectionObserver | null = null
+      if (typeof IntersectionObserver === 'function') {
+        io = new IntersectionObserver(([entry]) => {
+          if (entry.isIntersecting) resume()
+          else stop()
+        })
+        io.observe(canvas)
+      } else {
+        resume()
+      }
 
       return () => {
         cancelAnimationFrame(raf)
         document.removeEventListener('visibilitychange', onVisibility)
+        io?.disconnect()
         window.removeEventListener('resize', fit)
       }
     }

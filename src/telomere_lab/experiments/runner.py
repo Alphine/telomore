@@ -163,11 +163,12 @@ def run_evolution(
     model: Optional[TelomereModelAdapter] = None,
     notes: str = "",
     register: bool = True,
+    n_workers: int = 1,
 ) -> tuple[EvolutionResult, Optional[dict]]:
     registry = registry or ExperimentRegistry()
     run_id = registry.new_run_id() if register else None
     run_dir = registry.run_dir(run_id) if run_id else None
-    engine = EvolutionEngine(base_config, evo_config, model=model, run_dir=run_dir)
+    engine = EvolutionEngine(base_config, evo_config, model=model, run_dir=run_dir, n_workers=n_workers)
     result = engine.run(callback=callback, should_stop=should_stop)
     record = None
     if register and run_id:

@@ -392,7 +392,12 @@ protocol actually runs (no fully autonomous unattended agent loop for v1).
   already supports 3 objectives, just never run for this scenario).
 - `--resume` CLI flag for checkpointed evolution runs. **DONE 2026-09-12** —
   `EvolutionEngine.from_checkpoint()` + `scripts/run_evolution.py --resume`.
-- Multiprocessing for parallel fitness evaluation.
+- Multiprocessing for parallel fitness evaluation. **DONE 2026-09-12** —
+  `EvolutionEngine(..., n_workers=N)` evaluates a generation's genomes across
+  a reused `ProcessPoolExecutor`; opt-in only (default `n_workers=1` is the
+  unchanged serial path), bit-for-bit identical trajectory to serial since
+  the RNG only ever runs in the main process. `scripts/run_evolution.py
+  --workers N`.
 - Combining with the unrelated `Baby_Monster` project (evolutionary-RL
   cognitive-architecture research, PyTorch/notebook-driven, entirely
   different compute profile and maturity stage) into one app — decided

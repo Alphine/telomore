@@ -3,6 +3,7 @@
     python scripts/run_evolution.py --config configs/evolution.yaml --seed 7
     python scripts/run_evolution.py --resume experiments/runs/TEL-20260101-001
     python scripts/run_evolution.py --resume experiments/runs/TEL-20260101-001/generation_010.json --generations 40
+    python scripts/run_evolution.py --config configs/evolution.yaml --workers 4
 """
 
 from __future__ import annotations
@@ -30,6 +31,11 @@ def main(argv=None) -> int:
     ap.add_argument("--population", type=int, default=None)
     ap.add_argument("--no-register", action="store_true")
     ap.add_argument("--quiet", action="store_true")
+    ap.add_argument("--workers", type=int, default=1,
+                    help="evaluate each generation's genomes across this many worker processes "
+                         "(default 1: serial, identical to the pre-parallel code path). A "
+                         "runtime/hardware choice only -- never persisted into checkpoints or "
+                         "the experiment ledger.")
     ap.add_argument("--resume", default=None, metavar="PATH",
                     help="resume from a checkpoint instead of starting a fresh run. PATH is either "
                          "a specific generation_NNN.json checkpoint file, or a run directory "
@@ -52,7 +58,7 @@ def main(argv=None) -> int:
         registry = None if args.no_register else ExperimentRegistry()
         run_id = registry.new_run_id() if registry else None
         run_dir = registry.run_dir(run_id) if run_id else None
-        engine = EvolutionEngine.from_checkpoint(args.resume, run_dir=run_dir)
+        engine = EvolutionEngine.from_checkpoint(args.resume, run_dir=run_dir, n_workers=args.workers)
         resumed_from = engine._resume["generation"]
         print(f"resuming from checkpoint {engine._resume['checkpoint_path']} "
               f"(generation {resumed_from}, {engine.evaluations} evaluations so far)")
@@ -98,7 +104,7 @@ def main(argv=None) -> int:
         evo.validate()
 
         result, record = run_evolution(base, evo, ExperimentRegistry(), callback=progress,
-                                       register=not args.no_register)
+                                       register=not args.no_register, n_workers=args.workers)
 
     print("-" * 72)
     print(f"baseline fitness : {result.baseline.fitness:+.4f}")

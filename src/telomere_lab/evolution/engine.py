@@ -16,13 +16,14 @@ from __future__ import annotations
 
 import json
 import time as _time
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
-from ..schemas import OPTIMIZER_VERSION, EvolutionConfig, ModelConfig
+from ..schemas import OPTIMIZER_VERSION, EvolutionConfig, FitnessWeights, ModelConfig
 from ..simulator.model import SimpleTelomereModel
 from .crossover import crossover
 from .fitness import INVALID_FITNESS, FitnessBreakdown, average_breakdowns, compute_fitness
@@ -30,6 +31,48 @@ from .genome import GenomeSpec
 from .mutation import gaussian_mutation
 from .population import Candidate, ranked
 from .selection import select_elites, tournament_select
+
+
+def _evaluate_genome_worker(
+    genome: Dict[str, float],
+    model_cls: type,
+    spec: GenomeSpec,
+    eval_seeds: Tuple[int, ...],
+    weights: FitnessWeights,
+) -> Dict[str, Any]:
+    """Module-level, picklable worker: reproduces ``EvolutionEngine.evaluate``'s
+    per-genome work (minus the cache lookup, which stays in the parent
+    process) in an isolated process for ``ProcessPoolExecutor``.
+
+    ``model`` isn't passed directly -- a pickled ``SimpleTelomereModel``
+    instance would work too, but reconstructing it from its (no-arg
+    constructible) class avoids relying on instance pickling for models that
+    may hold non-picklable state. Requires ``model_cls()`` to work with no
+    arguments; a model that doesn't support this isn't compatible with
+    ``n_workers > 1``.
+    """
+    model = model_cls()
+    breakdowns: List[FitnessBreakdown] = []
+    terminal: Dict[str, Any] = {}
+    n_evaluations = 0
+    for s in eval_seeds:
+        cfg = spec.to_config(genome, seed=int(s))
+        result = model.simulate(cfg)
+        n_evaluations += 1
+        bd = compute_fitness(result, weights)
+        breakdowns.append(bd)
+        terminal = result.terminal_metrics
+    bd = average_breakdowns(breakdowns)
+    failures = [{"genome": genome, "seed": int(s), "reason": b.reason}
+                for s, b in zip(eval_seeds, breakdowns) if not b.valid]
+    return {
+        "genome": genome,
+        "fitness": bd.total if bd.valid else INVALID_FITNESS,
+        "breakdown": bd,
+        "terminal_metrics": terminal,
+        "n_evaluations": n_evaluations,
+        "failures": failures,
+    }
 
 
 @dataclass
@@ -131,6 +174,7 @@ class EvolutionEngine:
         evo_config: EvolutionConfig,
         model: Optional[SimpleTelomereModel] = None,
         run_dir: str | Path | None = None,
+        n_workers: int = 1,
     ):
         self.base_config = base_config.validate()
         self.evo = evo_config.validate()
@@ -139,12 +183,18 @@ class EvolutionEngine:
                                schedule_phases=self.evo.schedule_phases)
         self.rng = np.random.default_rng(self.evo.seed)
         self.run_dir = Path(run_dir) if run_dir else None
+        # Runtime/hardware knob only -- deliberately NOT part of EvolutionConfig
+        # and never persisted into checkpoints (see ``_checkpoint``): it must
+        # not affect, and must not be needed to reproduce, the genetic
+        # trajectory.
+        self.n_workers = int(n_workers)
         self.evaluations = 0
         self._cache: Dict[str, Candidate] = {}
         self.failure_log: List[Dict[str, Any]] = []
         # Set by ``from_checkpoint``; ``run()`` picks up from here instead of a
         # fresh random population when this is not None.
         self._resume: Optional[Dict[str, Any]] = None
+        self._pool: Optional[ProcessPoolExecutor] = None
 
     # ------------------------------------------------------------- checkpoint
     @classmethod
@@ -153,6 +203,7 @@ class EvolutionEngine:
         path: str | Path,
         run_dir: str | Path | None = None,
         model: Optional[SimpleTelomereModel] = None,
+        n_workers: int = 1,
     ) -> "EvolutionEngine":
         """Reconstruct an engine ready to resume from a checkpoint written by
         ``_checkpoint`` (SDD §31).
@@ -189,7 +240,8 @@ class EvolutionEngine:
 
         base_config = ModelConfig.from_dict(payload["base_config"])
         evo_config = EvolutionConfig.from_dict(payload["evolution_config"])
-        engine = cls(base_config, evo_config, model=model, run_dir=run_dir or path.parent)
+        engine = cls(base_config, evo_config, model=model, run_dir=run_dir or path.parent,
+                     n_workers=n_workers)
         engine.rng.bit_generator.state = payload["random_state"]
         engine.evaluations = int(payload["evaluations"])
         population = [Candidate.from_dict(c) for c in payload["population"]]
@@ -237,6 +289,46 @@ class EvolutionEngine:
         self._cache[key] = cand
         return cand
 
+    def _evaluate_batch(self, genomes: List[Dict[str, float]]) -> List[Candidate]:
+        """Evaluate a batch of genomes, in parallel across ``self.n_workers``
+        worker processes when that is greater than 1, else serially via
+        ``self.evaluate`` (identical to the pre-parallel code path).
+
+        Genomes already present in ``self._cache`` are never submitted to the
+        pool -- they're resolved with a plain cache hit, exactly as
+        ``evaluate()`` does, so cached genomes (elites carried over, or a
+        checkpoint-restored population) cost neither a worker-process
+        round-trip nor an inflated ``evaluations`` count. Output order always
+        matches input order.
+        """
+        if self.n_workers <= 1:
+            return [self.evaluate(g) for g in genomes]
+
+        repaired = [self.spec.repair(g) for g in genomes]
+        keys = [self._key(g) for g in repaired]
+        results: List[Optional[Candidate]] = [self._cache.get(k) for k in keys]
+
+        pending_indices = [i for i, c in enumerate(results) if c is None]
+        if pending_indices:
+            pool = self._pool
+            if pool is None:
+                raise RuntimeError("_evaluate_batch called with n_workers > 1 outside of run()")
+            futures = [
+                pool.submit(_evaluate_genome_worker, repaired[i], type(self.model), self.spec,
+                            self.evo.eval_seeds, self.evo.weights)
+                for i in pending_indices
+            ]
+            for i, fut in zip(pending_indices, futures):
+                payload = fut.result()
+                cand = Candidate(genome=payload["genome"], fitness=payload["fitness"],
+                                 breakdown=payload["breakdown"], terminal_metrics=payload["terminal_metrics"])
+                self.evaluations += payload["n_evaluations"]
+                self.failure_log.extend(payload["failures"])
+                self._cache[keys[i]] = cand
+                results[i] = cand
+
+        return results  # type: ignore[return-value]
+
     # ------------------------------------------------------------------ run
     def run(
         self,
@@ -248,10 +340,31 @@ class EvolutionEngine:
         n = evo.population_size
         n_elites = max(1, int(round(evo.elite_fraction * n))) if evo.elite_fraction > 0 else 0
 
+        # A pool is created once per ``run()`` call and reused across every
+        # generation (process startup cost makes a per-generation pool
+        # wasteful), then torn down however the call exits.
+        self._pool = ProcessPoolExecutor(max_workers=self.n_workers) if self.n_workers > 1 else None
+        try:
+            return self._run_generations(callback, should_stop, n, n_elites, t0)
+        finally:
+            if self._pool is not None:
+                self._pool.shutdown()
+            self._pool = None
+
+    def _run_generations(
+        self,
+        callback: Optional[Callable[[GenerationRecord], None]],
+        should_stop: Optional[Callable[[], bool]],
+        n: int,
+        n_elites: int,
+        t0: float,
+    ) -> EvolutionResult:
+        evo = self.evo
+
         resume = self._resume
         if resume is None:
             genomes = self.spec.random_population(self.rng, n, include_baseline=True)
-            population = [self.evaluate(g) for g in genomes]
+            population = self._evaluate_batch(genomes)
         else:
             population = resume["population"]
         baseline = self.evaluate(self.spec.baseline_genome())
@@ -328,7 +441,7 @@ class EvolutionEngine:
                     children.append(self.spec.repair(child))
             children = children[: n - n_elites]
 
-            population = elites + [self.evaluate(g) for g in children]
+            population = elites + self._evaluate_batch(children)
             gen_best = max(population, key=lambda c: c.fitness)
 
             if gen_best.fitness > best_ever.fitness:

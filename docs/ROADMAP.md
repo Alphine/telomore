@@ -306,10 +306,25 @@ Ranked by the account owner's stated priority:
    ensemble/uncertainty, multi-chip comparison, sub-clone competition,
    synthetic biological-age score) — a genuine milestone; a future session
    should not re-propose any of items 1-5 as new work. Possible future
-   ideas (not yet prioritized, not part of the ranked list above): a
-   literature-calibrated variant of the age-index weights; surfacing
-   `score_over_time` on the particle canvas itself (colour-coded by age
-   band) instead of only as a separate line chart.
+   ideas (not yet prioritized, not part of the ranked list above), both
+   resolved 2026-09-12:
+   - A literature-calibrated variant of the age-index weights —
+     **checked, not changed**: the classic Frailty Index (the most
+     widely used real biological-age composite) is itself unweighted by
+     definition, so equal weighting mirrors that convention; literature
+     weighting schemes that outperform it are regression-fit against a
+     real outcome (mortality/decline) this simulator's internal
+     quantities have no counterpart of, so a "calibrated" reweighting
+     isn't buildable without a fabricated target
+     (`simulator/biomarker.py`, `docs/MODEL.md` §4.1).
+   - Surfacing `score_over_time` on the particle canvas itself (colour-
+     coded by age band) instead of only as a separate line chart —
+     **DONE**: the dish now has an emerald→amber→rose ring driven by the
+     current frame's synthetic age index (`ageBandColor` in
+     `populationFrames.ts`), alongside the existing per-particle
+     proliferative/senescent colouring, plus a numeric readout; null
+     (no ring colour claim) for ensemble seed views and any run recorded
+     before this field existed.
 
 ## LLM agentic layer (decided 2026-09-09, two layers, both approved)
 
@@ -410,6 +425,12 @@ protocol actually runs (no fully autonomous unattended agent loop for v1).
   master.
 - Kaggle notebook submission packaging.
 - An in-GUI "Assumptions" page rendering `docs/MODEL.md` equations.
+  **DONE 2026-09-12, via an existing feature** — the Docs page
+  (`frontend/src/pages/Docs`, `/guide?doc=model`, built 2026-09-11 for a
+  different request) already renders the complete `docs/MODEL.md` in-app,
+  equations included, with a working table of contents. Building a separate
+  "Assumptions" page would duplicate this content, so this item is
+  satisfied by cross-reference rather than new code.
 - 3-objective Pareto front for the locked-stress scenario (NSGA-II engine
   already supports 3 objectives, just never run for this scenario).
 - `--resume` CLI flag for checkpointed evolution runs. **DONE 2026-09-12** —

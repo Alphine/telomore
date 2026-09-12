@@ -6,7 +6,13 @@
 // particles are an aggregate, illustrative rendering, not tracked cells.
 import type { SimulationRun } from '../api/types'
 
-export type FrameSource = Pick<SimulationRun, 'timeseries' | 'config'>
+// biological_age is optional here (unlike on SimulationRun itself) so
+// existing FrameSource literals without it -- e.g. populationFrames.test.ts's
+// hand-built fixture -- keep compiling; frameAt() below treats an absent or
+// invalid score the same way: ageIndex is null, not a fabricated 0.
+export type FrameSource = Pick<SimulationRun, 'timeseries' | 'config'> & {
+  biological_age?: SimulationRun['biological_age']
+}
 
 export interface PopulationFrame {
   /** Cell cycle shown (timeseries.cycle[index]). */
@@ -25,6 +31,14 @@ export interface PopulationFrame {
   /** shortest_length[t] / initial_length, same clamping. */
   shortestRatio: number
   extinct: boolean
+  /**
+   * Synthetic "biological age" index at this cycle (0 youthful -> 100
+   * senescent reference, docs/MODEL.md §4.1), or null when the run has no
+   * (or an invalid) biological_age score -- never a guessed/fabricated
+   * value (ROADMAP.md "possible future ideas": surfacing score_over_time
+   * on the particle canvas itself, not only as a separate line chart).
+   */
+  ageIndex: number | null
 }
 
 export const DEFAULT_PARTICLE_CAP = 1500
@@ -44,7 +58,7 @@ export function frameAt(run: FrameSource, index: number, cap: number = DEFAULT_P
   if (n === 0) {
     return {
       cycle: 0, living: 0, proliferative: 0, senescentFraction: 1, drawn: 0, drawnSenescent: 0,
-      lengthRatio: 0, shortestRatio: 0, extinct: true,
+      lengthRatio: 0, shortestRatio: 0, extinct: true, ageIndex: null,
     }
   }
   const i = Math.min(n - 1, Math.max(0, Math.floor(index)))
@@ -59,6 +73,10 @@ export function frameAt(run: FrameSource, index: number, cap: number = DEFAULT_P
       : Math.min(1, Math.max(0, rawSen))
   const drawn = Math.min(living, Math.max(0, Math.floor(cap)))
   const drawnSenescent = Math.round(drawn * senescentFraction)
+  const rawAge = run.biological_age?.valid ? run.biological_age.score_over_time[i] : undefined
+  const ageIndex = rawAge === undefined || rawAge === null || !Number.isFinite(rawAge)
+    ? null
+    : Math.min(100, Math.max(0, rawAge))
   return {
     cycle: ts.cycle[i],
     living,
@@ -69,7 +87,34 @@ export function frameAt(run: FrameSource, index: number, cap: number = DEFAULT_P
     lengthRatio: ratio(ts.mean_length_bp[i], run.config.initial_length),
     shortestRatio: ratio(ts.shortest_length_bp[i], run.config.initial_length),
     extinct,
+    ageIndex,
   }
+}
+
+// ------------------------------------------------------------- age colour
+//: Three-stop gradient for the synthetic age index (docs/MODEL.md §4.1):
+//: emerald (youthful reference) -> amber (mid) -> rose (senescent
+//: reference), the same rose used for the per-particle senescent colour
+//: (SEN_RGB in PopulationCanvas.tsx) so "fully senescent" reads consistently
+//: across both signals.
+const AGE_STOPS: [number, [number, number, number]][] = [
+  [0, [0.06, 0.72, 0.51]], // emerald-500
+  [50, [0.96, 0.62, 0.04]], // amber-500
+  [100, [0.96, 0.25, 0.37]], // rose-500
+]
+
+/** Colour for a 0-100 age index, as [r, g, b] in 0..1 -- pure, no DOM/canvas. */
+export function ageBandColor(ageIndex: number): [number, number, number] {
+  const a = Math.min(100, Math.max(0, ageIndex))
+  for (let k = 0; k < AGE_STOPS.length - 1; k++) {
+    const [x0, c0] = AGE_STOPS[k]
+    const [x1, c1] = AGE_STOPS[k + 1]
+    if (a >= x0 && a <= x1) {
+      const t = x1 === x0 ? 0 : (a - x0) / (x1 - x0)
+      return [c0[0] + (c1[0] - c0[0]) * t, c0[1] + (c1[1] - c0[1]) * t, c0[2] + (c1[2] - c0[2]) * t]
+    }
+  }
+  return AGE_STOPS[AGE_STOPS.length - 1][1]
 }
 
 // ------------------------------------------------------------- particles

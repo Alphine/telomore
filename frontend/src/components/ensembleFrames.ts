@@ -36,6 +36,7 @@ export function ensembleSeedFrameAt(
       lengthRatio: 0,
       shortestRatio: 0,
       extinct: true,
+      ageIndex: null,
     }
   }
   const i = Math.min(n - 1, Math.max(0, Math.floor(index)))
@@ -60,5 +61,9 @@ export function ensembleSeedFrameAt(
     lengthRatio: ratio(seed.mean_length[i], initialLength),
     shortestRatio: ratio(seed.shortest_length[i], initialLength),
     extinct,
+    // Ensemble seeds only carry a *final* biological-age score
+    // (EnsembleSeedResult.biological_age_final), not a per-cycle series, so
+    // there is nothing to show per-frame here -- null, not a fabricated value.
+    ageIndex: null,
   }
 }

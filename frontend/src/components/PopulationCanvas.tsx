@@ -9,6 +9,7 @@ import type { SimulationRun } from '../api/types'
 import {
   DEFAULT_PARTICLE_CAP,
   PARTICLE_STRIDE,
+  ageBandColor,
   frameAt,
   frameCount,
   makeParticles,
@@ -148,6 +149,17 @@ function createWebGLRenderer(canvas: HTMLCanvasElement, cap: number): Renderer |
 function rgb([r, g, b]: [number, number, number], bright: number, alpha: number): string {
   const c = (v: number) => Math.round(Math.min(1, v * bright) * 255)
   return `rgba(${c(r)}, ${c(g)}, ${c(b)}, ${alpha})`
+}
+
+//: The dish's border colour: the synthetic age index (docs/MODEL.md §4.1)
+//: on the emerald->amber->rose gradient (ROADMAP.md "possible future ideas":
+//: surfacing score_over_time on the canvas itself, not only a line chart).
+//: Falls back to a neutral border (no age claim) for a run recorded before
+//: this field existed, or one whose result was invalid.
+const NEUTRAL_BORDER = 'rgb(203 213 225)' // slate-300; visible on both themes
+function ageRingColor(ageIndex: number | null): string {
+  if (ageIndex === null) return NEUTRAL_BORDER
+  return rgb(ageBandColor(ageIndex), 1, 1)
 }
 
 function createCanvas2DRenderer(canvas: HTMLCanvasElement, cap: number): Renderer | null {
@@ -316,8 +328,9 @@ export function PopulationCanvas({ run, onCycleChange, dark = false, cap = DEFAU
             role="img"
             aria-label={`Cell population at cycle ${frame.cycle}: ${frame.living} living cells, ${Math.round(
               frame.senescentFraction * 100,
-            )}% senescent`}
-            className="rounded-full border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-950"
+            )}% senescent${frame.ageIndex === null ? '' : `, synthetic age index ${Math.round(frame.ageIndex)} of 100`}`}
+            className="rounded-full border-4 bg-slate-50 transition-colors dark:bg-slate-950"
+            style={{ borderColor: ageRingColor(frame.ageIndex) }}
           />
         </div>
         <div className="min-w-0 flex-1 space-y-3">
@@ -352,6 +365,12 @@ export function PopulationCanvas({ run, onCycleChange, dark = false, cap = DEFAU
             <div>
               <dt className="prose-muted text-xs">mean length</dt>
               <dd className="font-mono">{meanKb === null || meanKb === undefined ? '—' : `${(meanKb / 1000).toFixed(2)} kb`}</dd>
+            </div>
+            <div>
+              <dt className="prose-muted text-xs">age index</dt>
+              <dd className="font-mono" data-testid="viz-age-index" style={{ color: ageRingColor(frame.ageIndex) }}>
+                {frame.ageIndex === null ? '—' : frame.ageIndex.toFixed(0)}
+              </dd>
             </div>
           </dl>
           <div className="flex flex-wrap items-center gap-2">
@@ -403,11 +422,18 @@ export function PopulationCanvas({ run, onCycleChange, dark = false, cap = DEFAU
               <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full bg-rose-500" /> senescent share
             </span>
             <span className="prose-muted">particle size and brightness follow mean length relative to the initial length</span>
+            {frame.ageIndex !== null && (
+              <span className="inline-flex items-center gap-1.5">
+                <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: ageRingColor(frame.ageIndex) }} />
+                dish ring = synthetic age index (emerald → amber → rose)
+              </span>
+            )}
           </div>
           <p className="prose-muted text-xs">
             Aggregate visualization of the simulated population: particle count = living cells (capped at {cap}),
-            coloured share = senescent fraction, size = mean telomere length. Particles are illustrative, not
-            tracked individual cells -- the simulation itself ran server-side in Python.
+            coloured share = senescent fraction, size = mean telomere length, ring colour = the synthetic age index
+            (docs/MODEL.md §4.1, when available) on the same 0-100 scale shown in the timeline chart. Particles are
+            illustrative, not tracked individual cells -- the simulation itself ran server-side in Python.
           </p>
         </div>
       </div>

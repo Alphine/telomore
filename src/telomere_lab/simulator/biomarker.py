@@ -71,6 +71,32 @@ Each is already a first-class, documented output of this model
 already-computed trajectory, and no random draw is used (deterministic,
 pure function of ``result``).
 
+Literature check on equal weighting (2026-09-12, ROADMAP.md "possible
+future ideas": "a literature-calibrated variant of the age-index
+weights") -- checked via web search, human-reviewed:
+
+* The classic Frailty Index (Rockwood/Mitnitski), the most widely used
+  real biological-age composite, is *by definition* an unweighted
+  proportion of accumulated deficits -- equal weighting here is not an
+  arbitrary or naive choice, it directly mirrors that convention.
+* More recent literature (e.g. regression- or feature-selection-weighted
+  frailty indices, the Klemera-Doubal method) shows *learned* weights can
+  out-predict equal weighting -- but only because they are fit by
+  regression against a real outcome (mortality, functional decline) in an
+  actual patient cohort.
+* That fitting target does not exist here: ``survival``/``reserve``/
+  ``non_senescent`` are this simulator's own internal quantities, not
+  measured deficits with an independent real-world outcome to regress
+  against. There is no dataset this module could calibrate its weights
+  to without inventing one, which would be a fabrication, not a
+  calibration.
+* Conclusion: equal weighting stays the default, now with its literature
+  precedent documented rather than left as an unexplained "why equal"
+  choice -- this is the same honesty discipline as docs/MODEL.md's
+  Sec 3.1/6.1 parameter checks, applied to a case where the answer is
+  "no calibration is possible here, and here is why," not a numeric
+  correction.
+
 Explicitly NOT modelled
 ------------------------
 This is **not** a validated biological-age clock (e.g. epigenetic /

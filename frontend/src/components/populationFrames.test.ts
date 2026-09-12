@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   PARTICLE_STRIDE,
+  ageBandColor,
   frameAt,
   frameCount,
   makeParticles,
@@ -68,6 +69,58 @@ describe('frameAt', () => {
     const empty: FrameSource = { config: run.config, timeseries: { ...run.timeseries, cycle: [] } }
     expect(frameCount(empty)).toBe(0)
     expect(frameAt(empty, 0).drawn).toBe(0)
+  })
+
+  it('has no age index when the run has no biological_age data', () => {
+    expect(frameAt(run, 1).ageIndex).toBeNull()
+  })
+
+  it('reads the age index from a valid biological_age score, clamped to [0, 100]', () => {
+    const withAge: FrameSource = {
+      ...run,
+      biological_age: {
+        score_over_time: [10, 40, 105, -5],
+        final_score: -5,
+        scale_label: 'x',
+        formula_note: 'x',
+        valid: true,
+      },
+    }
+    expect(frameAt(withAge, 0).ageIndex).toBe(10)
+    expect(frameAt(withAge, 1).ageIndex).toBe(40)
+    expect(frameAt(withAge, 2).ageIndex).toBe(100) // clamped
+    expect(frameAt(withAge, 3).ageIndex).toBe(0) // clamped
+  })
+
+  it('ignores an invalid biological_age score rather than showing a stale/empty one', () => {
+    const invalidAge: FrameSource = {
+      ...run,
+      biological_age: { score_over_time: [], final_score: null, scale_label: 'x', formula_note: 'x', valid: false },
+    }
+    expect(frameAt(invalidAge, 1).ageIndex).toBeNull()
+  })
+})
+
+describe('ageBandColor', () => {
+  it('is emerald at 0, amber at 50, rose at 100', () => {
+    const closeTriplet = (actual: [number, number, number], expected: [number, number, number]) =>
+      actual.forEach((v, i) => expect(v).toBeCloseTo(expected[i]))
+    closeTriplet(ageBandColor(0), [0.06, 0.72, 0.51])
+    closeTriplet(ageBandColor(50), [0.96, 0.62, 0.04])
+    closeTriplet(ageBandColor(100), [0.96, 0.25, 0.37])
+  })
+
+  it('interpolates smoothly between stops', () => {
+    const [r25] = ageBandColor(25)
+    const [r0] = ageBandColor(0)
+    const [r50] = ageBandColor(50)
+    expect(r25).toBeGreaterThan(Math.min(r0, r50))
+    expect(r25).toBeLessThan(Math.max(r0, r50))
+  })
+
+  it('clamps out-of-range input', () => {
+    expect(ageBandColor(-10)).toEqual(ageBandColor(0))
+    expect(ageBandColor(150)).toEqual(ageBandColor(100))
   })
 })
 

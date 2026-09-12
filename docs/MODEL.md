@@ -349,6 +349,20 @@ vitality_t   = mean(survival_t, reserve_t, non_senesc_t)     -- equal weights
 age_index_t  = 100 · (1 − vitality_t)                        -- clipped [0, 100]
 ```
 
+**Equal weighting, checked against the literature (2026-09-12).** The
+classic Frailty Index (Rockwood/Mitnitski) — the most widely used real
+biological-age composite — is *by definition* an unweighted proportion of
+accumulated deficits, so equal weighting here mirrors that convention
+rather than being an arbitrary/unexplained choice. More recent literature
+(regression-/feature-selection-weighted frailty indices, the
+Klemera-Doubal method) shows learned weights can out-predict equal
+weighting, but only by fitting against a real outcome (mortality,
+functional decline) in an actual cohort — a fitting target this simulator's
+own internal `survival`/`reserve`/`non_senescent` quantities have no
+counterpart of. A "literature-calibrated" reweighting isn't buildable here
+without inventing a fake target dataset, so equal weighting stays the
+default (`simulator/biomarker.py` docstring carries the same finding).
+
 An extinct culture at cycle `t` (`population_size[t] == 0`) is forced to
 `age_index_t = 100` regardless of the formula above — a culture that has
 ended is, by construction, at the fully senescent/collapsed end of the

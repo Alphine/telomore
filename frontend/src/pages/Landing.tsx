@@ -3,7 +3,6 @@ import { Link, Navigate, useSearchParams } from 'react-router-dom'
 
 import { health } from '../api/endpoints'
 import { Disclaimer } from '../components/Callout'
-import { DnaHelixCanvas } from '../components/DnaHelixCanvas'
 import { FEATURES } from '../features'
 
 // Static for now (Phase 2): values mirror telomere_lab.__version__,
@@ -21,13 +20,15 @@ optimizer  0.1.0`
 // `frontend/README.md`'s "Landing hero" section for the exact commands):
 //   - backend tests: `python -m pytest -q` (junitxml `tests=` count, NOT a
 //     manual per-file sum from --collect-only -q, which undercounted
-//     parametrized tests when this was first written) = 251 (2026-09-11)
-//   - frontend tests: `cd frontend && npx vitest run` = 139 (2026-09-11)
+//     parametrized tests when this was first written) = 257 (2026-09-12)
+//   - frontend tests: `cd frontend && npx vitest run` = 146 (2026-09-12,
+//     dropped from 161 after removing the DNA helix hero canvas and its
+//     tests)
 //   - lab tools: `FEATURES.length` (features.ts) = 7
 //   - documented experiments: `## N. Experiment` headers in
 //     docs/EXPERIMENT_PROTOCOL.md = 6 (A-F)
 const STATS: { icon: string; value: string; label: string }[] = [
-  { icon: '✅', value: '390', label: 'automated tests (251 backend + 139 frontend)' },
+  { icon: '✅', value: '403', label: 'automated tests (257 backend + 146 frontend)' },
   { icon: '🧪', value: `${FEATURES.length}`, label: 'lab tools' },
   { icon: '📒', value: '6', label: 'documented experiments' },
   { icon: '💻', value: 'CPU-only', label: 'no GPU required' },
@@ -122,17 +123,6 @@ export function Landing() {
     <div className="space-y-12">
       {/* ---------------------------------------------------------- hero */}
       <section className="hero-glow relative space-y-5 overflow-hidden rounded-2xl px-1 py-2 sm:px-2">
-        {/* Decorative only -- aria-hidden inside the component, no data dependency.
-            Absolutely positioned behind the text on narrow screens (low opacity so
-            the hero copy stays the clear focal point), a contained side panel on
-            wider screens. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-10 sm:static sm:float-right sm:ms-4 sm:mb-2 sm:h-56 sm:w-56 sm:opacity-90"
-        >
-          <DnaHelixCanvas />
-        </div>
-
         <p className="relative text-xs font-semibold tracking-[0.2em] text-sky-700 uppercase dark:text-sky-400">
           Simulate · Evolve · Compare · Learn
         </p>

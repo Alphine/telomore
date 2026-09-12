@@ -495,38 +495,13 @@ current cycle is pushed to the Simulate charts as a vertical cursor
 It is **not** shown on Evolve: the evolve job result has no per-cycle
 simulation payload for the best candidate. *Set best as baseline* → Simulate
 
-## Landing hero animation (`components/DnaHelixCanvas.tsx`)
+## Landing hero
 
-Purely decorative double-helix animation behind/beside the `🧬 Telomere
-Evolution Lab` title on the public `/` landing page (`pages/Landing.tsx`) —
-no data dependency, no API calls. Canvas 2D only (no WebGL2 needed); geometry
-math lives in the pure `components/dnaHelixGeometry.ts` so the component file
-only exports the component (oxlint `react/only-export-components`). Respects
-`prefers-reduced-motion: reduce` (renders one static frame instead of
-animating) and pauses its `requestAnimationFrame` loop while the tab is
-hidden.
-
-**Premium-glow polish pass (2026-09-11)**, matching a dark-navy/glass
-reference mockup the account owner shared: the palette shifted from the
-original teal/rose to a blue -> violet direction (`STRAND_A` sky-blue,
-`STRAND_B` violet/fuchsia in `DnaHelixCanvas.tsx`) so the "premium glow"
-aesthetic reads well on the app's dark background while staying legible in
-light mode too (checked both). Each strand segment's color is a per-segment
-lerp (`dnaHelixGeometry.ts::lerpHexColor`) from its top hue to its bottom hue,
-further brightened/dimmed by the existing pseudo-3D depth value
-(`depthToLitFactor`) for a lit-near/shadowed-far feel; strands and rung nodes
-both use `ctx.shadowBlur`/`shadowColor` for glow rather than a separate blur
-pass. Rungs are now small glowing circles (`ctx.arc` + shadow) instead of
-plain connecting lines. A small deterministic (seeded) field of pulsing
-"bokeh" dots (`dnaHelixGeometry.ts::buildBokehField`, `BOKEH_COUNT = 20`)
-renders behind the helix for the ambient-particle feel of the reference
-image — fixed count, no physics, cheap enough to run on every anonymous
-landing-page visit. `dnaHelixGeometry.test.ts` covers the new pure functions
-(`lerpHexColor`, `depthToLitFactor`, `buildBokehField`) in addition to the
-existing `buildHelixFrame` coverage; `DnaHelixCanvas.test.tsx`'s mount/
-animate/unmount/reduced-motion smoke tests are unchanged (its canvas stub
-gained `save`/`restore` mocks for the new `ctx.save()`/`ctx.restore()` calls
-around each glow-styled draw call).
+**2026-09-12**: the animated DNA-helix canvas (`components/DnaHelixCanvas.tsx`
++ `dnaHelixGeometry.ts`) that used to sit behind/beside the hero title was
+removed at the account owner's request, along with its tests — it's no longer
+part of the hero. The rest of the 2026-09-11 polish pass described below is
+unaffected.
 
 The same pass re-skinned the Landing hero itself: a small uppercase eyebrow
 line, a two-line gradient heading (`.gradient-text` in `index.css`,
@@ -549,7 +524,9 @@ this section:
 - automated tests: `python -m pytest -q` (the real run's `tests=` total, not
   a manual per-file sum from `--collect-only -q`, which undercounts
   parametrized tests) for the backend + `cd frontend && npx vitest run` for
-  the frontend, added together (251 + 139 = 390 as of 2026-09-11)
+  the frontend, added together (257 + 146 = 403 as of 2026-09-12; the
+  frontend count dropped from 161 when the DNA helix canvas and its tests
+  were removed the same day)
 - lab tools: `FEATURES.length` from `features.ts` (computed inline, so this
   one number cannot go stale on its own)
 - documented experiments: count of `## N. Experiment` headers in

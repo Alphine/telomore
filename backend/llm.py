@@ -629,6 +629,239 @@ def interpret(data: InterpretRequestData, client_factory: ClientFactory = anthro
                            usage=_usage_dict(getattr(response, "usage", None)), warnings=warnings)
 
 
+# --------------------------------------------------------------------------- #
+# Layer 2 -- protocol-designing agent (docs/ROADMAP.md "LLM agentic layer")
+# --------------------------------------------------------------------------- #
+# Hard safety boundary: this module never runs a simulation. It returns a
+# *proposed* ModelConfig (stress_level/maintenance_rate/repair_rate, optionally
+# scheduled over up to MAX_PHASES phases) that MUST pass the exact same
+# ModelConfig.validate() every other config -- GA-mutated, NSGA-II-mutated, or
+# human-typed-in-the-GUI -- already passes, enforced in `propose_protocol`
+# below before the caller ever sees it. The user still has to load the
+# proposal into the Simulate form and press "Run simulation" themselves; there
+# is no path from this module to an executed simulation that skips either the
+# human review step or ModelConfig.validate().
+PROPOSE_MAX_TOKENS = 1024
+
+PROPOSE_TOOL = {
+    "name": "propose_protocol",
+    "description": (
+        "Propose one candidate stress_level/maintenance_rate/repair_rate protocol "
+        "(each optionally piecewise-constant over up to 8 equal phases) for the "
+        "telomere-population model to simulate. This call only records a proposal; "
+        "it does not run anything."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "rationale": {
+                "type": "string",
+                "description": (
+                    "1-3 sentences: what this protocol tries and the model-mechanistic reason it "
+                    "might do better than a constant response, per the language policy below. Not a "
+                    "claim that it does better -- that is only known once it is actually simulated."
+                ),
+            },
+            "phases": {
+                "type": "integer", "minimum": 1, "maximum": 8,
+                "description": "Number of equal phases. 1 = a plain constant (unscheduled) proposal.",
+            },
+            "stress_level": {
+                "type": "array", "items": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                "description": "Exactly `phases` values, one per phase, each in [0, 1].",
+            },
+            "maintenance_rate": {
+                "type": "array", "items": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                "description": "Exactly `phases` values, one per phase, each in [0, 1].",
+            },
+            "repair_rate": {
+                "type": "array", "items": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                "description": "Exactly `phases` values, one per phase, each in [0, 1].",
+            },
+        },
+        "required": ["rationale", "phases", "stress_level", "maintenance_rate", "repair_rate"],
+    },
+}
+
+
+def build_propose_system_prompt(policy: Optional[str] = None) -> str:
+    policy = policy if policy is not None else load_language_policy()
+    return f"""You are the protocol-proposing agent of Telomere Evolution Lab, a computational
+AI-for-Science demonstration built around a lightweight, stochastic
+telomere-population model. Per cycle, every dividing cell's telomeres change by
+
+    L -= shortening_rate                                  (end-replication loss)
+    L -= stress_level * stress_sensitivity * (1 - repair_rate)   (stress-induced loss)
+    L += maintenance_rate * maintenance_max_gain * w(L)    (telomerase-like gain)
+
+`repair_rate` only offsets STRESS-induced loss (it multiplies stress_level in
+that term); `maintenance_rate` is an independent gain unrelated to the current
+stress level. A cell becomes senescent once its shortest telomere drops below
+senescence_threshold.
+
+What is already known in this exact model (cite these, do not contradict them
+without a mechanistic reason grounded in the equation above):
+- Experiment E (docs/EXPERIMENT_PROTOCOL.md Sec 10): scheduling
+  maintenance_rate/repair_rate while stress_level is held CONSTANT buys
+  essentially nothing over the best constant response -- timing alone does
+  not help when the environment does not vary.
+- Experiment G (docs/EXPERIMENT_PROTOCOL.md Sec 12): when stress_level itself
+  varies (alternates between a high and low phase), a maintenance/repair
+  schedule SYNCED to that rhythm clearly beats a constant response to the
+  same rhythm, because repair_rate's marginal value is highest exactly when
+  stress_level is currently high (it multiplies that term) -- concentrating
+  repair into high-stress phases and dropping it in low-stress phases is
+  cheaper for the same protection, since the fitness objective's cost term is
+  charged on the time-averaged dose.
+
+You will receive the user's own free-text goal and a base configuration (every
+field except stress_level/maintenance_rate/repair_rate/schedule is fixed and
+not yours to change). Call the propose_protocol tool exactly once with a
+protocol you believe is worth actually simulating. You may propose a constant
+(phases=1) response if that is genuinely your best answer -- do not manufacture
+a schedule where a constant one is more appropriate.
+
+Language policy (quoted verbatim from docs/SCIENTIFIC_SCOPE.md -- your
+`rationale` must follow it literally, including its preferred phrasings):
+
+{policy}
+
+You are not running or claiming any biological outcome. Your rationale must
+describe a hypothesis about this model's own equations, phrased so a
+scientifically literate reader understands it is a proposal to be tested by
+simulation, not a result."""
+
+
+@dataclass
+class ProposeRequestData:
+    api_key: str = field(repr=False)
+    goal: str
+    base_config: Dict[str, Any]
+    model: str = DEFAULT_MODEL
+    effort: str = DEFAULT_EFFORT
+    system_prompt: Optional[str] = None
+
+
+@dataclass
+class ProtocolProposal:
+    rationale: str
+    config: Dict[str, Any]  # a full ModelConfig dict, already validated
+
+
+@dataclass
+class ProposeResult:
+    proposal: ProtocolProposal
+    model: str
+    usage: Dict[str, Optional[int]]
+    warnings: List[str] = field(default_factory=list)
+
+
+class ProposalInvalid(LLMError):
+    """The model's tool call did not produce a config that passes validate()."""
+    status_code = 422
+    detail = "llm_proposal_invalid"
+
+
+def _build_proposed_config(base_config: Dict[str, Any], tool_input: Dict[str, Any]) -> Dict[str, Any]:
+    """Merge a validated tool_use ``input`` onto ``base_config``; raises
+    ``ProposalInvalid`` (never a bare ``KeyError``/``TypeError``) for any
+    malformed shape -- the model can, in principle, return anything."""
+    from telomere_lab.schemas import MAX_PHASES  # local import: keeps this module import-light for tests
+
+    try:
+        phases = int(tool_input["phases"])
+        rationale = str(tool_input["rationale"]).strip()
+        series = {name: [float(v) for v in tool_input[name]]
+                  for name in ("stress_level", "maintenance_rate", "repair_rate")}
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ProposalInvalid(f"Malformed tool call from the model: {exc}") from None
+
+    if not (1 <= phases <= MAX_PHASES):
+        raise ProposalInvalid(f"phases={phases} is out of range [1, {MAX_PHASES}].")
+    for name, values in series.items():
+        if len(values) != phases:
+            raise ProposalInvalid(f"{name} has {len(values)} values, expected phases={phases}.")
+
+    config = dict(base_config)
+    if phases == 1:
+        config.pop("schedule", None)
+        for name, values in series.items():
+            config[name] = values[0]
+    else:
+        for name, values in series.items():
+            config[name] = values[0]
+        config["schedule"] = {"phases": phases, "values": {name: values for name, values in series.items()}}
+    return {"rationale": rationale, "config": config}
+
+
+def propose_protocol(data: ProposeRequestData, client_factory: ClientFactory = anthropic_client_factory
+                     ) -> ProposeResult:
+    """One forced-tool-call ``messages.create``; raises ``LLMError`` subclasses.
+
+    The returned config has already passed ``ModelConfig.validate()`` --
+    callers never see an unvalidated proposal. Import of ``ModelConfig`` is
+    local so this module (and its tests) do not need the full schema stack
+    just to build a system prompt.
+    """
+    from telomere_lab.schemas import ConfigError, ModelConfig
+
+    if data.model not in MODELS:
+        raise LLMBadRequest(f"Unknown model {data.model!r}")
+    if data.effort not in EFFORTS:
+        raise LLMBadRequest(f"Unknown effort {data.effort!r}")
+
+    system_prompt = data.system_prompt or build_propose_system_prompt()
+    user_content = (
+        f"Goal: {data.goal.strip()}\n\n"
+        "Base configuration (every field except stress_level/maintenance_rate/repair_rate/schedule "
+        "is fixed):\n```json\n" + json.dumps(data.base_config, indent=1, default=str, ensure_ascii=False)
+        + "\n```"
+    )
+
+    client = client_factory(data.api_key)
+    try:
+        response = client.messages.create(
+            model=data.model,
+            max_tokens=PROPOSE_MAX_TOKENS,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_content}],
+            tools=[PROPOSE_TOOL],
+            tool_choice={"type": "tool", "name": "propose_protocol"},
+            output_config={"effort": data.effort},
+        )
+    except Exception as exc:  # noqa: BLE001 - every SDK error is mapped, nothing else is expected
+        raise _map_sdk_error(exc) from None
+
+    warnings: List[str] = []
+    stop_reason = getattr(response, "stop_reason", None)
+    if stop_reason == "refusal":
+        details = getattr(response, "stop_details", None)
+        category = getattr(details, "category", None) or "unspecified"
+        raise LLMRefusal(f"The model declined to propose a protocol (refusal, category: {category}).",
+                         category=category)
+    if stop_reason == "max_tokens":
+        warnings.append(f"The proposal may be incomplete: cut off at {PROPOSE_MAX_TOKENS} output tokens.")
+
+    tool_use = next((b for b in (getattr(response, "content", None) or [])
+                     if getattr(b, "type", None) == "tool_use" and getattr(b, "name", None) == "propose_protocol"),
+                    None)
+    if tool_use is None:
+        raise LLMUpstreamError("Anthropic did not return the expected propose_protocol tool call.")
+
+    built = _build_proposed_config(data.base_config, dict(getattr(tool_use, "input", {}) or {}))
+    try:
+        ModelConfig.from_dict(built["config"]).validate()
+    except ConfigError as exc:
+        raise ProposalInvalid(f"The proposed configuration failed validation: {exc}") from None
+
+    return ProposeResult(
+        proposal=ProtocolProposal(rationale=built["rationale"], config=built["config"]),
+        model=str(getattr(response, "model", data.model)),
+        usage=_usage_dict(getattr(response, "usage", None)),
+        warnings=warnings,
+    )
+
+
 def validate_key(api_key: str, model: str = DEFAULT_MODEL,
                  client_factory: ClientFactory = anthropic_client_factory) -> Tuple[bool, str]:
     """Cheap key check via ``models.retrieve`` (no tokens billed).
@@ -681,3 +914,7 @@ class RateLimiter:
 
 
 interpret_rate_limiter = RateLimiter()
+#: Separate budget from interpret_rate_limiter -- a courtesy cap on the
+#: user's own spend for Layer 2 specifically (docs/ROADMAP.md guardrail:
+#: "rate-limit/cap how many proposals an agentic session can queue per run").
+propose_rate_limiter = RateLimiter()

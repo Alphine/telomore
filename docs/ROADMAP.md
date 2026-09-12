@@ -361,7 +361,7 @@ rate limit (10 calls / 10 min) caps exposure. `frontend/src/components/
 InterpretPanel.tsx` is mounted on the Experiments detail view and the
 completed-result section of Evolve/Pareto/Sensitivity/Active Learning.
 
-### Layer 2 — Protocol-designing agent (build after roadmap item #1 above)
+### Layer 2 — Protocol-designing agent — **DONE 2026-09-12**
 
 Depends on the time-varying/scheduled-protocol simulation feature
 (candidate feature #1 above) existing first — Layer 2 needs a "schedule"
@@ -396,13 +396,46 @@ today. This means Layer 2 cannot introduce a new class of bug or safety
 issue beyond "a proposed config that's valid but scientifically
 uninteresting" — worst case is a wasted simulation, not a corrupted one.
 
-Additional guardrails to design in when this is built: rate-limit/cap how
-many proposals an agentic session can queue per run (cost control on the
-user's own key), log every LLM-proposed config in the experiment ledger
-tagged with its provenance (so "AI-proposed" vs "human-typed" vs
-"GA-evolved" configs stay distinguishable in `docs/EXPERIMENT_PROTOCOL.md`
-write-ups), and give the user a review/approve step before an LLM-proposed
-protocol actually runs (no fully autonomous unattended agent loop for v1).
+Additional guardrails designed in: rate-limit/cap how many proposals an
+agentic session can queue per run (cost control on the user's own key), log
+every LLM-proposed config in the experiment ledger tagged with its
+provenance (so "AI-proposed" vs "human-typed" vs "GA-evolved" configs stay
+distinguishable in `docs/EXPERIMENT_PROTOCOL.md` write-ups), and give the
+user a review/approve step before an LLM-proposed protocol actually runs (no
+fully autonomous unattended agent loop for v1).
+
+**Shipped as**: `backend/llm.py::propose_protocol()` +
+`POST /api/llm/propose-protocol` (`backend/routers/llm.py`, docs/API.md),
+same BYOK/session-only-key posture as Layer 1. The model gets a *forced*
+Anthropic tool call (`propose_protocol`: `rationale`, `phases` (1-8), one
+`stress_level`/`maintenance_rate`/`repair_rate` array per phase) rather than
+free-text parsing, so there is no ambiguity about what it can and cannot
+change — every other field of the caller's current config is fixed and
+never touched. The system prompt quotes the model's own core equation and
+cites Experiments E and G by name so proposals are literature-of-this-
+codebase-informed, not blind guesses. Every returned config has already
+been run through `ModelConfig.from_dict(...).validate()` server-side; a
+malformed or out-of-range tool call comes back as `422 llm_proposal_invalid`
+and is never handed to the frontend as runnable. The frontend
+(`frontend/src/components/ProtocolProposer.tsx`, mounted on Simulate next to
+`ScheduleEditor`) treats a proposal exactly like a named YAML preset — it
+loads the config into the form for review/editing, and the human still has
+to press "Run simulation" themselves; the component never calls
+`/api/simulate`. A run started from a loaded proposal can be tagged via
+`SimulateRequest.provenance` (new field, defaults to the old hardcoded
+`"via API"` when omitted) so the ledger keeps AI-proposed runs
+distinguishable, per the guardrail above. Separate rate-limit budget from
+Layer 1 (`propose_rate_limiter`, same 10/10 min default).
+
+Verified: 275 backend tests (14 new: happy path incl. constant/phases=1
+proposals, malformed tool-call shapes rejected as 422 rather than crashing,
+every Layer-1-style error mapping, its own rate-limit budget, and the
+provenance tag round-tripping through the real ledger), 159 frontend tests
+(6 new), and a live check against the real (network-restricted in this
+environment) Anthropic API confirming the full request pipeline end to end
+— the "Validate key" button reaches our backend, which genuinely attempts
+the Anthropic call and maps the resulting connection error to a friendly
+502 message, exactly as the unit tests predict for that failure mode.
 
 ## Explicitly deferred / out of scope for now
 

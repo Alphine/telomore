@@ -42,7 +42,7 @@ describe('Simulate page', () => {
     expect(initialSlider.min).toBe('3')
     expect(initialSlider.max).toBe('15')
 
-    expect(screen.getByText(/press/)).toHaveTextContent('Run simulation')
+    expect(screen.getByText(/Set parameters in the panel/)).toHaveTextContent('Run simulation')
     expect(screen.queryByTestId('metric-row')).not.toBeInTheDocument()
   })
 

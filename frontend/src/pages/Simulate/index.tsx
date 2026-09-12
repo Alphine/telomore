@@ -15,6 +15,7 @@ import { MetricRow } from '../../components/MetricRow'
 import { ModelConfigForm } from '../../components/ModelConfigForm'
 import { PageHeader } from '../../components/PageHeader'
 import { PopulationCanvas } from '../../components/PopulationCanvas'
+import { ProtocolProposer } from '../../components/ProtocolProposer'
 import { ProtocolTable } from '../../components/ProtocolTable'
 import { ScheduleEditor } from '../../components/ScheduleEditor'
 import { SubcloneEditor } from '../../components/SubcloneEditor'
@@ -67,6 +68,10 @@ export function Simulate() {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [cursor, setCursor] = useState<number | null>(null)
+  // Set only when the currently-loaded config came from an LLM proposal
+  // (docs/ROADMAP.md LLM Layer 2); cleared by any other load/reset/edit so a
+  // manually-tweaked-after-loading config isn't mis-tagged in the ledger.
+  const [provenance, setProvenance] = useState<string | null>(null)
 
   // Ensemble / uncertainty visualization (ROADMAP.md candidate feature #2):
   // a separate, additive mode alongside the single-run flow above -- enabling
@@ -103,7 +108,7 @@ export function Simulate() {
     setNotice(null)
     try {
       // `schedule` is omitted from the request when nothing is scheduled.
-      const res = await apiSimulate({ config: configPayload(effective) })
+      const res = await apiSimulate({ config: configPayload(effective), provenance: provenance ?? undefined })
       setRun(res.run)
       setCursor(null)
     } catch (err: unknown) {
@@ -136,6 +141,7 @@ export function Simulate() {
     clearBaseline()
     setUseChip(false)
     setDerived(null)
+    setProvenance(null)
     setNotice('Reset to the demo baseline (configs/demo.yaml).')
   }
 
@@ -149,7 +155,20 @@ export function Simulate() {
     setEdited(cfg)
     setUseChip(false)
     setDerived(null)
+    setProvenance(null)
     setNotice(`Loaded the "${name}" protocol (configs/${name}.yaml) -- a model scenario, not a regimen.`)
+  }
+
+  // LLM Layer 2 (docs/ROADMAP.md): loads a proposed config exactly like a
+  // named preset above -- nothing runs until "Run simulation" is pressed.
+  // Tagged in the ledger (provenance) so an LLM-proposed run stays
+  // distinguishable from a human-typed or GA-evolved one.
+  function onLoadProposal(cfg: ModelConfig, rationale: string) {
+    setEdited(cfg)
+    setUseChip(false)
+    setDerived(null)
+    setProvenance('LLM-proposed protocol (Layer 2 agent); may have been edited before running.')
+    setNotice(`LLM proposal loaded -- a model scenario, not a regimen: ${rationale}`)
   }
 
   const applied = run && run.valid ? run.applied_schedule ?? {} : {}
@@ -232,6 +251,7 @@ export function Simulate() {
                       disabled={running}
                       idPrefix="sim-sched"
                     />
+                    <ProtocolProposer baseConfig={effective ?? config} onLoad={onLoadProposal} disabled={running} />
                     <SubcloneEditor
                       bounds={bounds}
                       value={effective ?? config}

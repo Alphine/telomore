@@ -37,7 +37,7 @@ def simulate(body: api_schemas.SimulateRequest, user: _db.User = Depends(get_cur
 
     result = _run_simulation(config)
     breakdown = score(result)
-    record = record_simulation(result, registry=ExperimentRegistry(), notes="via API")
+    record = record_simulation(result, registry=ExperimentRegistry(), notes=body.provenance or "via API")
     _db.record_user_run(user.id, record["run_id"])
 
     payload = result.to_json_dict()

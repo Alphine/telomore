@@ -161,6 +161,11 @@ class OptimizerConfigBody(BaseModel):
 # --------------------------------------------------------------------------- #
 class SimulateRequest(BaseModel):
     config: ModelConfigBody = Field(default_factory=ModelConfigBody)
+    #: Provenance note for the ledger (docs/ROADMAP.md LLM Layer 2 guardrail:
+    #: "log every LLM-proposed config in the experiment ledger tagged with its
+    #: provenance"). Free-form, capped, defaults to the existing "via API"
+    #: note when omitted so every pre-existing caller is unaffected.
+    provenance: Optional[str] = Field(default=None, max_length=200)
 
 
 class BiologicalAgeScoreBody(BaseModel):
@@ -545,6 +550,56 @@ class LLMInterpretResponse(BaseModel):
     narrative_markdown: str
     usage: LLMUsage
     #: List-price estimate from backend.llm.MODELS -- the user's invoice is the authority.
+    estimated_cost_usd: Optional[float] = None
+    warnings: List[str] = Field(default_factory=list)
+
+
+class LLMProposeRequest(BaseModel):
+    """Bring-your-own-key protocol proposal (LLM Layer 2, docs/ROADMAP.md).
+
+    ``base_config`` is the caller's current Simulate-page config -- the model
+    may only propose new ``stress_level``/``maintenance_rate``/``repair_rate``
+    values (optionally scheduled); every other field of ``base_config`` passes
+    through unchanged. The response's ``config`` has already passed
+    ``ModelConfig.validate()`` server-side; the router never returns an
+    unvalidated proposal.
+    """
+
+    model_config = ConfigDict(hide_input_in_errors=True)
+
+    goal: str = Field(min_length=1, max_length=2000)
+    base_config: ModelConfigBody = Field(default_factory=ModelConfigBody)
+    api_key: SecretStr = Field(min_length=1)
+    provider: Literal["anthropic"] = "anthropic"
+    model: Optional[str] = None
+    effort: Optional[str] = None
+
+    @field_validator("model")
+    @classmethod
+    def _known_model(cls, value: Optional[str]) -> Optional[str]:
+        from . import llm as _llm
+
+        if value is not None and value not in _llm.MODELS:
+            raise ValueError(f"unknown model {value!r}; one of {sorted(_llm.MODELS)}")
+        return value
+
+    @field_validator("effort")
+    @classmethod
+    def _known_effort(cls, value: Optional[str]) -> Optional[str]:
+        from . import llm as _llm
+
+        if value is not None and value not in _llm.EFFORTS:
+            raise ValueError(f"unknown effort {value!r}; one of {list(_llm.EFFORTS)}")
+        return value
+
+
+class LLMProposeResponse(BaseModel):
+    rationale: str
+    #: A full ModelConfig dict (already validated) -- ready to load straight
+    #: into the Simulate form, exactly like a named YAML preset.
+    config: Dict[str, Any]
+    model: str
+    usage: LLMUsage
     estimated_cost_usd: Optional[float] = None
     warnings: List[str] = Field(default_factory=list)
 

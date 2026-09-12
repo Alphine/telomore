@@ -98,13 +98,16 @@ every route below uses, mirroring `require_login()` in the Streamlit app.
 
 ## Simulate (synchronous)
 
-`POST /api/simulate` `{config: {...ModelConfig fields...}}` (protected) runs
-one simulation synchronously (sub-second per
+`POST /api/simulate` `{config: {...ModelConfig fields...}, provenance?: string}`
+(protected) runs one simulation synchronously (sub-second per
 `tests/test_simulator.py::test_runtime_target_default_config`) and returns
 the full result as JSON (`SimulationResult.to_json_dict()` plus `run_id` and
 `fitness`). Unknown/invalid fields → `400` (via `ModelConfig.validate()`
 raising `ConfigError`). The run is recorded in the shared experiment ledger
-and tagged as belonging to the calling user.
+and tagged as belonging to the calling user. `provenance` (optional, max
+200 chars) becomes the ledger record's `notes` field instead of the default
+`"via API"` — the LLM Layer 2 flow (see below) uses this to tag a run
+loaded from an AI-proposed protocol.
 
 ### Scheduled intervention protocols (stage 6b, 2026-09-10)
 
@@ -560,6 +563,47 @@ env var stays available for a separately hosted frontend, and the Vite dev
 server (`http://localhost:5173`) proxies `/api` to uvicorn rather than
 relying on CORS. Since Phase 5 this is exactly how production runs (see
 Deployment at the top).
+
+## LLM agentic layer (bring-your-own-key, docs/ROADMAP.md)
+
+Every route below requires `api_key` (an Anthropic key) in the request body;
+it is relayed to Anthropic for that one request only and is never persisted,
+logged or echoed back (`backend/llm.py`). `GET /api/meta/llm` (**public**) →
+`{providers, models: [{id, label, input_usd_per_mtok, output_usd_per_mtok}],
+default_model, efforts, default_effort, rate_limit: {calls, window_seconds}}`
+— the single source `model`/`effort` are validated against. Every LLM error
+response (401/403/429/422/400/502) has a structured `detail`:
+`{code, message, category?, retry_after?}` with `code` one of
+`llm_auth_failed` / `llm_permission_denied` / `llm_rate_limited` /
+`llm_refusal` / `llm_bad_request` / `llm_upstream_error` /
+`llm_proposal_invalid` (Layer 2 only).
+
+**Layer 1 — results interpreter** (`POST /api/llm/interpret`, **protected**):
+body `{run_id, api_key, model?, effort?}` → a plain-language Markdown
+narrative of one recorded run's own data (`{narrative_markdown, model, usage,
+estimated_cost_usd, warnings}`). Read-only — cannot run or modify a
+simulation. Rate limit: `llm.interpret_rate_limiter` (10 calls / 10 min per
+user, in-memory, process-local).
+
+**Layer 2 — protocol-designing agent** (`POST /api/llm/propose-protocol`,
+**protected**): body `{goal, base_config, api_key, model?, effort?}` →
+`{rationale, config, model, usage, estimated_cost_usd, warnings}`. The model
+is given a forced tool call (`propose_protocol`: `rationale`, `phases`
+(1-8), and one `stress_level`/`maintenance_rate`/`repair_rate` array per
+phase, each in `[0, 1]`) and may only propose those four fields — every
+other field of `base_config` passes through unchanged. **Hard safety
+boundary**: the returned `config` has already passed the exact same
+`ModelConfig.validate()` every other config (GA-mutated, NSGA-II-mutated,
+human-typed) passes; a malformed or out-of-bounds tool call is rejected
+server-side as `422 llm_proposal_invalid`, never returned as a "valid"
+config. This route only proposes — it never calls `/api/simulate`; the
+frontend loads `config` into the Simulate form exactly like a named YAML
+preset, and the human must still press "Run simulation" themselves. A run
+started from a loaded proposal can carry a ledger `notes` tag via
+`POST /api/simulate`'s optional `provenance` field (defaults to `"via API"`
+when omitted) so AI-proposed / human-typed / GA-evolved runs stay
+distinguishable in the ledger. Separate rate limit from Layer 1:
+`llm.propose_rate_limiter` (same 10/10 min default, independent budget).
 
 ## Testing note — ledger isolation
 

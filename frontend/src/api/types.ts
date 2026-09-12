@@ -250,6 +250,8 @@ export interface ChipPresetsResponse {
 // --------------------------------------------------------------- simulate
 export interface SimulateRequest {
   config: Partial<ModelConfig>
+  /** Ledger provenance note (docs/ROADMAP.md LLM Layer 2 guardrail); omit for the default "via API". */
+  provenance?: string
 }
 
 // evolution/fitness.py::FitnessBreakdown.to_dict()
@@ -744,7 +746,32 @@ export interface LLMValidateKeyResponse {
 
 /** The structured `detail` of every LLM error response (401/403/429/422/400/502). */
 export interface LLMErrorDetail {
-  code: 'llm_auth_failed' | 'llm_permission_denied' | 'llm_rate_limited' | 'llm_refusal' | 'llm_bad_request' | 'llm_upstream_error'
+  code: 'llm_auth_failed' | 'llm_permission_denied' | 'llm_rate_limited' | 'llm_refusal' | 'llm_bad_request'
+    | 'llm_upstream_error' | 'llm_proposal_invalid'
   message: string
   category?: string
+}
+
+// LLM Layer 2 -- protocol-designing agent (docs/ROADMAP.md "LLM agentic layer").
+// Proposes a candidate stress_level/maintenance_rate/repair_rate protocol
+// (optionally scheduled); NEVER runs a simulation itself. `config` in the
+// response has already passed the same ModelConfig.validate() every other
+// config passes -- the caller loads it into the Simulate form exactly like a
+// named YAML preset and must press "Run simulation" themselves.
+export interface LLMProposeRequest {
+  goal: string
+  base_config: ModelConfig
+  api_key: string
+  provider: LLMProvider
+  model?: string
+  effort?: LLMEffort
+}
+
+export interface LLMProposeResponse {
+  rationale: string
+  config: ModelConfig
+  model: string
+  usage: LLMUsage
+  estimated_cost_usd: number | null
+  warnings: string[]
 }

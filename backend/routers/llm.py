@@ -109,6 +109,46 @@ def interpret_run(body: api_schemas.LLMInterpretRequest, response: Response,
     )
 
 
+@router.post("/propose-protocol", response_model=api_schemas.LLMProposeResponse)
+def propose_protocol(body: api_schemas.LLMProposeRequest, response: Response,
+                     user: _db.User = Depends(get_current_user)) -> api_schemas.LLMProposeResponse:
+    """LLM Layer 2: propose a protocol, never run one.
+
+    The response's ``config`` has already passed ``ModelConfig.validate()``
+    (``backend.llm.propose_protocol`` raises ``ProposalInvalid`` -> 422
+    otherwise) -- this route cannot return a proposal the frontend could load
+    and run without it being exactly as valid as any human-typed config. The
+    caller must still load it into the Simulate form and press "Run
+    simulation" themselves; nothing here executes a simulation.
+    """
+    try:
+        _llm.propose_rate_limiter.check(user.id)
+    except _llm.LLMRateLimited as exc:
+        _raise_http(exc)
+
+    model = body.model or _llm.DEFAULT_MODEL
+    data = _llm.ProposeRequestData(
+        api_key=body.api_key.get_secret_value(), goal=body.goal, base_config=body.base_config.to_plain(),
+        model=model, effort=body.effort or _llm.DEFAULT_EFFORT,
+    )
+    try:
+        result = _llm.propose_protocol(data)
+    except _llm.LLMError as exc:
+        _raise_http(exc)
+    finally:
+        del data  # drop the only other reference to the key
+
+    response.headers["Cache-Control"] = "no-store"
+    return api_schemas.LLMProposeResponse(
+        rationale=result.proposal.rationale,
+        config=result.proposal.config,
+        model=result.model,
+        usage=api_schemas.LLMUsage(**result.usage),
+        estimated_cost_usd=_llm.estimate_cost_usd(model, result.usage),
+        warnings=result.warnings,
+    )
+
+
 @router.post("/validate-key", response_model=api_schemas.LLMValidateKeyResponse)
 def validate_key(body: api_schemas.LLMValidateKeyRequest, response: Response,
                  user: _db.User = Depends(get_current_user)) -> api_schemas.LLMValidateKeyResponse:

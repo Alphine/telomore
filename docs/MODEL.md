@@ -243,12 +243,59 @@ Each candidate's fitness is now averaged over multiple simulator seeds
 stochastic noise in the search; Experiments A/B/C in
 `docs/EXPERIMENT_PROTOCOL.md` were recorded with a single seed (42).
 
-Order-of-magnitude anchors (used only to choose defaults, not fitted):
-human somatic telomeres of roughly 5–15 kb; replication-associated loss on
-the order of 50–100 bp per division; critically short telomeres in the
-low-kb range; oxidative stress accelerating loss. The defaults give a
-Hayflick-like limit of a few dozen to ~60 divisions in the unstressed
-case, which is the intended qualitative behaviour.
+### 3.1 Literature calibration (2026-09-12)
+
+The defaults above were originally chosen as order-of-magnitude anchors, not
+fitted to data. This section replaces that with an actual literature check
+(via Consensus.app, human-reviewed) — same "used to choose defaults, not
+fitted" status, but now with real citations behind each number instead of a
+one-line hand-wave. Nothing in `schemas.py` was changed as a result: every
+current default already falls inside, or close to, the ranges below.
+
+| Parameter | Default | Literature anchor | Verdict |
+|---|---|---|---|
+| `initial_length` | 7500 bp | Adult blood ~6900 bp (Zheng et al., 2024, single-telomere array-FISH); fibroblast TRF (old donors) ~7000 bp (Allsopp et al., 1992) | Consistent |
+| `initial_length_sd` | 800 bp | Inter-individual leukocyte TL SD ~0.8 kb (Sabharwal et al., 2018) | Consistent |
+| `shortening_rate` | 55 bp/cycle | Fibroblasts in vitro: ~48±21 bp/division (Allsopp et al., 1992), ~50 bp (Levy et al., 1992); commonly cited range 50–100 bp, up to ~200 bp depending on cell type/method; newer in vivo estimate ~28 bp (Harris et al., 2025) | Consistent (mid-range of the in vitro fibroblast literature, the most relevant comparator for this model) |
+| `stress_sensitivity` | 100 bp/cycle (0–300) | Saretzki et al. (1995): telomere loss rate rises from 90 bp/PD (normoxia) to >500 bp/PD under 40% O₂ hyperoxia — a ~410 bp/PD *excess* under an extreme stress condition; Tchirkov & Lansdorp (2003): 1.5–3.2× increase in oxidatively-stressed (ataxia-telangiectasia) fibroblasts | Directionally consistent; the single most extreme literature datapoint (severe hyperoxia) exceeds this parameter's 300 bp/cycle upper bound — noted as a scope limit, not corrected, since 40% O₂ is a specific extreme experimental condition rather than the chronic/moderate stress this abstract knob is meant to represent |
+| `maintenance_max_gain` | 120 bp/cycle (0–300) | Cristofari & Lingner (2006): telomeres elongate up to 0.8 kb (800 bp) per population doubling under hTERT/hTR **overexpression** — an experimental extreme, not physiological telomerase activity (which the retrieved literature does not quantify as a clean bp/division rate) | Default and range are well below the overexpression extreme, consistent with representing moderate/physiological maintenance rather than engineered telomerase overexpression |
+| `senescence_threshold` | 3000 bp | Not a fixed universal value in the literature: the *shortest* telomere in a cell, not the mean, triggers senescence (Allsopp et al., 1995; Xu et al., 2013); short telomeres accumulate at ~1–2 kb before senescence, individual telomeres as low as 0.5–1 kb (Martens et al., 2000); TRF2 overexpression can shift the senescence setpoint from ~7 kb down to ~4 kb without accelerating senescence (Karlseder et al., 2002), showing telomere *protection state*, not length alone, governs the trigger | Plausible single-threshold approximation of a "shortest-telomere-driven, protection-state-dependent" mechanism the model deliberately simplifies — documented here as a known simplification, not silently assumed |
+| `repair_rate` | 0.20 (0–1, a.u.) | No direct bp/cycle repair-rate analog found; conceptually maps to shelterin-mediated protection and DNA-damage-response suppression at telomeres (de Lange, 2018; Denchi & de Lange, 2007) rather than a literature-quantified "repair rate" | Qualitative abstraction only — flagged as not literature-calibrated in the same numeric sense as the others |
+
+**References** (author/year as cited above; DOIs given where captured from the
+search):
+- Allsopp et al., 1992, *PNAS*, "Telomere length predicts replicative
+  capacity of human fibroblasts"
+- Allsopp et al., 1995, *Exp. Cell Res.*
+- Levy et al., 1992, *J. Mol. Biol.*, "Telomere end-replication problem and
+  cell aging"
+- Harris et al., 2025 (in vivo telomere-shortening-per-division estimate via
+  sex/DKC1 dosage differences)
+- Zheng et al., 2024 (single-telomere array-FISH telomere length survey)
+- Sabharwal et al., 2018 (pediatric multi-tissue telomere length)
+- Karlseder et al., 2002, *Science* (TRF2 overexpression and the senescence
+  setpoint)
+- Martens et al., 2000 (short-telomere accumulation before senescence)
+- Xu et al., 2013 (shortest telomere as the senescence determinant)
+- Saretzki, Docke & Lotze, 1995, *Exp. Cell Res.*,
+  doi:10.1006/excr.1995.1305, "Mild hyperoxia shortens telomeres and
+  inhibits proliferation of fibroblasts: a model for senescence?"
+- Tchirkov & Lansdorp, 2003, *Hum. Mol. Genet.*, doi:10.1093/hmg/ddg023,
+  "Role of oxidative stress in telomere shortening in cultured fibroblasts
+  from normal individuals and patients with ataxia-telangiectasia"
+- Cristofari & Lingner, 2006, *EMBO J.*, doi:10.1038/sj.emboj.7600952,
+  "Telomere length homeostasis requires that telomerase levels are
+  limiting"
+- de Lange, 2018, "Shelterin-Mediated Telomere Protection"
+- Denchi & de Lange, 2007, "Protection of telomeres through independent
+  control of ATM and ATR by TRF2 and POT1"
+
+This is a calibration *check* against literature-reported ranges, not a
+parameter re-fit — the model remains a deliberately abstract, coarse-grained
+simulation (§1), and none of these anchors change what the model does or
+does not claim (`docs/SCIENTIFIC_SCOPE.md`). The qualitative behaviour this
+was originally chosen for still holds: a Hayflick-like limit of a few dozen
+to ~60 divisions in the unstressed case.
 
 ## 4. Outputs
 
@@ -444,10 +491,16 @@ are not a claim of calibration to any organ's real physiology.
 * No cell-cycle arrest heterogeneity, no DNA-damage checkpoints beyond
   the single length threshold, no apoptosis of proliferative cells, no
   crisis/ALT escape, no chromosome-specific telomere lengths, no
-  asymmetric inheritance of sister-chromatid ends.
+  asymmetric inheritance of sister-chromatid ends. The literature (§3.1)
+  says the *shortest* telomere's protection state, not a fixed length
+  alone, actually governs the trigger — the single scalar threshold here
+  is a deliberate simplification of that.
 * Stress and repair are scalar abstractions (optionally piecewise constant
   in time, §2.1 — no continuous dose–response dynamics or lag).
-* Maintenance is a phenomenological gain, not a telomerase kinetic model.
+* Maintenance is a phenomenological gain, not a telomerase kinetic model
+  (§3.1: the literature reports telomerase elongation under experimental
+  overexpression, not a physiological per-division rate this could be
+  fitted to).
 * Passaging is state-blind random sub-sampling.
 * Sub-clones (§2.2) are abstract parameter variants sharing one culture's
   environment/schedule, not a model of mutation, drift, or real genetic

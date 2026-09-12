@@ -142,6 +142,73 @@ class EvolutionEngine:
         self.evaluations = 0
         self._cache: Dict[str, Candidate] = {}
         self.failure_log: List[Dict[str, Any]] = []
+        # Set by ``from_checkpoint``; ``run()`` picks up from here instead of a
+        # fresh random population when this is not None.
+        self._resume: Optional[Dict[str, Any]] = None
+
+    # ------------------------------------------------------------- checkpoint
+    @classmethod
+    def from_checkpoint(
+        cls,
+        path: str | Path,
+        run_dir: str | Path | None = None,
+        model: Optional[SimpleTelomereModel] = None,
+    ) -> "EvolutionEngine":
+        """Reconstruct an engine ready to resume from a checkpoint written by
+        ``_checkpoint`` (SDD §31).
+
+        ``path`` may be a specific ``generation_NNN.json`` file, or a run
+        directory containing such files -- in that case the highest-numbered
+        checkpoint is used. ``run_dir`` defaults to the checkpoint file's own
+        directory, so further checkpoints and the final artifacts land
+        alongside the ones already there.
+
+        Note (documented limitations): only the population, RNG state and
+        evaluation counter are restored from the checkpoint.
+        ``EvolutionResult.history`` produced by the resumed run starts at the
+        checkpoint's generation, not generation 0 -- per-generation history is
+        only ever kept in memory during a run (SDD-adjacent choice; the final
+        ``summary.csv`` is written once at the very end), so history before
+        the checkpoint was never persisted and cannot be recovered here.
+        Similarly, the evaluation cache (``_cache``) is only seeded from the
+        checkpointed population, not the full history of every genome
+        evaluated before the checkpoint -- so a genome that happens to recur
+        from an older, un-checkpointed generation costs one fresh evaluation
+        on resume where an uninterrupted run would have had a cache hit. The
+        genetic trajectory itself (which genomes get produced and the
+        resulting best candidate) is otherwise bit-for-bit reproducible.
+        """
+        path = Path(path)
+        if path.is_dir():
+            checkpoints = sorted(path.glob("generation_*.json"))
+            if not checkpoints:
+                raise FileNotFoundError(f"no checkpoint files found in {path}")
+            path = checkpoints[-1]
+        with open(path, "r", encoding="utf-8") as fh:
+            payload = json.load(fh)
+
+        base_config = ModelConfig.from_dict(payload["base_config"])
+        evo_config = EvolutionConfig.from_dict(payload["evolution_config"])
+        engine = cls(base_config, evo_config, model=model, run_dir=run_dir or path.parent)
+        engine.rng.bit_generator.state = payload["random_state"]
+        engine.evaluations = int(payload["evaluations"])
+        population = [Candidate.from_dict(c) for c in payload["population"]]
+        # The evaluation cache itself isn't part of the checkpoint payload, but
+        # seeding it with the checkpointed population means a genome that
+        # survives unchanged into a later generation (e.g. via elitism) is
+        # still recognised as already-evaluated, keeping ``evaluations`` from
+        # inflating relative to an uninterrupted run purely because of cache
+        # loss across the resume boundary.
+        for c in population:
+            engine._cache[engine._key(c.genome)] = c
+        engine._resume = {
+            "generation": int(payload["generation"]),
+            "population": population,
+            "best_genome": dict(payload["best_genome"]),
+            "best_fitness": float(payload["best_fitness"]),
+            "checkpoint_path": str(path),
+        }
+        return engine
 
     # ------------------------------------------------------------------ eval
     def _key(self, genome: Dict[str, float]) -> str:
@@ -181,12 +248,29 @@ class EvolutionEngine:
         n = evo.population_size
         n_elites = max(1, int(round(evo.elite_fraction * n))) if evo.elite_fraction > 0 else 0
 
-        genomes = self.spec.random_population(self.rng, n, include_baseline=True)
-        population = [self.evaluate(g) for g in genomes]
+        resume = self._resume
+        if resume is None:
+            genomes = self.spec.random_population(self.rng, n, include_baseline=True)
+            population = [self.evaluate(g) for g in genomes]
+        else:
+            population = resume["population"]
         baseline = self.evaluate(self.spec.baseline_genome())
 
         history: List[GenerationRecord] = []
-        best_ever = max(population, key=lambda c: c.fitness)
+        if resume is None:
+            best_ever = max(population, key=lambda c: c.fitness)
+        else:
+            # The checkpoint's best-ever candidate may no longer be a member of
+            # the checkpointed population (it can date from an earlier
+            # generation), so look it up by genome first to keep its stored
+            # breakdown/terminal_metrics instead of paying for a fresh
+            # evaluation when we don't have to.
+            best_ever = next((c for c in population if c.genome == resume["best_genome"]), None)
+            if best_ever is None:
+                best_ever = self.evaluate(resume["best_genome"])
+            if resume["best_fitness"] > best_ever.fitness:
+                best_ever = Candidate(genome=dict(resume["best_genome"]), fitness=resume["best_fitness"],
+                                      breakdown=best_ever.breakdown, terminal_metrics=best_ever.terminal_metrics)
         # Early stopping counts only improvements above the tolerance, but the
         # returned best must be the true maximum (an improvement smaller than
         # the tolerance is still an improvement).
@@ -215,10 +299,15 @@ class EvolutionEngine:
                 callback(rec)
             return rec
 
-        record(0)
-        self._checkpoint(0, population, best_ever)
+        if resume is None:
+            record(0)
+            self._checkpoint(0, population, best_ever)
+            start_gen = 1
+        else:
+            record(resume["generation"])
+            start_gen = resume["generation"] + 1
 
-        for gen in range(1, evo.generations + 1):
+        for gen in range(start_gen, evo.generations + 1):
             if should_stop and should_stop():
                 stopped_early, stop_reason = True, "stopped by user"
                 break

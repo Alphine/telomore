@@ -390,7 +390,9 @@ protocol actually runs (no fully autonomous unattended agent loop for v1).
 - An in-GUI "Assumptions" page rendering `docs/MODEL.md` equations.
 - 3-objective Pareto front for the locked-stress scenario (NSGA-II engine
   already supports 3 objectives, just never run for this scenario).
-- `--resume` CLI flag / multiprocessing for parallel fitness evaluation.
+- `--resume` CLI flag for checkpointed evolution runs. **DONE 2026-09-12** —
+  `EvolutionEngine.from_checkpoint()` + `scripts/run_evolution.py --resume`.
+- Multiprocessing for parallel fitness evaluation.
 - Combining with the unrelated `Baby_Monster` project (evolutionary-RL
   cognitive-architecture research, PyTorch/notebook-driven, entirely
   different compute profile and maturity stage) into one app — decided

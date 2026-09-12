@@ -470,7 +470,7 @@ nutrient_stress  = (1 − nutrient_state) · 0.25
 flow_relief      = flow_rate · 0.15
 stress_level     = clip(o2_stress + exogenous + nutrient_stress − flow_relief, 0, 1)
 repair_rate      = clip(0.10 + 0.30·nutrient_state + 0.20·flow_rate, 0, 1)
-cycles           = culture_days / 1 day per doubling
+cycles           = culture_days / doubling_time_days   (Sec 6.1: per-condition, not a global 1 day)
 ```
 
 Coefficients are round numbers chosen to keep outputs in bounds. They are
@@ -516,37 +516,39 @@ presets' `oxygen_tension` values hold up well:
   "lung tissue pO₂," it is not — worth keeping this distinction in mind
   when reading the preset's label.
 
-**Doubling time** — `ASSUMED_DOUBLING_TIME_DAYS = 1.0` is a single global
-constant applied to every chip preset, and the literature says this should
-not be one number:
-- Human dermal fibroblasts in standard culture: ~18–24 h doubling time —
-  matches the model's 1-day assumption closely, and is the best fit for the
-  `static_well` and `injury_stress_chip_like` presets (both fibroblast-like
-  in framing).
-- Primary hepatocyte/liver-organoid cultures: doubling times of
-  ~3.5–5.8 days depending on passage/duration — **4–6× slower** than the
-  model assumes for `liver_chip_like`, a genuine, unresolved calibration gap
-  rather than a close match.
-- Intestinal organoids: typically 7–10+ days to the next split/maturity —
-  also far slower than 1 day, affecting `gut_chip_like`.
-- No specific doubling-time literature was found for air-liquid-interface
-  lung epithelial culture (`lung_chip_like`); differentiated airway
-  epithelium in ALI culture is often minimally proliferative once mature,
-  which would make even "slower" an understatement rather than a specific
-  number to adopt.
+**Doubling time** — originally a single global `ASSUMED_DOUBLING_TIME_DAYS =
+1.0` applied to every chip preset; the literature said this should not be
+one number, so `ChipConditions` gained a per-condition `doubling_time_days`
+field (2026-09-12, still defaulting to 1.0 for custom/unset conditions) and
+each named preset now sets its own:
+- `static_well` / `injury_stress_chip_like` → **1.0 day**. Human dermal
+  fibroblasts in standard culture double in ~18–24 h — matches closely, and
+  both presets are fibroblast-like in framing (no organ-specific slow
+  tissue implied).
+- `liver_chip_like` → **4.5 days**. Primary hepatocyte/liver-organoid
+  cultures report doubling times of ~3.5–5.8 days depending on
+  passage/duration; 4.5 is the midpoint of that range, not a single
+  literature value.
+- `gut_chip_like` → **8.0 days**. Intestinal organoids typically take
+  ~7–10+ days to the next split/maturity; 8 is the middle of that range.
+- `lung_chip_like` → **2.0 days**. Airway epithelial cells in their
+  expansion phase report ~1–2 days per population doubling; note the
+  literature also says *mature, differentiated* air-liquid-interface
+  epithelium becomes far less proliferative than this once established —
+  this constant represents the expansion-phase rate, not the fully
+  differentiated state, which is a narrower but still real gap (unlike the
+  liver/gut numbers, which have a single well-supported range).
 
-**What this means in practice**: `cycles = culture_days / 1` converts a
-chosen experiment duration into simulator cycles uniformly across every
-preset, so `liver_chip_like`/`gut_chip_like` runs effectively simulate
-several times more cell divisions over the same `culture_days` than the
-real tissue they're framed around would undergo. This is now a documented,
-known gap rather than a silent one — fixing it (a per-preset doubling time)
-is a real, scoped follow-up, deliberately not done in this pass: it would
-change `CHIP_PRESETS`' derived `cycles` and therefore the population
-dynamics every existing chip-preset test and recorded experiment currently
-sees, which needs its own review rather than a drive-by numeric edit.
-`adapters/chip.py`'s own docstring and this section are both updated so the
-gap is visible; no defaults were changed as a result of this check.
+**What changed**: `cycles = culture_days / doubling_time_days` is now
+per-condition instead of a hardcoded `/ 1`. Before this fix,
+`liver_chip_like`/`gut_chip_like` ran 4–8× too many simulated cell
+divisions for a given `culture_days` relative to the tissue they're framed
+around; the same nominal `culture_days` now produces a `cycles` count
+appropriate to each preset's assumed cell type. This changes the recorded
+`cycles` (and therefore population dynamics) for these two presets relative
+to any run made before 2026-09-12 — a deliberate, documented behavior
+change, not a silent one. `stress_level`/`repair_rate` formulas and every
+other coefficient are unaffected.
 
 ## 7. Known simplifications
 

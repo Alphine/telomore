@@ -35,21 +35,16 @@ class ChipConditions:
     nutrient_state: float = 0.8   # 0 = depleted, 1 = replete
     stress_exposure: float = 0.2  # 0 = none, 1 = maximal exogenous stressor
     culture_days: float = 60.0    # duration of the virtual experiment
+    #: Population-doubling time assumed for this culture, used to convert
+    #: culture_days -> simulator cycles (docs/MODEL.md Sec 6.1). Defaults to
+    #: the same 1.0 day every chip condition used before this field existed
+    #: (fibroblast-like), so unset/custom conditions are unaffected; the
+    #: named presets below override it with a literature-checked,
+    #: cell-type-appropriate value instead of sharing one global constant.
+    doubling_time_days: float = 1.0
 
     def to_dict(self) -> Dict[str, float]:
         return asdict(self)
-
-
-#: Assumed population-doubling time used to convert days -> cell cycles.
-#: A single global constant applied to every chip preset -- checked against
-#: the literature (docs/MODEL.md Sec 6.1, 2026-09-12): it matches standard
-#: fibroblast culture (~18-24h doubling, close to 1 day) but is 4-6x too
-#: fast for primary hepatocyte/liver-organoid culture (~3.5-5.8 days) and
-#: intestinal organoids (~7-10+ days), so `liver_chip_like`/`gut_chip_like`
-#: effectively run several times more cell divisions per `culture_days` than
-#: the tissue they're framed around would. Known, documented gap; not fixed
-#: here (see docs/MODEL.md Sec 6.1 for why).
-ASSUMED_DOUBLING_TIME_DAYS = 1.0
 
 
 def chip_to_model_params(chip: ChipConditions) -> Dict[str, float]:
@@ -74,7 +69,7 @@ def chip_to_model_params(chip: ChipConditions) -> Dict[str, float]:
     repair_rate = float(np.clip(
         0.10 + 0.30 * chip.nutrient_state + 0.20 * chip.flow_rate, 0.0, 1.0
     ))
-    cycles = int(np.clip(round(chip.culture_days / ASSUMED_DOUBLING_TIME_DAYS), 1, 1000))
+    cycles = int(np.clip(round(chip.culture_days / chip.doubling_time_days), 1, 1000))
     return {"stress_level": stress_level, "repair_rate": repair_rate, "cycles": cycles}
 
 
@@ -105,6 +100,11 @@ CHIP_PRESETS: Dict[str, ChipPreset] = {
         conditions=ChipConditions(
             flow_rate=0.0, oxygen_tension=0.21, nutrient_state=0.6,
             stress_exposure=0.05, culture_days=60.0,
+            # Fibroblast-like doubling (~18-24h, docs/MODEL.md Sec 6.1) -- the
+            # same 1.0-day value every preset used before per-preset doubling
+            # times existed, kept explicit here as the "no organ framing"
+            # baseline the others are compared against.
+            doubling_time_days=1.0,
         ),
         label="Static well (control)",
         description="No perfusion, atmospheric oxygen, no deliberate exogenous stressor -- "
@@ -116,6 +116,10 @@ CHIP_PRESETS: Dict[str, ChipPreset] = {
         conditions=ChipConditions(
             flow_rate=0.15, oxygen_tension=0.06, nutrient_state=0.5,
             stress_exposure=0.5, culture_days=90.0,
+            # Primary hepatocyte / liver-organoid doubling: ~3.5-5.8 days
+            # depending on passage/duration (docs/MODEL.md Sec 6.1); 4.5 is
+            # the midpoint, not a single literature-reported value.
+            doubling_time_days=4.5,
         ),
         label="Liver-chip-like (low flow, physioxia)",
         description="Illustrative low-perfusion, low-oxygen-tension, metabolically demanding "
@@ -127,6 +131,14 @@ CHIP_PRESETS: Dict[str, ChipPreset] = {
         conditions=ChipConditions(
             flow_rate=0.9, oxygen_tension=0.21, nutrient_state=0.9,
             stress_exposure=0.15, culture_days=45.0,
+            # Airway epithelial expansion-phase doubling (~1-2 days per
+            # cell-population-doubling reports, docs/MODEL.md Sec 6.1) --
+            # faster than liver/gut but still checked, not assumed; note the
+            # literature also says mature, differentiated ALI epithelium
+            # becomes far less proliferative than this, which this single
+            # constant does not capture (same class of gap as before, just
+            # smaller).
+            doubling_time_days=2.0,
         ),
         label="Lung-chip-like (high flow, high O2)",
         description="Illustrative high-perfusion, atmospheric-oxygen, nutrient-replete profile "
@@ -138,6 +150,10 @@ CHIP_PRESETS: Dict[str, ChipPreset] = {
         conditions=ChipConditions(
             flow_rate=0.45, oxygen_tension=0.08, nutrient_state=0.25,
             stress_exposure=0.35, culture_days=60.0,
+            # Intestinal organoid doubling: typically ~7-10+ days to the next
+            # split/maturity (docs/MODEL.md Sec 6.1); 8 is the middle of that
+            # range, not a single literature-reported value.
+            doubling_time_days=8.0,
         ),
         label="Gut-chip-like (nutrient-limited)",
         description="Illustrative moderate-flow, low-oxygen, nutrient-depleted profile evoking a "
@@ -149,6 +165,11 @@ CHIP_PRESETS: Dict[str, ChipPreset] = {
         conditions=ChipConditions(
             flow_rate=0.2, oxygen_tension=0.21, nutrient_state=0.45,
             stress_exposure=0.9, culture_days=60.0,
+            # Fibroblast-like doubling (docs/MODEL.md Sec 6.1) -- this preset
+            # is a toxicology/injury stress axis on a generic culture, not a
+            # specific slow-dividing organ tissue, so the fibroblast default
+            # is the appropriate anchor, same as static_well.
+            doubling_time_days=1.0,
         ),
         label="High-stress injury-chip-like",
         description="Illustrative low-flow, high-exogenous-stress profile evoking a toxicology/"

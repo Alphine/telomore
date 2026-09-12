@@ -384,6 +384,7 @@ class ChipConditionsRequest(BaseModel):
     nutrient_state: float = 0.8
     stress_exposure: float = 0.2
     culture_days: float = 60.0
+    doubling_time_days: float = 1.0
 
 
 class ChipParamsResponse(BaseModel):

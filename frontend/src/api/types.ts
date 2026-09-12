@@ -222,6 +222,7 @@ export interface ChipConditions {
   nutrient_state: number
   stress_exposure: number
   culture_days: number
+  doubling_time_days: number
 }
 
 // chip_to_model_params return shape

@@ -424,7 +424,7 @@ two, never both, never neither (`400` on either violation, scenario-name
 qualified like every other config error on this endpoint). `chip` fields are
 the same optional `ChipConditions` fields as `/api/meta/chip-to-params`
 (`flow_rate`, `oxygen_tension`, `nutrient_state`, `stress_exposure`,
-`culture_days`); an unknown/malformed field is a `422` (pydantic wire-shape
+`culture_days`, `doubling_time_days`); an unknown/malformed field is a `422` (pydantic wire-shape
 validation), not a `400`. The request also accepts an optional
 `base_config` (a `ModelConfig` body, defaults to `ModelConfig()`'s own
 defaults): a `chip` scenario is mapped through the existing, unmodified
@@ -439,7 +439,7 @@ kinds:
 {"scenarios": [{"name": "Baseline", "config": {...ModelConfig...}},
                {"name": "Liver-chip-like", "chip": {"flow_rate": 0.15, "oxygen_tension": 0.06,
                                                      "nutrient_state": 0.5, "stress_exposure": 0.5,
-                                                     "culture_days": 90}}],
+                                                     "culture_days": 90, "doubling_time_days": 4.5}}],
  "base_config": {...ModelConfig...},
  "seed": 42}
 ```
@@ -450,10 +450,10 @@ Compare page can render preset cards/pickers without a `/chip-to-params`
 round trip per preset:
 
 ```json
-{"presets": {"liver_chip_like": {"conditions": {...ChipConditions...},
+{"presets": {"liver_chip_like": {"conditions": {...ChipConditions..., "doubling_time_days": 4.5},
                                   "label": "Liver-chip-like (low flow, physioxia)",
                                   "description": "...",
-                                  "derived": {"stress_level": 0.55, "repair_rate": 0.28, "cycles": 90}},
+                                  "derived": {"stress_level": 0.55, "repair_rate": 0.28, "cycles": 20}},
              "...": {}}}
 ```
 
@@ -528,8 +528,8 @@ never hardcodes a bound in TypeScript.
   `-dirty` suffix for an unclean tree).
 * `POST /api/meta/chip-to-params` (**protected**) — body is the
   `ChipConditions` fields (`flow_rate`, `oxygen_tension`, `nutrient_state`,
-  `stress_exposure`, `culture_days`, all optional with the dataclass
-  defaults) → `{stress_level, repair_rate, cycles}` from
+  `stress_exposure`, `culture_days`, `doubling_time_days`, all optional with
+  the dataclass defaults) → `{stress_level, repair_rate, cycles}` from
   `telomere_lab.adapters.chip.chip_to_model_params`. The mapping is a
   documented modelling assumption, not a calibrated relationship
   (`docs/MODEL.md` §6); the response values are valid `ModelConfig`

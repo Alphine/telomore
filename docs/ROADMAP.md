@@ -465,7 +465,15 @@ the Anthropic call and maps the resulting connection error to a friendly
 - GitHub Actions CI. **DONE 2026-09-12** — `.github/workflows/ci.yml` runs
   backend pytest + frontend typecheck/lint/vitest/build on every push/PR to
   master.
-- Kaggle notebook submission packaging.
+- Kaggle notebook submission packaging. **Decided against, 2026-09-12** —
+  this item dates back to the project's hackathon-submission origins, but
+  the app has since grown into a full-stack FastAPI + React + Postgres
+  service deployed on Railway (see "Status" at the top of this file); a
+  Jupyter-notebook repackaging doesn't fit that architecture and would mean
+  maintaining a second, degraded copy of the science (no web UI, no DB, no
+  live deployment) purely for a submission format this project no longer
+  targets. Not revisited unless a future Kaggle-specific submission is
+  explicitly requested.
 - An in-GUI "Assumptions" page rendering `docs/MODEL.md` equations.
   **DONE 2026-09-12, via an existing feature** — the Docs page
   (`frontend/src/pages/Docs`, `/guide?doc=model`, built 2026-09-11 for a

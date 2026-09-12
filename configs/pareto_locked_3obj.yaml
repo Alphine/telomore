@@ -1,0 +1,47 @@
+# Experiment H (NSGA-II, 3 objectives): same locked-stress scenario as
+# Experiment C's pareto_locked.yaml (stress_level fixed at 0.60, only
+# maintenance_rate/repair_rate free), but with `reserve` added as a third
+# objective alongside survival/cost. Experiment C's own GA run found a point
+# (maintenance=0.917, repair=0.516) that was NOT on the 2-objective
+# (survival, cost) front -- dominated there -- because the GA's scalar
+# fitness also rewards telomere reserve, which the 2-D front didn't account
+# for. Experiment C predicted a 3-objective front would recover that GA
+# point exactly; this config tests that prediction
+# (docs/EXPERIMENT_PROTOCOL.md Experiment H).
+model:
+  initial_length: 7500.0
+  initial_length_sd: 800.0
+  population_size: 100
+  carrying_capacity: 400
+  telomeres_per_cell: 32
+  shortening_rate: 55.0
+  stress_level: 0.60
+  stress_sensitivity: 100.0
+  maintenance_rate: 0.10
+  maintenance_max_gain: 120.0
+  repair_rate: 0.15
+  senescence_threshold: 3000.0
+  noise_sd: 30.0
+  senescent_death_rate: 0.03
+  cycles: 120
+  seed: 42
+
+multiobjective:
+  population_size: 40
+  generations: 25
+  mutation_rate: 0.30
+  mutation_sigma: 0.15
+  crossover_rate: 0.80
+  crossover_kind: uniform
+  seed: 7
+  eval_seeds: [42]
+  free_genes: [maintenance_rate, repair_rate]   # stress_level is NOT free
+  schedule_phases: 1                            # 1 = constant genes; >1 = protocol search (docs/MODEL.md 2.1)
+  objectives: [survival, reserve, cost]
+  checkpoint_every: 5
+  weights:
+    w_survival: 0.40
+    w_reserve: 0.30
+    w_senescence: 0.20
+    w_instability: 0.10
+    w_cost: 0.30

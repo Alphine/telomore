@@ -698,7 +698,83 @@ python scripts/run_simulation.py --config configs/demo_fasting.yaml --no-registe
 python scripts/run_simulation.py --config configs/demo_fasting_evolved.yaml --no-register    # evolved response: 0% senescent
 ```
 
-## 13. Performance (scripts/benchmark.py, same machine)
+## 13. Experiment H — A 3-objective Pareto front recovers the GA's "off-front" point
+
+### Question
+
+Experiment C's GA run (locked stress, `maintenance_rate`/`repair_rate` free)
+found a point (maintenance=0.917, repair=0.516, survival=0.993) that was
+*dominated* on the 2-objective (survival, cost) front — the front's own
+top point reached the same survival for less cost. Experiment C's own
+interpretation predicted why: the GA's scalar fitness also rewards
+telomere *reserve*, which the 2-objective front never accounted for, and
+predicted that adding `reserve` as a third NSGA-II objective would recover
+the GA's point onto the front exactly. This experiment tests that
+prediction directly instead of leaving it as a stated-but-unverified claim.
+
+### Setup
+
+`configs/pareto_locked_3obj.yaml` — identical to Experiment C's
+`pareto_locked.yaml` (stress_level locked at 0.60, only
+`maintenance_rate`/`repair_rate` free, same population/generations/seed)
+except `objectives: [survival, reserve, cost]` instead of
+`[survival, cost]`.
+
+```bash
+python scripts/run_pareto.py --config configs/pareto_locked_3obj.yaml --seed 7
+```
+
+Run `TEL-20260912-002`: 40-point front, 715 simulations, 118 s.
+
+### Result
+
+The Experiment C GA genome (`maintenance_rate=0.917`, `repair_rate=0.516`)
+was re-evaluated against this run's model and checked for domination
+against all 40 front points (does any front point have survival ≥, reserve
+≥ *and* cost ≤, with at least one strictly better?):
+
+| | survival | reserve | cost | Dominated by any of the 40 front points? |
+|---|---|---|---|---|
+| Experiment C's GA point (re-evaluated) | 0.9927 | 1.0000 | 0.5536 | **No — 0 of 40** |
+| Closest front point found by NSGA-II | 0.9927 | 1.0000 | 0.5583 | — |
+
+The closest front point's genome (`maintenance_rate=0.912`,
+`repair_rate=0.533`) essentially reproduces the GA's own answer
+(`0.917`/`0.516`) from an entirely different search (NSGA-II vs. a scalar
+GA), independently.
+
+**Hypervolume is reported as 0.0** for this run — `hypervolume_2d()` is
+exact-2D-only by design (`docs/MODEL.md` §5.1) and returns 0 for any other
+objective count rather than a wrong or misleading number. Front quality
+here is checked directly (non-domination against a known point), not via
+hypervolume — a real, documented limitation of the current hypervolume
+tooling for 3+ objectives, not one this experiment works around.
+
+### Interpretation (within the model)
+
+* **Experiment C's own prediction holds, verified directly rather than
+  asserted.** A 2-objective front is a lower bound on cost for a given
+  survival *only among the objectives it tracks* — adding the objective
+  the GA's scalar fitness actually also cared about (reserve) makes the
+  "off-front" point a legitimate front point after all. Neither search
+  was wrong; they were answering different questions.
+* **Two independent search methods (a scalar GA and 3-objective NSGA-II)
+  converge on the same trade-off point from opposite directions** — the
+  GA by weighting all three quantities into one scalar, NSGA-II by
+  searching the full trade-off surface and this point turning out to be
+  non-dominated on it. That agreement is itself a mild robustness check on
+  both.
+* **Practical reading**: with stress locked at 0.60, `reserve` and
+  `survival` saturate together (both peak at maintenance ≈ 0.91,
+  repair ≈ 0.52-0.53) — there is no genuine 3-way trade-off *at* that
+  corner of the space, only a 2-way one (cost vs. the joint
+  survival+reserve ceiling), which is why a single point can be optimal
+  for both a 2-D-blind scalar objective and a 3-D-aware Pareto search.
+* Still a model result under the stated objective definitions
+  (`docs/SCIENTIFIC_SCOPE.md`), not a claim about real intervention
+  trade-offs.
+
+## 14. Performance (scripts/benchmark.py, same machine)
 
 | Measurement | Value |
 |---|---|

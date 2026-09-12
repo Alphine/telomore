@@ -442,6 +442,17 @@ protocol actually runs (no fully autonomous unattended agent loop for v1).
   satisfied by cross-reference rather than new code.
 - 3-objective Pareto front for the locked-stress scenario (NSGA-II engine
   already supports 3 objectives, just never run for this scenario).
+  **DONE 2026-09-12** — `configs/pareto_locked_3obj.yaml`
+  (`objectives: [survival, reserve, cost]`), run `TEL-20260912-002`
+  (`docs/EXPERIMENT_PROTOCOL.md` Experiment H). Confirmed Experiment C's own
+  prediction directly: the GA's point that was dominated on the 2-objective
+  (survival, cost) front is **not dominated by any of the 40 points** on
+  the 3-objective front — verified by re-evaluating the exact GA genome and
+  checking it against every front point, not just visually. No code
+  changes needed (frontend already supports N-objective fronts by using
+  objective 3+ as a colour dimension; `hypervolume_2d()` correctly reports
+  0.0 for 3 objectives rather than a wrong number, a known, documented
+  limitation of that specific metric, not of the search itself).
 - `--resume` CLI flag for checkpointed evolution runs. **DONE 2026-09-12** —
   `EvolutionEngine.from_checkpoint()` + `scripts/run_evolution.py --resume`.
 - Multiprocessing for parallel fitness evaluation. **DONE 2026-09-12** —

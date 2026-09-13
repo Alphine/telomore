@@ -257,6 +257,16 @@ export function ModelConfigForm({
           </div>
         </div>
       </details>
+
+      <details className="group">
+        <summary className="cursor-pointer select-none text-sm font-semibold">Genome stability (optional)</summary>
+        <div className="mt-3 space-y-3">
+          {bounded('replication_error_rate')}
+          {bounded('oxidative_mutation_sensitivity')}
+          {bounded('checkpoint_strength')}
+          {bounded('mutation_threshold')}
+        </div>
+      </details>
     </div>
   )
 }

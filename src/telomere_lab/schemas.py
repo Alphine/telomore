@@ -64,7 +64,7 @@ PARAMETER_BOUNDS: Dict[str, tuple] = {
                                        "Extra mutation burden per division at stress_level = 1, offset by repair_rate."),
     "checkpoint_strength": (0.0, 1.0, "a.u.", "Apoptosis checkpoint strength",
                             "Probability per cycle that a cell over the mutation threshold is removed; 0 disables the checkpoint."),
-    "mutation_threshold": (0.01, 1.0e9, "a.u.", "Mutation burden threshold",
+    "mutation_threshold": (0.0, 1.0e9, "a.u.", "Mutation burden threshold",
                            "Burden level above which the apoptosis checkpoint can trigger (only relevant when checkpoint_strength > 0)."),
 }
 

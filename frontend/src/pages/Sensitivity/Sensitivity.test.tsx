@@ -86,6 +86,13 @@ describe('Sensitivity page', () => {
     fireEvent.click(screen.getByLabelText('initial_length'))
     fireEvent.click(screen.getByLabelText('shortening_rate'))
     fireEvent.click(screen.getByLabelText('senescence_threshold'))
+    // Genome stability (docs/MODEL.md §2.3) params default to checked like
+    // every other evolvable parameter; uncheck them to isolate this test's
+    // fixed 3-parameter ITEMS/body expectations.
+    fireEvent.click(screen.getByLabelText('replication_error_rate'))
+    fireEvent.click(screen.getByLabelText('oxidative_mutation_sensitivity'))
+    fireEvent.click(screen.getByLabelText('checkpoint_strength'))
+    fireEvent.click(screen.getByLabelText('mutation_threshold'))
     fireEvent.click(screen.getByRole('button', { name: /Run sensitivity analysis/ }))
 
     // Running: progress text names the parameter, the live table grows, no Stop button.

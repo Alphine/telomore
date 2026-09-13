@@ -211,6 +211,64 @@ feature #4).
   `subclones` — this is a Simulate-page exploratory lens on the *inner*
   competition dynamics, not a new gene space for the *outer* optimizers.
 
+### 2.3 Genome stability (mutation burden and apoptosis checkpoint)
+
+By default a cell's only failure mode is telomere-driven senescence (§2). A
+`ModelConfig` may optionally accumulate a per-cell **mutation burden** and
+remove cells whose burden crosses a threshold through an **apoptosis
+checkpoint** — a second, independent genomic-instability axis alongside
+telomere shortening, in the same spirit as sub-clone competition (§2.2): an
+additive, off-by-default lens on the existing population, not a new
+simulator.
+
+* Four new `ModelConfig` fields govern this: `replication_error_rate` and
+  `oxidative_mutation_sensitivity` (both `0.0` by default) drive how fast the
+  burden grows; `checkpoint_strength` (`0.0` by default — the feature's
+  actual off switch) is the per-cycle removal probability for a flagged cell;
+  `mutation_threshold` (a `1.0e9` sentinel by default) is the burden level
+  that flags a cell. All four are in `PARAMETER_BOUNDS` and
+  `EVOLVABLE_PARAMETERS`; none are schedulable or sub-clone-overridable in
+  this version (see "Composition" below).
+* **Accumulation.** Each cell tracks `mutation_burden`, initialised to `0.0`
+  at cycle 0. On every division, a dividing cell's (and its daughter's)
+  burden increases by
+  `replication_error_rate + stress_level * oxidative_mutation_sensitivity * (1 - repair_rate)`
+  — reusing exactly the same per-step `repair_rate` lookup (scalar, scheduled,
+  or sub-clone-overridden) the telomere-repair arithmetic of §2 already
+  computes, so no new lookup machinery is introduced. A daughter inherits its
+  parent's burden at the moment of division, then both are incremented
+  together, exactly like `founder_id`/`clone_id` inheritance.
+* **Apoptosis checkpoint.** Each cycle, after the senescence check (§2) and
+  before senescent-cell removal, every cell with `mutation_burden >
+  mutation_threshold` is flagged `apoptotic`; a flagged cell is then removed
+  with probability `checkpoint_strength` (`simulator/population.py::
+  remove_apoptotic`, mirroring `remove_dead`'s exact shape and no-op guard).
+  Apoptotic removal happens *before* senescent-death removal each cycle so a
+  cell is never double-counted in both.
+* **Backward compatibility.** With `replication_error_rate =
+  oxidative_mutation_sensitivity = checkpoint_strength = 0.0` (the defaults),
+  `mutation_burden` never leaves `0.0` and `remove_apoptotic` is an
+  unconditional no-op that consumes no RNG draw — bit-identical to the
+  pre-genome-stability model (`tests/test_genome_stability.py` checks this
+  against the same golden fixture `tests/test_schedule.py` uses).
+* **Composition with schedules/subclones.** Not schedulable and not
+  sub-clone-overridable in this version — explicitly deferred (see
+  `docs/ROADMAP.md`'s "Explicitly deferred" section). All four fields are
+  plain config-level scalars regardless of any schedule or sub-clone setup.
+* **Output.** `SimulationResult.mean_mutation_burden` / `apoptotic_fraction`
+  are genome-wide per-cycle series on the same `(T+1,)` axis as `time`
+  (all-zero, never absent, when the feature is unused).
+  `terminal_metrics["final_mutation_burden"]` and
+  `terminal_metrics["genomic_instability_index"]` are survivors-only
+  snapshots at the final cycle — `genomic_instability_index` is the fraction
+  of surviving cells over `mutation_threshold`, consistent with
+  `final_senescent_fraction`/`fraction_below_threshold`'s own snapshot
+  semantics, not a cumulative count of every cell ever apoptosed.
+* **Not in scope.** `mutation_burden` is a scalar rate abstraction, not a
+  mechanistic sequence/locus/variant model — there is no genome sequence,
+  no mutation spectrum, and no phylogenetic reconstruction
+  (`docs/SCIENTIFIC_SCOPE.md`).
+
 ## 3. Parameters
 
 | Name | Default | Range | Unit | Kind |
@@ -229,14 +287,20 @@ feature #4).
 | `senescence_threshold` | 3000 | 500–6000 | bp | model (evolvable) |
 | `noise_sd` | 30 | 0–200 | bp | randomness |
 | `senescent_death_rate` | 0.03 | 0–0.5 | 1/cycle | model |
+| `replication_error_rate` | 0.0 | 0–0.05 | 1/cycle | model (evolvable, genome stability §2.3) |
+| `oxidative_mutation_sensitivity` | 0.0 | 0–0.05 | 1/cycle | model (evolvable, genome stability §2.3) |
+| `checkpoint_strength` | 0.0 | 0–1 | a.u. | model (evolvable, genome stability §2.3) |
+| `mutation_threshold` | 1.0e9 | 0–1.0e9 | a.u. | model (evolvable, genome stability §2.3) |
 | `cycles` | 120 | ≥1 | cycles | run control |
 | `seed` | 42 | – | – | randomness |
 | `schedule` | none | 1–8 phases | – | optional protocol (§2.1) |
 | `subclones` | none | ≥2 clones | – | optional sub-clone competition (§2.2) |
 
 Evolvable genes (SDD §12): `initial_length`, `shortening_rate`,
-`stress_level`, `maintenance_rate`, `repair_rate`, `senescence_threshold`.
-The default experiment frees only the three "culture-condition" genes.
+`stress_level`, `maintenance_rate`, `repair_rate`, `senescence_threshold`,
+`replication_error_rate`, `oxidative_mutation_sensitivity`,
+`checkpoint_strength`, `mutation_threshold` (§2.3). The default experiment
+frees only the three "culture-condition" genes.
 
 Each candidate's fitness is now averaged over multiple simulator seeds
 (`eval_seeds`, default `(1, 2, 3)`) rather than a single draw, to reduce
@@ -380,15 +444,17 @@ fitness = w_survival    · normalized_survival
         − w_senescence  · final_senescent_fraction
         − w_instability · clip(final_length_cv / 0.5, 0, 1)
         − w_cost        · ½ (m̄² + r̄²)          m̄, r̄ = time-averaged maintenance_rate, repair_rate
+        − w_genome_instability · genomic_instability_index     (§2.3)
 ```
 
 For a constant (unscheduled) configuration `m̄ = maintenance_rate` and
 `r̄ = repair_rate`, i.e. the cost is ½(maintenance² + repair²) exactly as
 before; for a scheduled protocol see §2.1.
 
-Default weights 0.40 / 0.30 / 0.20 / 0.10 / 0.30. Invalid simulations
-(out-of-range parameter, non-finite state) receive fitness −1000 and are
-flagged; they never compete with valid candidates.
+Default weights 0.40 / 0.30 / 0.20 / 0.10 / 0.30 / 0.0 (the last is
+`w_genome_instability`, inert until a user opts into genome stability §2.3).
+Invalid simulations (out-of-range parameter, non-finite state) receive
+fitness −1000 and are flagged; they never compete with valid candidates.
 
 **Fitness is an experimenter-chosen objective, not a biological truth.**
 The cost term is *convex* (quadratic) so the marginal cost of an
@@ -402,7 +468,7 @@ itself an assumption the user can change.
 
 ### 5.1 Multi-objective alternative (NSGA-II)
 
-`evolution/multiobjective.py` optimises any two or more of the five
+`evolution/multiobjective.py` optimises any two or more of the six
 components above **without weights**. Objectives and their directions:
 
 | Objective | Direction | Definition |
@@ -412,6 +478,7 @@ components above **without weights**. Objectives and their directions:
 | `senescence` | min | final senescent fraction |
 | `instability` | min | clip(final CV / 0.5, 0, 1) |
 | `cost` | min | ½(m̄² + r̄²), time-averaged maintenance / repair (§2.1) |
+| `genome_instability` | min | genomic instability index, fraction of surviving cells over the mutation threshold (§2.3) |
 
 NSGA-II (Deb et al., 2002): fast non-dominated sort, crowding distance,
 binary tournament on (rank, crowding), (μ+λ) survival with the last front

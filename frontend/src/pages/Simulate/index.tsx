@@ -31,6 +31,7 @@ import {
   populationCurve,
   senescenceCurve,
 } from '../../components/charts/simulationCharts'
+import { mutationBurdenChart } from '../../components/charts/genomeStabilityCharts'
 import { cloneFractionChart } from '../../components/charts/subcloneCharts'
 import { usePrefersDark } from '../../components/charts/theme'
 import { downloadJson, downloadText, timeseriesCsv } from '../../components/download'
@@ -48,6 +49,12 @@ const CHIP_UNAVAILABLE: ReadonlyMap<string, string> = new Map([
   ['stress_level', 'derived from chip'],
   ['repair_rate', 'derived from chip'],
 ])
+
+/** True when a run's genome-stability fields are actually in use (docs/MODEL.md §2.3) --
+ * the feature is otherwise fully invisible in the results. */
+function hasGenomeStability(config: ModelConfig): boolean {
+  return config.replication_error_rate > 0 || config.oxidative_mutation_sensitivity > 0 || config.checkpoint_strength > 0
+}
 
 /** Drop the chip-derived parameters from a schedule (when the mapper is switched on). */
 function withoutChipKeys(cfg: ModelConfig): ModelConfig {
@@ -179,6 +186,7 @@ export function Simulate() {
     return {
       protocol: Object.keys(run.applied_schedule ?? {}).length ? appliedScheduleChart(run.applied_schedule, dark, cursor) : null,
       clones: Object.keys(run.clone_fraction ?? {}).length ? cloneFractionChart(run.clone_fraction, dark, cursor) : null,
+      genomeStability: hasGenomeStability(run.config) ? mutationBurdenChart(run.timeseries, dark, cursor) : null,
       length: lengthTrajectory(run, dark, cursor),
       dist: lengthDistribution(run, dark),
       sen: senescenceCurve(run, dark, cursor),
@@ -420,6 +428,34 @@ export function Simulate() {
                   <p className="prose-muted text-xs">
                     Share of the living population per clone. Clones are abstract parameter variants, not a real
                     genetic/mutation model (docs/SCIENTIFIC_SCOPE.md).
+                  </p>
+                </section>
+              )}
+
+              {figures.genomeStability && hasGenomeStability(run.config) && (
+                <section className="space-y-3" aria-label="Genome stability">
+                  <Plot figure={figures.genomeStability} />
+                  <div className="card overflow-x-auto p-3">
+                    <table className="w-full text-sm" data-testid="genome-stability-table">
+                      <tbody className="font-mono">
+                        <tr>
+                          <td className="px-2 py-1">final mean mutation burden</td>
+                          <td className="px-2 py-1 text-right">
+                            {(run.terminal_metrics.final_mutation_burden ?? 0).toFixed(4)}
+                          </td>
+                        </tr>
+                        <tr className="border-t border-slate-200 dark:border-slate-800">
+                          <td className="px-2 py-1">genomic instability index</td>
+                          <td className="px-2 py-1 text-right">
+                            {((run.terminal_metrics.genomic_instability_index ?? 0) * 100).toFixed(1)}%
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="prose-muted text-xs">
+                    Genome instability is a per-cell mutation-burden abstraction, not a mechanistic
+                    sequence/locus model (docs/SCIENTIFIC_SCOPE.md).
                   </p>
                 </section>
               )}

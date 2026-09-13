@@ -437,6 +437,56 @@ environment) Anthropic API confirming the full request pipeline end to end
 the Anthropic call and maps the resulting connection error to a friendly
 502 message, exactly as the unit tests predict for that failure mode.
 
+## Genome stability: mutation burden and apoptosis checkpoint (brainstormed 2026-09-13, DONE 2026-09-13)
+
+Following the decision to drop Baby_Monster (a fully separate PyTorch/RL
+cognitive-architecture project) from this roadmap entirely, and to keep
+expanding the genome-focused research direction *inside* Telomere Lab rather
+than spinning up a second app, this is the first of several
+brainstormed "genome-basis" ideas — chosen because it plugs directly into
+the existing evolutionary-computation paradigm (new evolvable parameters, a
+6th fitness objective) with no new infrastructure, and follows the exact
+architectural precedent already proven twice (schedules §2.1, sub-clone
+competition §2.2): additive, off-by-default, zero new API/router plumbing,
+proven by a golden-fixture bit-identity test.
+
+**DONE 2026-09-13** — a per-cell **mutation burden** accumulator
+(`ModelConfig.replication_error_rate` / `oxidative_mutation_sensitivity`,
+both default `0.0`) grows on every division, offset by the existing
+`repair_rate`; an optional **apoptosis checkpoint**
+(`ModelConfig.checkpoint_strength`, default `0.0` — the feature's actual off
+switch; `mutation_threshold`, a `1.0e9` sentinel default) removes flagged
+cells with a per-cycle probability, mirroring `remove_dead`'s exact shape
+(`simulator/population.py::remove_apoptotic`). All four fields are
+evolvable; none are schedulable or sub-clone-overridable in this version
+(explicitly deferred below). New outputs `mean_mutation_burden` /
+`apoptotic_fraction` (per-cycle timeseries) and `final_mutation_burden` /
+`genomic_instability_index` (terminal metrics); a 6th, inert-by-default
+fitness term (`w_genome_instability = 0.0`) and multi-objective
+`genome_instability` objective. **Zero backend/router schema changes** were
+needed — confirmed by writing `tests/test_api_genome_stability.py` against
+the real API before touching `backend/` at all, exactly as the "additive,
+generic-passthrough" architecture predicts. React: a "Genome stability
+(optional)" `<details>` block of plain `bounded()` sliders in
+`ModelConfigForm.tsx` (no dedicated editor component — these are scalar
+fields, not array-of-struct data like sub-clones/schedules), a new
+mutation-burden line chart (`charts/genomeStabilityCharts.ts`), and a
+results section on Simulate gated on the feature actually being in use.
+Full spec: `docs/MODEL.md` §2.3. Tests: `tests/test_genome_stability.py`,
+`tests/test_api_genome_stability.py` (pytest all green, including the
+golden-fixture bit-identity proof), Vitest all green (159, incl. a
+Sensitivity-page fixture update for the 4 newly-evolvable parameters).
+
+Other genome-basis ideas from the same brainstorm (Genome Stability Lab
+picked first as the cheapest/lowest-risk/most-scientifically-grounded step;
+not yet built): a genotype × environment (G×E) study reusing sub-clones as
+genotypes, a canalization/robustness fitness objective, upgrading sub-clones
+toward a population-genetics-style model, grounding parameter choices in
+real GWAS-variant effect sizes, and a genome-dimensionality scaling study.
+A "Genome Function Explorer" concept (predicted functional impact of a
+config) was flagged as carrying more scientific-honesty/overclaim risk and
+is not prioritized.
+
 ## Explicitly deferred / out of scope for now
 
 - Literature calibration of default parameters (needs real citation work,
@@ -502,3 +552,9 @@ the Anthropic call and maps the resulting connection error to a friendly
   unchanged serial path), bit-for-bit identical trajectory to serial since
   the RNG only ever runs in the main process. `scripts/run_evolution.py
   --workers N`.
+- Sub-clone × genome-stability composition (docs/MODEL.md §2.3): a clone
+  overriding its own `replication_error_rate` / `oxidative_mutation_sensitivity`
+  / `checkpoint_strength` / `mutation_threshold` (`SUBCLONE_OVERRIDABLE_PARAMETERS`
+  is unchanged by the 2026-09-13 genome-stability feature). Explicitly out of
+  scope for v1 — every cell currently reads these four fields as plain config
+  scalars regardless of its clone.

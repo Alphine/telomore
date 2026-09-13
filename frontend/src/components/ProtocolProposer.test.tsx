@@ -22,7 +22,9 @@ const BASE_CONFIG: ModelConfig = {
   initial_length: 7500, initial_length_sd: 800, population_size: 100, carrying_capacity: 400,
   telomeres_per_cell: 32, shortening_rate: 55, stress_level: 0.6, stress_sensitivity: 100,
   maintenance_rate: 0.1, maintenance_max_gain: 120, repair_rate: 0.15, senescence_threshold: 3000,
-  noise_sd: 30, senescent_death_rate: 0.03, cycles: 120, seed: 42, record_distribution_every: 0,
+  noise_sd: 30, senescent_death_rate: 0.03,
+  replication_error_rate: 0, oxidative_mutation_sensitivity: 0, checkpoint_strength: 0, mutation_threshold: 1e9,
+  cycles: 120, seed: 42, record_distribution_every: 0,
 }
 
 const PROPOSED: LLMProposeResponse = {

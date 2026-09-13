@@ -95,6 +95,14 @@ export interface ModelConfig {
   senescence_threshold: number
   noise_sd: number
   senescent_death_rate: number
+  /** Genome stability (docs/MODEL.md §2.3): baseline mutation-burden rate per division; 0 = feature unused. */
+  replication_error_rate: number
+  /** Extra mutation-burden rate at stress_level = 1, offset by repair_rate; 0 = feature unused. */
+  oxidative_mutation_sensitivity: number
+  /** Apoptosis-checkpoint removal probability per cycle; 0 disables the checkpoint (the feature's off switch). */
+  checkpoint_strength: number
+  /** Mutation-burden level above which the checkpoint can trigger (only relevant when checkpoint_strength > 0). */
+  mutation_threshold: number
   cycles: number
   seed: number
   record_distribution_every: number
@@ -111,6 +119,8 @@ export interface FitnessWeights {
   w_senescence: number
   w_instability: number
   w_cost: number
+  /** Weight of the genome-instability term (docs/MODEL.md §2.3); 0.0 default keeps it inert. */
+  w_genome_instability: number
 }
 
 // telomere_lab.schemas.EvolutionConfig.to_dict()
@@ -262,6 +272,8 @@ export interface FitnessBreakdown {
   senescence: number
   instability: number
   cost: number
+  /** Genome stability (docs/MODEL.md §2.3); inert (0) unless w_genome_instability is set. */
+  genome_instability: number
   valid: boolean
   reason: string | null
 }
@@ -281,6 +293,9 @@ export interface TerminalMetrics {
   time_to_90pct_senescence: number | null
   final_length_cv: number
   extinct: boolean
+  /** Genome stability (docs/MODEL.md §2.3); absent on runs recorded before this feature existed. */
+  final_mutation_burden?: number
+  genomic_instability_index?: number
 }
 
 // SimulationResult.timeseries_frame() columns. Length statistics are NaN
@@ -297,6 +312,9 @@ export interface SimulationTimeseries {
   proliferative_count: number[]
   fraction_below_threshold: Array<number | null>
   length_cv: Array<number | null>
+  /** Genome stability (docs/MODEL.md §2.3): all-zero when the feature is unused. */
+  mean_mutation_burden: Array<number | null>
+  apoptotic_fraction: Array<number | null>
 }
 
 // simulator/biomarker.py::BiologicalAgeScore.to_json_dict() (ROADMAP.md

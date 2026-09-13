@@ -190,6 +190,34 @@ block, a list shaped exactly like `ModelConfig.to_dict()` emits it
 
 Tests: `tests/test_api_subclones.py`.
 
+### Genome stability: mutation burden and apoptosis checkpoint (docs/MODEL.md §2.3)
+
+Four new plain scalar `ModelConfig` fields -- `replication_error_rate`,
+`oxidative_mutation_sensitivity`, `checkpoint_strength`, `mutation_threshold`
+-- need **zero schema changes** on this endpoint: `ModelConfigBody` already
+accepts any recognised `ModelConfig` field, and all four default to values
+(`0.0`, `0.0`, `0.0`, `1.0e9`) that make the feature bit-identical to a run
+without it.
+
+```json
+{"config": {"replication_error_rate": 0.02, "oxidative_mutation_sensitivity": 0.02,
+            "checkpoint_strength": 0.3, "mutation_threshold": 0.5}}
+```
+
+* The response's `run.timeseries` carries **`mean_mutation_burden`** and
+  **`apoptotic_fraction`**, genome-wide per-cycle series of length
+  `cycles + 1` on the same axis as `timeseries.cycle` -- all-zero, never
+  absent, when the feature is unused (no new `SimulationRunResponse` field
+  needed; `timeseries` is a generic passthrough dict).
+* `run.terminal_metrics` carries **`final_mutation_burden`** and
+  **`genomic_instability_index`** (the latter: fraction of *surviving* cells
+  over `mutation_threshold` at the final cycle, `0.0` when unused).
+* Out-of-bounds values raise `ConfigError` -> **`400`**, exactly like any
+  other `PARAMETER_BOUNDS` field. `GET /api/meta/bounds` exposes all four in
+  `bounds`/`evolvable`; none are schedulable or sub-clone-overridable.
+
+Tests: `tests/test_genome_stability.py`, `tests/test_api_genome_stability.py`.
+
 ### Synthetic "biological age" biomarker score (candidate feature #5, 2026-09-11)
 
 Every `run` object returned by `POST /api/simulate` and `POST /api/compare`

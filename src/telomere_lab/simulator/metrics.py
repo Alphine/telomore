@@ -13,7 +13,8 @@ import numpy as np
 
 
 def summarise_state(
-    lengths: np.ndarray, senescent: np.ndarray, threshold: float
+    lengths: np.ndarray, senescent: np.ndarray, threshold: float,
+    mutation_burden: np.ndarray | None = None, apoptotic: np.ndarray | None = None,
 ) -> Dict[str, float]:
     """Summary statistics for one time-step.
 
@@ -22,6 +23,10 @@ def summarise_state(
     lengths : (n_cells, n_telomeres) telomere lengths of *living* cells
     senescent : (n_cells,) boolean mask
     threshold : senescence threshold in bp
+    mutation_burden : (n_cells,) genomic-instability accumulator (docs/MODEL.md
+        §2.3), optional -- ``None`` when the caller doesn't track it.
+    apoptotic : (n_cells,) boolean mask of cells over the mutation threshold,
+        optional.
     """
     n_cells = lengths.shape[0]
     if n_cells == 0:
@@ -36,6 +41,8 @@ def summarise_state(
             "proliferative_count": 0,
             "fraction_below_threshold": np.nan,
             "length_cv": np.nan,
+            "mean_mutation_burden": np.nan,
+            "apoptotic_fraction": np.nan,
         }
     flat = lengths.ravel()
     per_cell_min = lengths.min(axis=1)
@@ -52,6 +59,8 @@ def summarise_state(
         "proliferative_count": int((~senescent).sum()),
         "fraction_below_threshold": float((flat < threshold).mean()),
         "length_cv": (std / mean) if mean > 0 else np.nan,
+        "mean_mutation_burden": float(mutation_burden.mean()) if mutation_burden is not None else 0.0,
+        "apoptotic_fraction": float(apoptotic.mean()) if apoptotic is not None else 0.0,
     }
 
 

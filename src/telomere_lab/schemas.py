@@ -58,6 +58,14 @@ PARAMETER_BOUNDS: Dict[str, tuple] = {
                  "Gaussian variability in loss per telomere per division."),
     "senescent_death_rate": (0.0, 0.5, "1/cycle", "Senescent death rate",
                              "Probability that a senescent cell is lost per cycle."),
+    "replication_error_rate": (0.0, 0.05, "1/cycle", "Replication error rate",
+                               "Baseline mutation burden added per division, genome-wide."),
+    "oxidative_mutation_sensitivity": (0.0, 0.05, "1/cycle", "Oxidative mutation sensitivity",
+                                       "Extra mutation burden per division at stress_level = 1, offset by repair_rate."),
+    "checkpoint_strength": (0.0, 1.0, "a.u.", "Apoptosis checkpoint strength",
+                            "Probability per cycle that a cell over the mutation threshold is removed; 0 disables the checkpoint."),
+    "mutation_threshold": (0.01, 1.0e9, "a.u.", "Mutation burden threshold",
+                           "Burden level above which the apoptosis checkpoint can trigger (only relevant when checkpoint_strength > 0)."),
 }
 
 #: The genes the evolutionary optimizer is allowed to touch (SDD §12).
@@ -68,6 +76,10 @@ EVOLVABLE_PARAMETERS = (
     "maintenance_rate",
     "repair_rate",
     "senescence_threshold",
+    "replication_error_rate",
+    "oxidative_mutation_sensitivity",
+    "checkpoint_strength",
+    "mutation_threshold",
 )
 
 #: Parameters that may vary over the run as a piecewise-constant schedule
@@ -256,6 +268,19 @@ class ModelConfig:
     noise_sd: float = 30.0
     senescent_death_rate: float = 0.03
 
+    # --- optional genome stability / apoptosis checkpoint (docs/MODEL.md §2.3) --
+    #: Baseline + oxidative contributions to a per-cell mutation-burden
+    #: accumulator; both default to 0.0 so the accumulator never grows and the
+    #: checkpoint below has nothing to act on -- bit-identical to today's model.
+    replication_error_rate: float = 0.0
+    oxidative_mutation_sensitivity: float = 0.0
+    #: Probability per cycle a cell over ``mutation_threshold`` is removed.
+    #: 0.0 (default) is the feature's actual off switch.
+    checkpoint_strength: float = 0.0
+    #: Sentinel default far above any reachable mutation_burden -- belt-and-
+    #: suspenders alongside checkpoint_strength=0.0.
+    mutation_threshold: float = 1.0e9
+
     # --- run control -------------------------------------------------------
     cycles: int = 120
     seed: int = 42
@@ -416,6 +441,12 @@ class SimulationResult:
     #: ``(T+1,)`` axis as ``time`` (docs/MODEL.md §2.2, sub-clone competition).
     #: Empty dict when ``config.subclones`` is unset.
     clone_fraction: Dict[str, np.ndarray] = field(default_factory=dict)
+    #: Genome-wide mean mutation burden / apoptotic fraction per cycle, on the
+    #: same ``(T+1,)`` axis as ``time`` (docs/MODEL.md §2.3). All-zero arrays
+    #: (not ``None``) when genome stability is unused, matching every other
+    #: always-present timeseries field.
+    mean_mutation_burden: np.ndarray = field(default_factory=lambda: np.array([]))
+    apoptotic_fraction: np.ndarray = field(default_factory=lambda: np.array([]))
     terminal_metrics: Dict[str, float] = field(default_factory=dict)
     #: Synthetic "biological age" biomarker score (ROADMAP.md candidate
     #: feature #5, docs/MODEL.md §4.1) -- a derived, documented composite of
@@ -446,6 +477,8 @@ class SimulationResult:
                 "proliferative_count": self.proliferative_count,
                 "fraction_below_threshold": self.fraction_below_threshold,
                 "length_cv": self.length_cv,
+                "mean_mutation_burden": self.mean_mutation_burden,
+                "apoptotic_fraction": self.apoptotic_fraction,
             }
         )
 
@@ -487,6 +520,9 @@ class FitnessWeights:
     w_senescence: float = 0.20
     w_instability: float = 0.10
     w_cost: float = 0.30
+    #: Weight of the genome-instability term (docs/MODEL.md §2.3). Defaults to
+    #: 0.0 so existing fitness scores are unaffected until a user opts in.
+    w_genome_instability: float = 0.0
 
     def to_dict(self) -> Dict[str, float]:
         return asdict(self)
@@ -509,6 +545,7 @@ OBJECTIVES: Dict[str, tuple] = {
     "senescence": ("min", "final senescent fraction"),
     "instability": ("min", "final length CV, scaled"),
     "cost": ("min", "intervention cost ½(maintenance² + repair²)"),
+    "genome_instability": ("min", "genomic instability index (fraction of cells over the mutation threshold)"),
 }
 
 

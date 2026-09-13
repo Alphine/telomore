@@ -5,6 +5,7 @@
             - w_senescence  * final_senescent_fraction
             - w_instability * instability
             - w_cost        * intervention_cost
+            - w_genome_instability * genomic_instability_index
 
 * ``instability``      = final coefficient of variation of telomere lengths,
                          scaled so CV = 0.5 -> 1.0 (clipped to [0, 1]).
@@ -15,6 +16,11 @@
                          enough" rather than maxing every knob. Reducing
                          ``stress_level`` is treated as free unless the user
                          reweights.
+* ``genomic_instability_index`` = fraction of surviving cells whose mutation
+                         burden exceeds ``mutation_threshold`` at the final
+                         cycle (docs/MODEL.md §2.3). ``w_genome_instability``
+                         defaults to 0.0, so this term is inert unless a user
+                         opts into genome stability.
 
 Fitness is an optimisation objective chosen by the experimenter. It is
 **not** a measure of biological truth (see docs/SCIENTIFIC_SCOPE.md).
@@ -42,6 +48,9 @@ class FitnessBreakdown:
     senescence: float
     instability: float
     cost: float
+    #: Must match the ``OBJECTIVES["genome_instability"]`` key exactly --
+    #: ``evolution/multiobjective.py`` reads it via ``getattr(bd, o)``.
+    genome_instability: float
     valid: bool
     reason: str | None = None
 
@@ -67,7 +76,7 @@ def compute_fitness(result: SimulationResult, weights: FitnessWeights) -> Fitnes
     if not result.valid or not result.terminal_metrics:
         return FitnessBreakdown(
             total=INVALID_FITNESS, survival=0.0, reserve=0.0, senescence=1.0,
-            instability=1.0, cost=1.0, valid=False,
+            instability=1.0, cost=1.0, genome_instability=1.0, valid=False,
             reason=result.failure_reason or "invalid simulation",
         )
     tm = result.terminal_metrics
@@ -76,6 +85,7 @@ def compute_fitness(result: SimulationResult, weights: FitnessWeights) -> Fitnes
     senescence = float(tm["final_senescent_fraction"])
     instability = float(np.clip(tm["final_length_cv"] / INSTABILITY_CV_SCALE, 0.0, 1.0))
     cost = intervention_cost(result.config)
+    genome_instability = float(tm.get("genomic_instability_index", 0.0))
 
     total = (
         weights.w_survival * survival
@@ -83,11 +93,13 @@ def compute_fitness(result: SimulationResult, weights: FitnessWeights) -> Fitnes
         - weights.w_senescence * senescence
         - weights.w_instability * instability
         - weights.w_cost * cost
+        - weights.w_genome_instability * genome_instability
     )
     if not np.isfinite(total):
         return FitnessBreakdown(INVALID_FITNESS, survival, reserve, senescence, instability,
-                                cost, valid=False, reason="non-finite fitness")
-    return FitnessBreakdown(float(total), survival, reserve, senescence, instability, cost, True)
+                                cost, genome_instability, valid=False, reason="non-finite fitness")
+    return FitnessBreakdown(float(total), survival, reserve, senescence, instability, cost,
+                            genome_instability, True)
 
 
 def average_breakdowns(items: list) -> FitnessBreakdown:
@@ -103,5 +115,6 @@ def average_breakdowns(items: list) -> FitnessBreakdown:
         senescence=sum(b.senescence for b in items) / n,
         instability=sum(b.instability for b in items) / n,
         cost=sum(b.cost for b in items) / n,
+        genome_instability=sum(b.genome_instability for b in items) / n,
         valid=True,
     )

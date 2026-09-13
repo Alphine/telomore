@@ -10,6 +10,7 @@ import type { EvolutionConfig, EvolveResult, FitnessWeights, GenerationRecord, M
 import { useBounds } from '../../api/useBounds'
 import { useJob } from '../../api/useJob'
 import { Callout } from '../../components/Callout'
+import { useActiveJobOfKind } from '../../jobs/useActiveJobs'
 import { GeneName } from '../../components/GeneName'
 import { InterpretPanel } from '../../components/InterpretPanel'
 import { MetricRow } from '../../components/MetricRow'
@@ -49,7 +50,13 @@ export function Evolve() {
   const [live, setLive] = useState<GenerationRecord[]>([])
   const [notice, setNotice] = useState<string | null>(null)
 
-  const { job, error: jobError, isActive, stop } = useJob<GenerationRecord, EvolveResult>(jobId)
+  // Re-adopt an in-flight job of our own kind: navigating away and back must
+  // resume live progress, not reset to the idle form -- the job itself keeps
+  // running server-side regardless of which page is open.
+  const activeEvolveJob = useActiveJobOfKind('evolve')
+  const effectiveJobId = jobId ?? activeEvolveJob?.job_id ?? null
+
+  const { job, error: jobError, isActive, stop } = useJob<GenerationRecord, EvolveResult>(effectiveJobId)
 
   const w = weights ?? bounds?.fitness_weights_default ?? null
   const form = evo ?? (bounds ? toForm(bounds.evolution_default) : null)
@@ -389,7 +396,7 @@ export function Evolve() {
       )}
 
       {/* ---------------------------------------------------- live progress */}
-      {jobId && isActive && (
+      {effectiveJobId && isActive && (
         <section className="card space-y-3 p-5" role="status" aria-live="polite">
           {(() => {
             const rec = job?.progress ?? null
@@ -434,7 +441,7 @@ export function Evolve() {
 
       {notice && <Callout tone="success" role="status">{notice}</Callout>}
 
-      {!jobId && bounds && (
+      {!effectiveJobId && bounds && (
         <Callout tone="info">
           Configure the objective and optimizer, then press <strong>Evolve</strong>. A 32 × 20 run takes on the order
           of a minute or two on a laptop CPU.

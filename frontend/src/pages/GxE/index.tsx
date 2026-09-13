@@ -26,6 +26,7 @@ import { downloadJson, downloadText, rowsCsv } from '../../components/download'
 import { GXE_DISCLAIMER, environmentOrder } from '../../components/gxeUtils'
 import { parseIntList, signed } from '../../components/handoff'
 import { FEATURES } from '../../features'
+import { useActiveJobOfKind } from '../../jobs/useActiveJobs'
 
 const FEATURE = FEATURES.find((f) => f.path === '/gxe')!
 
@@ -95,7 +96,12 @@ export function GxE() {
   const [submitted, setSubmitted] = useState<GxEConfig | null>(null)
   const [live, setLive] = useState<GxECell[]>([])
 
-  const { job, error: jobError, isActive } = useJob<GxECell, GxEResult>(jobId)
+  // Re-adopt an in-flight job of our own kind -- navigating away and back
+  // must resume live progress, not reset to the idle form.
+  const activeGxEJob = useActiveJobOfKind('gxe')
+  const effectiveJobId = jobId ?? activeGxEJob?.job_id ?? null
+
+  const { job, error: jobError, isActive } = useJob<GxECell, GxEResult>(effectiveJobId)
 
   const baseline = base ?? (bounds ? (loadBaseline() ?? bounds.demo) : null)
 
@@ -243,7 +249,7 @@ export function GxE() {
       )}
 
       {/* ---------------------------------------------------- live progress */}
-      {jobId && isActive && (
+      {effectiveJobId && isActive && (
         <section className="card space-y-3 p-5" role="status" aria-live="polite">
           {(() => {
             const rec = job?.progress ?? null
@@ -275,7 +281,7 @@ export function GxE() {
         </Callout>
       )}
 
-      {!jobId && bounds && (
+      {!effectiveJobId && bounds && (
         <Callout tone="info">
           Add genotypes and environments, then press <strong>Run G×E study</strong>.
         </Callout>

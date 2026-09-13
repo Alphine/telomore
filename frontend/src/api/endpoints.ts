@@ -116,6 +116,13 @@ export function startActiveLearning(body: ActiveLearningRequest): Promise<JobSta
   return request<JobStartResponse>('/active-learning', { method: 'POST', body })
 }
 
+/** Every active (pending/running) job owned by the caller -- the source of truth
+ * a persistent nav indicator polls, since a job page's own jobId is lost on
+ * navigation even though the job itself keeps running server-side. */
+export function listJobs(): Promise<JobStatusResponse[]> {
+  return request<JobStatusResponse[]>('/jobs')
+}
+
 export function getJob<P, R>(jobId: string): Promise<JobStatusResponse<P, R>> {
   return request<JobStatusResponse<P, R>>(`/jobs/${encodeURIComponent(jobId)}`)
 }

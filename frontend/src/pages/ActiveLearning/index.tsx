@@ -29,6 +29,7 @@ import { downloadJson, downloadText, rowsCsv } from '../../components/download'
 import { genomeToConfig, parseIntList, signed } from '../../components/handoff'
 import { isScheduled } from '../../components/scheduleUtils'
 import { FEATURES } from '../../features'
+import { useActiveJobOfKind } from '../../jobs/useActiveJobs'
 
 const FEATURE = FEATURES.find((f) => f.path === '/active-learning')!
 
@@ -90,7 +91,12 @@ export function ActiveLearning() {
   const [submitted, setSubmitted] = useState<ActiveLearningConfig | null>(null)
   const [live, setLive] = useState<ActiveLearningRecord[]>([])
 
-  const { job, error: jobError, isActive } = useJob<ActiveLearningRecord, ActiveLearningResult>(jobId)
+  // Re-adopt an in-flight job of our own kind -- navigating away and back
+  // must resume live progress, not reset to the idle form.
+  const activeActiveLearningJob = useActiveJobOfKind('active_learning')
+  const effectiveJobId = jobId ?? activeActiveLearningJob?.job_id ?? null
+
+  const { job, error: jobError, isActive } = useJob<ActiveLearningRecord, ActiveLearningResult>(effectiveJobId)
 
   const baseline = base ?? (bounds ? (loadBaseline() ?? bounds.demo) : null)
 
@@ -289,7 +295,7 @@ export function ActiveLearning() {
       )}
 
       {/* ---------------------------------------------------- live progress */}
-      {jobId && isActive && (
+      {effectiveJobId && isActive && (
         <section className="card space-y-3 p-5" role="status" aria-live="polite">
           {(() => {
             const rec = job?.progress ?? null
@@ -322,7 +328,7 @@ export function ActiveLearning() {
         </Callout>
       )}
 
-      {!jobId && bounds && (
+      {!effectiveJobId && bounds && (
         <Callout tone="info">
           Choose a budget and press <strong>Run active learning</strong>.
         </Callout>

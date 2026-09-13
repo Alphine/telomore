@@ -24,6 +24,7 @@ import { usePrefersDark } from '../../components/charts/theme'
 import { downloadJson, downloadText, rowsCsv } from '../../components/download'
 import { parseIntList, signed } from '../../components/handoff'
 import { FEATURES } from '../../features'
+import { useActiveJobOfKind } from '../../jobs/useActiveJobs'
 
 const FEATURE = FEATURES.find((f) => f.path === '/sensitivity')!
 
@@ -84,7 +85,12 @@ export function Sensitivity() {
   const [submitted, setSubmitted] = useState<SensitivityConfig | null>(null)
   const [live, setLive] = useState<ParameterSensitivity[]>([])
 
-  const { job, error: jobError, isActive } = useJob<ParameterSensitivity, SensitivityResult>(jobId)
+  // Re-adopt an in-flight job of our own kind -- navigating away and back
+  // must resume live progress, not reset to the idle form.
+  const activeSensitivityJob = useActiveJobOfKind('sensitivity')
+  const effectiveJobId = jobId ?? activeSensitivityJob?.job_id ?? null
+
+  const { job, error: jobError, isActive } = useJob<ParameterSensitivity, SensitivityResult>(effectiveJobId)
 
   const baseline = base ?? (bounds ? (loadBaseline() ?? bounds.demo) : null)
   const parameters = params ?? bounds?.evolvable ?? []
@@ -224,7 +230,7 @@ export function Sensitivity() {
       )}
 
       {/* ---------------------------------------------------- live progress */}
-      {jobId && isActive && (
+      {effectiveJobId && isActive && (
         <section className="card space-y-3 p-5" role="status" aria-live="polite">
           {(() => {
             const n = submitted?.parameters.length ?? 0
@@ -257,7 +263,7 @@ export function Sensitivity() {
         </Callout>
       )}
 
-      {!jobId && bounds && (
+      {!effectiveJobId && bounds && (
         <Callout tone="info">
           Choose parameters and press <strong>Run sensitivity analysis</strong>.
         </Callout>

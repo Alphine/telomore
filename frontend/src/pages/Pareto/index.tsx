@@ -10,6 +10,7 @@ import type { MOGenerationRecord, ModelConfig, MultiObjectiveConfig, ParetoResul
 import { useBounds } from '../../api/useBounds'
 import { useJob } from '../../api/useJob'
 import { BaselineSummary } from '../../components/BaselineSummary'
+import { useActiveJobOfKind } from '../../jobs/useActiveJobs'
 import { Callout } from '../../components/Callout'
 import { CheckboxGroup } from '../../components/CheckboxGroup'
 import { MetricRow } from '../../components/MetricRow'
@@ -50,7 +51,12 @@ export function Pareto() {
   const [pick, setPick] = useState(0)
   const [notice, setNotice] = useState<string | null>(null)
 
-  const { job, error: jobError, isActive, stop } = useJob<MOGenerationRecord, ParetoResult>(jobId)
+  // Re-adopt an in-flight job of our own kind -- navigating away and back
+  // must resume live progress, not reset to the idle form.
+  const activeParetoJob = useActiveJobOfKind('pareto')
+  const effectiveJobId = jobId ?? activeParetoJob?.job_id ?? null
+
+  const { job, error: jobError, isActive, stop } = useJob<MOGenerationRecord, ParetoResult>(effectiveJobId)
 
   const baseline = base ?? (bounds ? (loadBaseline() ?? bounds.demo) : null)
   const objInfo = useMemo(() => bounds?.objectives ?? {}, [bounds])
@@ -321,7 +327,7 @@ export function Pareto() {
       )}
 
       {/* ---------------------------------------------------- live progress */}
-      {jobId && isActive && (
+      {effectiveJobId && isActive && (
         <section className="card space-y-3 p-5" role="status" aria-live="polite">
           {(() => {
             const rec = job?.progress ?? null
@@ -373,7 +379,7 @@ export function Pareto() {
         </Callout>
       )}
 
-      {!jobId && bounds && (
+      {!effectiveJobId && bounds && (
         <Callout tone="info">
           Choose objectives and press <strong>Run NSGA-II</strong>. 40 × 25 takes roughly two minutes on a laptop CPU.
         </Callout>

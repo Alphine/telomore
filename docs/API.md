@@ -372,6 +372,14 @@ instead of blocking on the whole run. Poll:
   progress format was invented.
 * `POST /api/jobs/{job_id}/stop` (owner only) — sets a stop flag. Only
   effective on engines that support cooperative cancellation (see table).
+* `GET /api/jobs` (auth required, no path param) → `List[JobStatusResponse]`
+  of every **active** (`pending`/`running`, not yet terminal) job owned by
+  the caller, newest first. Exists so the frontend can show a persistent
+  "job in progress" indicator (a ⏳ badge next to the relevant nav item)
+  and re-attach a page to its own in-flight job after navigating away and
+  back — a page's local `jobId` state is lost on unmount even though the
+  job itself keeps running server-side, since it lives on a detached
+  daemon thread independent of any page being mounted.
 
 **Job-abstraction design** (`backend/jobs.py`): a module-level dict keyed by
 a UUID4 job id holds each job's status, progress payload, final result, and

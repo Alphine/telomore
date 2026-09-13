@@ -37,7 +37,8 @@ ENVIRONMENTS = (EnvironmentSpec("env1", {"stress_level": 0.3}), EnvironmentSpec(
 
 def _fake_breakdown(value: float) -> FitnessBreakdown:
     return FitnessBreakdown(total=value, survival=value, reserve=0.0, senescence=0.0,
-                            instability=0.0, cost=0.0, genome_instability=0.0, valid=True)
+                            instability=0.0, cost=0.0, genome_instability=0.0, canalization=1.0,
+                            valid=True)
 
 
 def _patch_cells(monkeypatch, table):
@@ -81,7 +82,7 @@ def test_to_frame_shape_and_row_count():
     cfg = GxEConfig(genotypes=GENOTYPES, environments=ENVIRONMENTS, eval_seeds=(1,))
     result = run_gxe_analysis(FAST, cfg)
     df = result.to_frame()
-    assert list(df.columns) == ["genotype", "environment", "fitness", "survival", "senescence"]
+    assert list(df.columns) == ["genotype", "environment", "fitness", "survival", "senescence", "canalization"]
     assert len(df) == len(GENOTYPES) * len(ENVIRONMENTS)
     assert set(df["genotype"]) == {"A", "B"}
     assert set(df["environment"]) == {"env1", "env2"}

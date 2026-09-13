@@ -31,6 +31,11 @@ class GxECell:
     fitness: float
     survival: float
     senescence: float
+    #: Consistency of survival across this cell's eval_seeds replicates
+    #: (docs/MODEL.md §5); a free companion metric once average_breakdowns
+    #: computes it -- does this genotype's seed-to-seed consistency vary by
+    #: environment?
+    canalization: float
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -58,10 +63,11 @@ class GxEResult:
                 "fitness": it.fitness,
                 "survival": it.survival,
                 "senescence": it.senescence,
+                "canalization": it.canalization,
             }
             for it in self.items
         ]
-        return pd.DataFrame(rows, columns=["genotype", "environment", "fitness", "survival", "senescence"])
+        return pd.DataFrame(rows, columns=["genotype", "environment", "fitness", "survival", "senescence", "canalization"])
 
     def to_json_dict(self) -> Dict[str, Any]:
         return {
@@ -79,7 +85,7 @@ def _evaluate_cell(
 ) -> FitnessBreakdown:
     cell_config = base_config.replace(**genotype.overrides, **environment.overrides)
     breakdowns = [compute_fitness(model.simulate(cell_config.replace(seed=int(s))), weights) for s in eval_seeds]
-    return average_breakdowns(breakdowns)
+    return average_breakdowns(breakdowns, weights)
 
 
 def _detect_reranking(
@@ -130,6 +136,7 @@ def run_gxe_analysis(
                 fitness=bd.total if bd.valid else float("nan"),
                 survival=bd.survival if bd.valid else float("nan"),
                 senescence=bd.senescence if bd.valid else float("nan"),
+                canalization=bd.canalization if bd.valid else float("nan"),
             )
             items.append(cell)
             if callback:

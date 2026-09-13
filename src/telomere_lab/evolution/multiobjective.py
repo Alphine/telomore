@@ -241,7 +241,7 @@ class NSGA2Engine:
             self.evaluations += 1
             bds.append(compute_fitness(res, self.cfg.weights))
             terminal = res.terminal_metrics
-        bd = average_breakdowns(bds)
+        bd = average_breakdowns(bds, self.cfg.weights)
         if bd.valid:
             objs = {o: float(getattr(bd, o)) for o in self.cfg.objectives}
             vec = [float(v * s) for v, s in zip(objs.values(), self.signs)]

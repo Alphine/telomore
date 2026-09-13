@@ -62,7 +62,7 @@ def _evaluate_genome_worker(
         bd = compute_fitness(result, weights)
         breakdowns.append(bd)
         terminal = result.terminal_metrics
-    bd = average_breakdowns(breakdowns)
+    bd = average_breakdowns(breakdowns, weights)
     failures = [{"genome": genome, "seed": int(s), "reason": b.reason}
                 for s, b in zip(eval_seeds, breakdowns) if not b.valid]
     return {
@@ -283,7 +283,7 @@ class EvolutionEngine:
                 self.failure_log.append({"genome": genome, "seed": int(s), "reason": bd.reason})
             breakdowns.append(bd)
             terminal = result.terminal_metrics
-        bd = average_breakdowns(breakdowns)
+        bd = average_breakdowns(breakdowns, self.evo.weights)
         cand = Candidate(genome=genome, fitness=bd.total if bd.valid else INVALID_FITNESS,
                          breakdown=bd, terminal_metrics=terminal)
         self._cache[key] = cand

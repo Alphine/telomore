@@ -81,7 +81,7 @@ class SensitivityResult:
 
 def _evaluate(model: SimpleTelomereModel, config: ModelConfig, weights, eval_seeds) -> FitnessBreakdown:
     breakdowns = [compute_fitness(model.simulate(config.replace(seed=int(s))), weights) for s in eval_seeds]
-    return average_breakdowns(breakdowns)
+    return average_breakdowns(breakdowns, weights)
 
 
 def _perturbed(base_config: ModelConfig, name: str, value: float, baseline_value: float) -> ModelConfig:

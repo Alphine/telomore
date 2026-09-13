@@ -6,6 +6,7 @@
             - w_instability * instability
             - w_cost        * intervention_cost
             - w_genome_instability * genomic_instability_index
+            + w_canalization * canalization
 
 * ``instability``      = final coefficient of variation of telomere lengths,
                          scaled so CV = 0.5 -> 1.0 (clipped to [0, 1]).
@@ -21,6 +22,18 @@
                          cycle (docs/MODEL.md §2.3). ``w_genome_instability``
                          defaults to 0.0, so this term is inert unless a user
                          opts into genome stability.
+* ``canalization``     = consistency of ``survival`` across ``eval_seeds``
+                         replicates: ``1 - clip(CV / 0.5, 0, 1)`` where CV is
+                         the coefficient of variation of survival across
+                         seeds (0 when every seed's survival is 0). Unlike
+                         every other term above, this is only meaningful for
+                         a REPLICATE SET, not a single simulation --
+                         ``compute_fitness`` always returns ``0.0`` for it;
+                         only ``average_breakdowns`` computes the real value
+                         and folds ``w_canalization * canalization`` into
+                         ``total`` (added, not subtracted, since higher
+                         canalization is better). With a single eval seed it
+                         is trivially 1.0 for every genome (docs/MODEL.md §5).
 
 Fitness is an optimisation objective chosen by the experimenter. It is
 **not** a measure of biological truth (see docs/SCIENTIFIC_SCOPE.md).
@@ -38,6 +51,12 @@ from ..schemas import FitnessWeights, ModelConfig, SimulationResult
 #: Fitness assigned to invalid simulations (SDD §30).
 INVALID_FITNESS = -1.0e3
 INSTABILITY_CV_SCALE = 0.5
+#: Same convention/value as INSTABILITY_CV_SCALE: a coefficient of variation
+#: of 0.5 (50% relative variation in survival across eval_seeds) maps to the
+#: worst canalization score (0.0). Empirically, comfortable large-population
+#: configs show survival CV ~= 0.7-2%, while near-extinction configs show
+#: CV ~= 50%+ -- this scale meaningfully discriminates between them.
+CANALIZATION_CV_SCALE = 0.5
 
 
 @dataclass
@@ -51,6 +70,11 @@ class FitnessBreakdown:
     #: Must match the ``OBJECTIVES["genome_instability"]`` key exactly --
     #: ``evolution/multiobjective.py`` reads it via ``getattr(bd, o)``.
     genome_instability: float
+    #: Consistency of ``survival`` across eval_seeds replicates (docs/MODEL.md
+    #: §5). Always 0.0 from ``compute_fitness`` -- undefined for a single
+    #: simulation -- only ``average_breakdowns`` computes the real value
+    #: across the replicate set. Must match ``OBJECTIVES["canalization"]``.
+    canalization: float
     valid: bool
     reason: str | None = None
 
@@ -76,8 +100,8 @@ def compute_fitness(result: SimulationResult, weights: FitnessWeights) -> Fitnes
     if not result.valid or not result.terminal_metrics:
         return FitnessBreakdown(
             total=INVALID_FITNESS, survival=0.0, reserve=0.0, senescence=1.0,
-            instability=1.0, cost=1.0, genome_instability=1.0, valid=False,
-            reason=result.failure_reason or "invalid simulation",
+            instability=1.0, cost=1.0, genome_instability=1.0, canalization=0.0,
+            valid=False, reason=result.failure_reason or "invalid simulation",
         )
     tm = result.terminal_metrics
     survival = float(tm["normalized_survival"])
@@ -97,24 +121,34 @@ def compute_fitness(result: SimulationResult, weights: FitnessWeights) -> Fitnes
     )
     if not np.isfinite(total):
         return FitnessBreakdown(INVALID_FITNESS, survival, reserve, senescence, instability,
-                                cost, genome_instability, valid=False, reason="non-finite fitness")
+                                cost, genome_instability, 0.0, valid=False, reason="non-finite fitness")
     return FitnessBreakdown(float(total), survival, reserve, senescence, instability, cost,
-                            genome_instability, True)
+                            genome_instability, 0.0, True)
 
 
-def average_breakdowns(items: list) -> FitnessBreakdown:
-    """Average replicate evaluations; any invalid replicate invalidates the whole."""
+def average_breakdowns(items: list, weights: FitnessWeights) -> FitnessBreakdown:
+    """Average replicate evaluations; any invalid replicate invalidates the whole.
+
+    ``canalization`` (consistency of ``survival`` across the replicate set) is
+    only defined here, not in ``compute_fitness`` -- see the module docstring.
+    """
     if any(not b.valid for b in items):
         bad = next(b for b in items if not b.valid)
         return bad
     n = len(items)
+    survivals = np.array([b.survival for b in items], dtype=float)
+    mean_survival = float(survivals.mean())
+    cv = float(survivals.std() / mean_survival) if mean_survival > 0 else 0.0
+    canalization = float(1.0 - np.clip(cv / CANALIZATION_CV_SCALE, 0.0, 1.0))
+    avg_total = sum(b.total for b in items) / n
     return FitnessBreakdown(
-        total=sum(b.total for b in items) / n,
+        total=avg_total + weights.w_canalization * canalization,
         survival=sum(b.survival for b in items) / n,
         reserve=sum(b.reserve for b in items) / n,
         senescence=sum(b.senescence for b in items) / n,
         instability=sum(b.instability for b in items) / n,
         cost=sum(b.cost for b in items) / n,
         genome_instability=sum(b.genome_instability for b in items) / n,
+        canalization=canalization,
         valid=True,
     )

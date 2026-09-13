@@ -149,7 +149,7 @@ class SurrogateActiveLearner:
             for s in self.cfg.eval_seeds
         ]
         self.evaluations += len(self.cfg.eval_seeds)
-        bd = average_breakdowns(breakdowns)
+        bd = average_breakdowns(breakdowns, self.cfg.weights)
         return bd.total if bd.valid else INVALID_FITNESS
 
     def _fit_surrogate(self, X: np.ndarray, y: np.ndarray):

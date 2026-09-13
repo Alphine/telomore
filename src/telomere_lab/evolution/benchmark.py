@@ -129,7 +129,7 @@ def run_random_search(
         breakdowns = [compute_fitness(model.simulate(spec.to_config(genome, seed=int(s))), weights)
                      for s in eval_seeds]
         total_evals += len(eval_seeds)
-        bd = average_breakdowns(breakdowns)
+        bd = average_breakdowns(breakdowns, weights)
         if bd.valid and bd.total > best_fitness:
             best_fitness, best_genome = bd.total, dict(genome)
         shown = float(best_fitness) if np.isfinite(best_fitness) else float("nan")

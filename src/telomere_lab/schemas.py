@@ -620,6 +620,8 @@ class FitnessWeights:
             - w_senescence * senescence
             - w_instability * instability
             - w_cost * intervention_cost
+            - w_genome_instability * genome_instability
+            + w_canalization * canalization
     """
 
     w_survival: float = 0.40
@@ -630,6 +632,11 @@ class FitnessWeights:
     #: Weight of the genome-instability term (docs/MODEL.md §2.3). Defaults to
     #: 0.0 so existing fitness scores are unaffected until a user opts in.
     w_genome_instability: float = 0.0
+    #: Weight of the canalization term: consistency of `survival` across
+    #: eval_seeds replicates (docs/MODEL.md §5). Defaults to 0.0 so existing
+    #: fitness scores are unaffected until a user opts in. Only meaningful
+    #: with eval_seeds of length >= 2 (a single seed always gives 1.0).
+    w_canalization: float = 0.0
 
     def to_dict(self) -> Dict[str, float]:
         return asdict(self)
@@ -653,6 +660,7 @@ OBJECTIVES: Dict[str, tuple] = {
     "instability": ("min", "final length CV, scaled"),
     "cost": ("min", "intervention cost ½(maintenance² + repair²)"),
     "genome_instability": ("min", "genomic instability index (fraction of cells over the mutation threshold)"),
+    "canalization": ("max", "consistency of survival across replicate seeds (1 - scaled coefficient of variation)"),
 }
 
 

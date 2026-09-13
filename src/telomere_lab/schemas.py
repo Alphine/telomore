@@ -99,6 +99,20 @@ SUBCLONE_OVERRIDABLE_PARAMETERS = ("shortening_rate", "maintenance_rate", "repai
 #: Fractions across all clones must sum to 1.0 within this tolerance.
 SUBCLONE_FRACTION_TOLERANCE = 1e-6
 
+#: Parameters a G×E study's ``EnvironmentSpec.overrides`` may set (a genotype x
+#: environment study, docs/ROADMAP.md 2026-09-13 follow-up). One element today
+#: -- ``stress_level`` is the model's one canonical abstract culture/oxidative-
+#: stress knob (docs/MODEL.md) -- named as a tuple so a future environment axis
+#: is additive, not a breaking change.
+ENVIRONMENT_OVERRIDABLE_PARAMETERS = ("stress_level",)
+
+#: Grid-size guardrail for a G×E study: genotypes * environments must not
+#: exceed this (eval_seeds is intentionally uncapped, like every other
+#: eval_seeds list in this module). The endpoint is an async job (unlike
+#: compare.py's synchronous MAX_SCENARIOS cap), so an oversized grid should
+#: fail fast here rather than queue and grind.
+GXE_MAX_CELLS = 60
+
 
 def phase_index(cycle: int, cycles: int, phases: int) -> int:
     """Phase in force during the division step ``cycle -> cycle + 1``.
@@ -225,6 +239,99 @@ class SubcloneSpec:
         return cls(
             name=str(data.get("name", "")),
             initial_fraction=float(data.get("initial_fraction", 0.0)),
+            overrides={str(k): float(v) for k, v in overrides.items()},
+        )
+
+
+@dataclass(frozen=True)
+class GenotypeSpec:
+    """One named parameter-override bundle used as a genotype in a G×E study
+    (docs/ROADMAP.md 2026-09-13). Structurally identical to ``SubcloneSpec``
+    minus ``initial_fraction``: genotypes are evaluated in ISOLATED
+    simulations, never as competing sub-populations, so there is no fraction
+    to sum. ``overrides`` is restricted to ``SUBCLONE_OVERRIDABLE_PARAMETERS``
+    -- the same "per-cell arithmetic biology knobs" a sub-clone may override.
+    """
+
+    name: str
+    overrides: Dict[str, float] = field(default_factory=dict)
+
+    def validate(self) -> "GenotypeSpec":
+        if not self.name or not isinstance(self.name, str):
+            raise ConfigError(f"genotype name must be a non-empty string, got {self.name!r}")
+        for key, value in self.overrides.items():
+            if key not in SUBCLONE_OVERRIDABLE_PARAMETERS:
+                raise ConfigError(
+                    f"genotype {self.name!r} cannot override {key!r}; choose from "
+                    f"{list(SUBCLONE_OVERRIDABLE_PARAMETERS)}"
+                )
+            lo, hi = PARAMETER_BOUNDS[key][0], PARAMETER_BOUNDS[key][1]
+            if not np.isfinite(value):
+                raise ConfigError(f"genotype {self.name!r} overrides[{key}] must be finite, got {value!r}")
+            if not (lo <= value <= hi):
+                raise ConfigError(f"genotype {self.name!r} overrides[{key}]={value} outside [{lo}, {hi}]")
+        return self
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"name": self.name, "overrides": {k: float(v) for k, v in self.overrides.items()}}
+
+    @classmethod
+    def from_dict(cls, data: Any) -> "GenotypeSpec":
+        if isinstance(data, GenotypeSpec):
+            return data
+        if not isinstance(data, dict):
+            raise ConfigError(f"each genotype must be a mapping, got {type(data).__name__}")
+        overrides = data.get("overrides") or {}
+        if not isinstance(overrides, dict):
+            raise ConfigError("genotype overrides must be a mapping of parameter -> value")
+        return cls(
+            name=str(data.get("name", "")),
+            overrides={str(k): float(v) for k, v in overrides.items()},
+        )
+
+
+@dataclass(frozen=True)
+class EnvironmentSpec:
+    """One named culture-condition override bundle -- an axis of a G×E study
+    (docs/ROADMAP.md 2026-09-13 follow-up). ``overrides`` is restricted to
+    ``ENVIRONMENT_OVERRIDABLE_PARAMETERS``. "Environment" here means an
+    override to this model's own culture-condition parameter, not a real
+    ecological/physiological environment (docs/SCIENTIFIC_SCOPE.md).
+    """
+
+    name: str
+    overrides: Dict[str, float] = field(default_factory=dict)
+
+    def validate(self) -> "EnvironmentSpec":
+        if not self.name or not isinstance(self.name, str):
+            raise ConfigError(f"environment name must be a non-empty string, got {self.name!r}")
+        for key, value in self.overrides.items():
+            if key not in ENVIRONMENT_OVERRIDABLE_PARAMETERS:
+                raise ConfigError(
+                    f"environment {self.name!r} cannot override {key!r}; choose from "
+                    f"{list(ENVIRONMENT_OVERRIDABLE_PARAMETERS)}"
+                )
+            lo, hi = PARAMETER_BOUNDS[key][0], PARAMETER_BOUNDS[key][1]
+            if not np.isfinite(value):
+                raise ConfigError(f"environment {self.name!r} overrides[{key}] must be finite, got {value!r}")
+            if not (lo <= value <= hi):
+                raise ConfigError(f"environment {self.name!r} overrides[{key}]={value} outside [{lo}, {hi}]")
+        return self
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"name": self.name, "overrides": {k: float(v) for k, v in self.overrides.items()}}
+
+    @classmethod
+    def from_dict(cls, data: Any) -> "EnvironmentSpec":
+        if isinstance(data, EnvironmentSpec):
+            return data
+        if not isinstance(data, dict):
+            raise ConfigError(f"each environment must be a mapping, got {type(data).__name__}")
+        overrides = data.get("overrides") or {}
+        if not isinstance(overrides, dict):
+            raise ConfigError("environment overrides must be a mapping of parameter -> value")
+        return cls(
+            name=str(data.get("name", "")),
             overrides={str(k): float(v) for k, v in overrides.items()},
         )
 
@@ -786,6 +893,69 @@ class SensitivityConfig:
         clean = {k: v for k, v in data.items() if k in allowed}
         if "parameters" in clean:
             clean["parameters"] = tuple(clean["parameters"])
+        if "eval_seeds" in clean:
+            clean["eval_seeds"] = tuple(int(s) for s in clean["eval_seeds"])
+        cfg = cls(**clean)
+        if weights is not None:
+            cfg.weights = FitnessWeights.from_dict(weights)
+        return cfg
+
+
+@dataclass
+class GxEConfig:
+    """Genotype x Environment reaction-norm study settings (docs/ROADMAP.md
+    2026-09-13). Each (genotype, environment) pair is run as an ISOLATED
+    simulation (no sub-clone competition) and averaged over ``eval_seeds`` --
+    see ``analysis/gxe.py`` for the mechanics.
+    """
+
+    genotypes: Tuple[GenotypeSpec, ...] = ()
+    environments: Tuple[EnvironmentSpec, ...] = ()
+    eval_seeds: tuple = (1, 2, 3)
+    weights: FitnessWeights = field(default_factory=FitnessWeights)
+
+    def validate(self) -> "GxEConfig":
+        if not self.genotypes:
+            raise ConfigError("at least one genotype is required")
+        if not self.environments:
+            raise ConfigError("at least one environment is required")
+        names = [g.name for g in self.genotypes]
+        if len(set(names)) != len(names):
+            raise ConfigError(f"genotype names must be unique, got {names}")
+        env_names = [e.name for e in self.environments]
+        if len(set(env_names)) != len(env_names):
+            raise ConfigError(f"environment names must be unique, got {env_names}")
+        for g in self.genotypes:
+            g.validate()
+        for e in self.environments:
+            e.validate()
+        if not self.eval_seeds:
+            raise ConfigError("eval_seeds must not be empty")
+        n_cells = len(self.genotypes) * len(self.environments)
+        if n_cells > GXE_MAX_CELLS:
+            raise ConfigError(
+                f"genotypes x environments = {n_cells} exceeds the cap of {GXE_MAX_CELLS}; "
+                "reduce the number of genotypes or environments"
+            )
+        return self
+
+    def to_dict(self) -> Dict[str, Any]:
+        d = asdict(self)
+        d["genotypes"] = [g.to_dict() for g in self.genotypes]
+        d["environments"] = [e.to_dict() for e in self.environments]
+        d["eval_seeds"] = list(self.eval_seeds)
+        return d
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "GxEConfig":
+        data = dict(data)
+        weights = data.pop("weights", None)
+        allowed = {f.name for f in fields(cls)}
+        clean = {k: v for k, v in data.items() if k in allowed}
+        if "genotypes" in clean:
+            clean["genotypes"] = tuple(GenotypeSpec.from_dict(g) for g in clean["genotypes"])
+        if "environments" in clean:
+            clean["environments"] = tuple(EnvironmentSpec.from_dict(e) for e in clean["environments"])
         if "eval_seeds" in clean:
             clean["eval_seeds"] = tuple(int(s) for s in clean["eval_seeds"])
         cfg = cls(**clean)

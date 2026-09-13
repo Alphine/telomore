@@ -279,6 +279,47 @@ def run_sensitivity(
     return result, record
 
 
+def run_gxe(
+    base_config: ModelConfig,
+    gxe_config,
+    registry: Optional[ExperimentRegistry] = None,
+    callback=None,
+    model: Optional[TelomereModelAdapter] = None,
+    notes: str = "",
+    register: bool = True,
+):
+    """Run a genotype x environment reaction-norm study and (optionally)
+    register it in the ledger (docs/ROADMAP.md 2026-09-13 follow-up)."""
+    from ..analysis.gxe import run_gxe_analysis
+    from .artifacts import write_gxe_artifacts
+
+    registry = registry or ExperimentRegistry()
+    run_id = registry.new_run_id() if register else None
+    result = run_gxe_analysis(base_config, gxe_config, model=model, callback=callback)
+    record = None
+    if register and run_id:
+        run_dir = registry.run_dir(run_id)
+        artifacts = write_gxe_artifacts(result, run_dir)
+        finite_fitness = [it.fitness for it in result.items if it.fitness == it.fitness]
+        record = registry.register(
+            kind="gxe",
+            run_id=run_id,
+            seed=next(iter(gxe_config.eval_seeds)),
+            configuration={"model": base_config.to_dict(), "gxe": gxe_config.to_dict()},
+            fitness=max(finite_fitness) if finite_fitness else None,
+            artifacts=artifacts,
+            runtime_seconds=result.runtime_seconds,
+            notes=notes,
+            extra={
+                "n_genotypes": len(gxe_config.genotypes),
+                "n_environments": len(gxe_config.environments),
+                "n_reranking_pairs": len(result.reranking_pairs),
+                "evaluations": result.evaluations,
+            },
+        )
+    return result, record
+
+
 def run_active_learning(
     base_config: ModelConfig,
     al_config,

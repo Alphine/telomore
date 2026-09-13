@@ -27,6 +27,7 @@ from .routers import (
     compare,
     evolve,
     experiments,
+    gxe,
     jobs,
     llm,
     meta,
@@ -101,6 +102,7 @@ def create_app() -> FastAPI:
     app.include_router(evolve.router, prefix="/api")
     app.include_router(pareto.router, prefix="/api")
     app.include_router(sensitivity.router, prefix="/api")
+    app.include_router(gxe.router, prefix="/api")
     app.include_router(active_learning.router, prefix="/api")
     app.include_router(benchmark.router, prefix="/api")
     app.include_router(compare.router, prefix="/api")

@@ -305,6 +305,12 @@ class SensitivityRequest(BaseModel):
     notes: str = ""
 
 
+class GxERequest(BaseModel):
+    model: ModelConfigBody = Field(default_factory=ModelConfigBody)
+    gxe: Dict[str, Any] = Field(default_factory=dict)
+    notes: str = ""
+
+
 class ActiveLearningRequest(BaseModel):
     model: ModelConfigBody = Field(default_factory=ModelConfigBody)
     active_learning: OptimizerConfigBody = Field(default_factory=OptimizerConfigBody)
@@ -370,6 +376,9 @@ class BoundsResponse(BaseModel):
     # Sub-clone competition (docs/MODEL.md §2.2, ROADMAP.md candidate feature
     # #4): the parameters a clone's `overrides` may set.
     subclone_overridable: List[str] = Field(default_factory=list)  # SUBCLONE_OVERRIDABLE_PARAMETERS
+    # G×E study (docs/ROADMAP.md 2026-09-13 follow-up): the parameters an
+    # EnvironmentSpec's `overrides` may set. Genotypes reuse subclone_overridable above.
+    environment_overridable: List[str] = Field(default_factory=list)  # ENVIRONMENT_OVERRIDABLE_PARAMETERS
 
 
 class VersionResponse(BaseModel):

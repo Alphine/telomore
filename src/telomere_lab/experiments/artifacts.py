@@ -105,6 +105,25 @@ def write_sensitivity_artifacts(result, run_dir: str | Path) -> Dict[str, str]:
     return {k: str(v) for k, v in paths.items()}
 
 
+def write_gxe_artifacts(result, run_dir: str | Path) -> Dict[str, str]:
+    run_dir = Path(run_dir)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    paths = {
+        "gxe_json": run_dir / "gxe.json",
+        "gxe_csv": run_dir / "gxe.csv",
+        "config_json": run_dir / "config.json",
+    }
+    paths["gxe_json"].write_text(
+        json.dumps(result.to_json_dict(), indent=2, default=_json_default), encoding="utf-8")
+    result.to_frame().to_csv(paths["gxe_csv"], index=False)
+    paths["config_json"].write_text(
+        json.dumps({"model": result.base_config.to_dict(),
+                    "gxe": result.gxe_config.to_dict()}, indent=2),
+        encoding="utf-8",
+    )
+    return {k: str(v) for k, v in paths.items()}
+
+
 def write_active_learning_artifacts(result, run_dir: str | Path) -> Dict[str, str]:
     run_dir = Path(run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)

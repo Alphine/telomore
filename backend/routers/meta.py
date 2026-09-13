@@ -23,6 +23,7 @@ from telomere_lab.adapters.chip import ChipConditions, chip_to_model_params, lis
 from telomere_lab.config import CONFIG_DIR, load_model_config
 from telomere_lab.experiments.registry import environment_metadata
 from telomere_lab.schemas import (
+    ENVIRONMENT_OVERRIDABLE_PARAMETERS,
     EVOLVABLE_PARAMETERS,
     MAX_PHASES,
     OBJECTIVES,
@@ -103,6 +104,7 @@ def bounds() -> api_schemas.BoundsResponse:
         max_phases=MAX_PHASES,
         presets=_presets(),
         subclone_overridable=list(SUBCLONE_OVERRIDABLE_PARAMETERS),
+        environment_overridable=list(ENVIRONMENT_OVERRIDABLE_PARAMETERS),
     )
 
 

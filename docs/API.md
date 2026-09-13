@@ -218,6 +218,49 @@ without it.
 
 Tests: `tests/test_genome_stability.py`, `tests/test_api_genome_stability.py`.
 
+### Genotype x Environment (G×E) study (docs/ROADMAP.md 2026-09-13 follow-up)
+
+`POST /api/gxe` starts a background job (see "Long-running jobs" below) that
+runs every `genotypes[i]` against every `environments[j]` as an **isolated**
+simulation -- no sub-clone competition, no shared population -- averaged over
+`eval_seeds`, and reports whether any genotype pair's fitness ordering flips
+between environments (a re-ranking / reaction-norm crossing).
+
+```json
+{"model": {"cycles": 60}, "gxe": {
+  "genotypes": [{"name": "A", "overrides": {}},
+                {"name": "B", "overrides": {"maintenance_rate": 0.5}}],
+  "environments": [{"name": "low_stress", "overrides": {"stress_level": 0.1}},
+                    {"name": "high_stress", "overrides": {"stress_level": 0.9}}],
+  "eval_seeds": [1, 2, 3]
+}}
+```
+
+* `gxe` is a free-form dict, exactly like `SensitivityRequest.sensitivity` --
+  all real validation happens core-side via `GxEConfig.from_dict().validate()`
+  raising the core `ConfigError` -> **`400`**; a malformed JSON shape (e.g. a
+  bad `model.schedule`) is still a pydantic **`422`**.
+* A genotype's `overrides` keys must be one of `bounds.subclone_overridable`
+  (`shortening_rate, maintenance_rate, repair_rate, stress_sensitivity`); an
+  environment's must be one of the new `bounds.environment_overridable`
+  (`stress_level` today). Using the wrong axis's key on a spec (e.g.
+  `stress_level` on a genotype) raises `ConfigError`.
+* `genotypes x environments` is capped at `GXE_MAX_CELLS = 60` cells
+  (`eval_seeds` length is uncapped) -- enforced in `GxEConfig.validate()`
+  since this is an async job, not `compare.py`'s synchronous 6-scenario cap,
+  so an oversized grid fails fast instead of queuing and grinding.
+* The completed job's `result` carries `items` (one `GxECell` per finished
+  cell: `genotype`, `environment`, `fitness`, `survival`, `senescence`) and
+  `reranking_pairs` (genotype-name pairs whose fitness ordering flips between
+  at least two environments).
+* Registered in the experiment ledger with `kind="gxe"`; artifacts are
+  `gxe.json`, `gxe.csv`, `config.json` (mirroring `write_sensitivity_artifacts`).
+* **Not built on sub-clone competition** -- see `docs/MODEL.md` §2.2's
+  cross-reference for why genotypes are evaluated in isolation instead of as
+  competing `ModelConfig.subclones`.
+
+Tests: `tests/test_gxe_study.py`, `tests/test_api_gxe.py`.
+
 ### Synthetic "biological age" biomarker score (candidate feature #5, 2026-09-11)
 
 Every `run` object returned by `POST /api/simulate` and `POST /api/compare`
@@ -316,7 +359,7 @@ from `POST /api/simulate`, which is unchanged.
 
 Tests: `tests/test_api_ensemble.py`.
 
-## Long-running jobs (evolve / pareto / sensitivity / active-learning / benchmark)
+## Long-running jobs (evolve / pareto / sensitivity / G×E / active-learning / benchmark)
 
 These `POST` a config body and return `{"job_id": "..."}` immediately,
 instead of blocking on the whole run. Poll:
@@ -346,10 +389,11 @@ scaled out.
 | `POST /api/evolve` | `EvolutionEngine.run` via `runner.run_evolution` | Yes — `GenerationRecord.to_dict()` per generation | Yes — `should_stop` already exists on the engine |
 | `POST /api/pareto` | `NSGA2Engine.run` via `runner.run_pareto` | Yes — `MOGenerationRecord.to_dict()` per generation | Yes — `should_stop` already exists on the engine |
 | `POST /api/sensitivity` | `run_sensitivity_analysis` via `runner.run_sensitivity` | Yes — `ParameterSensitivity.to_dict()` per parameter | No — the function has no `should_stop` hook; adding one would touch its per-parameter loop, judged out of scope for a short OAT sweep |
+| `POST /api/gxe` | `run_gxe_analysis` via `runner.run_gxe` | Yes — `GxECell.to_dict()` per finished (genotype, environment) cell | No — same rationale as sensitivity: no `should_stop` hook on the nested genotype x environment loop; `GxEConfig.validate()`'s `GXE_MAX_CELLS` cap bounds the worst case instead |
 | `POST /api/active-learning` | `SurrogateActiveLearner.run` via `runner.run_active_learning` | Yes — `ActiveLearningRecord.to_dict()` per real evaluation | No — no `should_stop` hook on the GP-refit/acquire loop; adding one would touch `evolution/surrogate.py`'s core cycle |
 | `POST /api/benchmark` | `evolution/benchmark.py`'s four `run_*_benchmark` functions | No — none of the four functions accept a callback, and the module isn't wired through `runner.py` (no ledger `run_id`) | No |
 
-Request bodies: `{"model": {...}, "evolution"|"multiobjective"|"sensitivity"|"active_learning": {...}, "notes": "..."}`
+Request bodies: `{"model": {...}, "evolution"|"multiobjective"|"sensitivity"|"gxe"|"active_learning": {...}, "notes": "..."}`
 (`/api/benchmark` takes `model`, `evolution`, `multiobjective`). Each config
 block is validated with the matching `telomere_lab.schemas` dataclass's own
 `.from_dict().validate()` — `400` with the `ConfigError` message on failure.

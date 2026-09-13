@@ -478,14 +478,59 @@ golden-fixture bit-identity proof), Vitest all green (159, incl. a
 Sensitivity-page fixture update for the 4 newly-evolvable parameters).
 
 Other genome-basis ideas from the same brainstorm (Genome Stability Lab
-picked first as the cheapest/lowest-risk/most-scientifically-grounded step;
-not yet built): a genotype × environment (G×E) study reusing sub-clones as
-genotypes, a canalization/robustness fitness objective, upgrading sub-clones
-toward a population-genetics-style model, grounding parameter choices in
-real GWAS-variant effect sizes, and a genome-dimensionality scaling study.
-A "Genome Function Explorer" concept (predicted functional impact of a
-config) was flagged as carrying more scientific-honesty/overclaim risk and
-is not prioritized.
+picked first as the cheapest/lowest-risk/most-scientifically-grounded step):
+a genotype × environment (G×E) study reusing sub-clones as genotypes
+(**DONE 2026-09-13**, see below), a canalization/robustness fitness
+objective, upgrading sub-clones toward a population-genetics-style model,
+grounding parameter choices in real GWAS-variant effect sizes, and a
+genome-dimensionality scaling study (these four not yet built). A "Genome
+Function Explorer" concept (predicted functional impact of a config) was
+flagged as carrying more scientific-honesty/overclaim risk and is not
+prioritized.
+
+### Genotype × Environment (G×E) study (DONE 2026-09-13)
+
+Shipped as a new page (`/gxe`) + async job (`POST /api/gxe`), not as an
+additive field on an existing page — unlike Genome Stability, this needed
+new infrastructure (a new job kind, a new core analysis module, a new
+router), the same shape as Sensitivity rather than the "off-by-default
+`ModelConfig` field" pattern. Each genotype (`GenotypeSpec` — a named
+`SUBCLONE_OVERRIDABLE_PARAMETERS` override bundle) is run against every
+environment (`EnvironmentSpec` — a named `stress_level` override) as an
+**isolated** simulation, averaged over `eval_seeds`, and the result flags
+any genotype pair whose fitness ordering flips between environments
+(`reranking_pairs`) — a reaction-norm chart (`gxeCharts.ts`) plots one line
+per genotype across environments so a crossing is visible directly.
+
+**Decided against**: running genotypes as competing `ModelConfig.subclones`
+in one shared population per environment (reusing the sub-clone competition
+engine as-is). That measures frequency-dependent competitive dynamics
+(who out-competes whom when both are present at once), not classical G×E
+interaction (how does each genotype's own fitness change across
+environments) — the two are genuinely different questions, and the roadmap
+brainstorm's own framing ("genotype re-ranking... between environments") is
+squarely the reaction-norm one. `docs/MODEL.md` §2.2 carries the
+cross-reference explaining this explicitly so it isn't re-proposed later.
+
+Full spec: `docs/API.md`'s G×E section, `docs/MODEL.md` §2.2's
+cross-reference. Tests: `tests/test_gxe_study.py` (core, including a
+monkeypatched deterministic-crossover fixture — real simulator dynamics
+don't reliably produce a large, seed-robust crossover between two hand-
+picked genotypes, so the reranking-*logic* is tested directly rather than
+hoping a tuned example happens to cross), `tests/test_api_gxe.py` (job
+lifecycle, 400/422 split, ledger registration). Frontend:
+`gxeCharts.test.ts`, `overrideListUtils.test.ts`, `GxE.test.tsx`. Verified
+live end-to-end against the real API (job runs, live progress, chart,
+ledger entry with `kind="gxe"`).
+
+While building this, also fixed a verification gap left over from Genome
+Stability: this repo's `tsconfig.json` is a solution-style file (`files: []`,
+project references only), so `tsc --noEmit -p .` silently does nothing
+without `--build` — the real check is `tsc -b` (what `npm run build` and CI
+actually run). Two stale test fixtures from Genome Stability (missing the
+new `mean_mutation_burden`/`apoptotic_fraction`/`genome_instability` fields)
+had slipped past the earlier "typecheck clean" claim as a result; fixed
+alongside this feature.
 
 ## Explicitly deferred / out of scope for now
 

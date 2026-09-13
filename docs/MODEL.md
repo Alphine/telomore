@@ -210,6 +210,16 @@ feature #4).
   genome encodings (`evolution/genome.py`) do not expand or evolve
   `subclones` — this is a Simulate-page exploratory lens on the *inner*
   competition dynamics, not a new gene space for the *outer* optimizers.
+* **Not reused by the G×E study.** A genotype x environment (G×E)
+  reaction-norm study (docs/ROADMAP.md 2026-09-13 follow-up, `analysis/gxe.py`)
+  deliberately does **not** build on this sub-clone mechanism, even though it
+  reuses the same "named parameter-override bundle" shape (`GenotypeSpec` vs.
+  `SubcloneSpec`). Running genotypes as competing sub-clones in one shared
+  population would measure frequency-dependent competitive dynamics, not
+  classical G×E interaction — a G×E study instead runs each (genotype,
+  environment) pair as its own **isolated** simulation via plain
+  `ModelConfig.replace()`, exactly like `analysis/sensitivity.py`'s one-axis
+  sweep. See `docs/API.md`'s G×E section for the full spec.
 
 ### 2.3 Genome stability (mutation burden and apoptosis checkpoint)
 

@@ -774,7 +774,113 @@ tooling for 3+ objectives, not one this experiment works around.
   (`docs/SCIENTIFIC_SCOPE.md`), not a claim about real intervention
   trade-offs.
 
-## 14. Performance (scripts/benchmark.py, same machine)
+## 14. Experiment I — Genotype × Environment reaction norms
+
+### Question
+
+`docs/ROADMAP.md`'s 2026-09-13 G×E follow-up asks whether a genotype's
+relative fitness can *re-rank* across environments — the classical G×E-
+interaction signature — as opposed to one genotype simply dominating
+everywhere regardless of context. Does the "resilient" vs. "fragile"
+genotype pair from Experiment F's sub-clone-competition demo re-rank when
+evaluated in **isolation** (no competition) across a low-stress and a
+high-stress environment?
+
+### Setup
+
+Base config: `configs/demo.yaml` (the same stressed-culture baseline used
+throughout this document). Genotypes: **"resilient"**
+(`maintenance_rate=0.6, repair_rate=0.6`, identical overrides to Experiment
+F) and **"fragile"** (no overrides — the baseline's own 0.10/0.15).
+Environments: **"low_stress"** (`stress_level=0.2`) and **"high_stress"**
+(`stress_level=0.9`). `eval_seeds = (1, 2, 3)`.
+
+```python
+from telomere_lab.config import load_model_config
+from telomere_lab.schemas import GenotypeSpec, EnvironmentSpec, GxEConfig
+from telomere_lab.experiments.runner import run_gxe
+
+base = load_model_config("configs/demo.yaml")
+cfg = GxEConfig(
+    genotypes=(GenotypeSpec("resilient", {"maintenance_rate": 0.6, "repair_rate": 0.6}),
+               GenotypeSpec("fragile", {})),
+    environments=(EnvironmentSpec("low_stress", {"stress_level": 0.2}),
+                  EnvironmentSpec("high_stress", {"stress_level": 0.9})),
+    eval_seeds=(1, 2, 3),
+)
+run_gxe(base, cfg, notes="Experiment I: G×E reaction norm")
+```
+
+Ledger: `TEL-20260913-006` (config hash `478092e210722319`, 1.5 s, 12 simulations).
+
+### Result
+
+| genotype | low_stress fitness | high_stress fitness |
+|---|---|---|
+| resilient | +0.4732 | +0.1447 |
+| fragile | −0.0581 | −0.1590 |
+
+`reranking_pairs`: **empty** — resilient wins in both environments; no
+crossover was observed at these parameter values.
+
+### Interpretation (within the model)
+
+* **No re-ranking here, and the model's own arithmetic explains why.**
+  Per-division loss is `shortening_rate + stress_level * stress_sensitivity *
+  (1 - repair_rate)` (`docs/MODEL.md` §2) — for a fixed genotype this is
+  *linear* in `stress_level`, so whichever genotype has the smaller
+  `stress_sensitivity * (1 - repair_rate)` coefficient wins at every stress
+  level, not just some. A hand-picked pair that differs only in this
+  coefficient (as "resilient"/"fragile" do — repair_rate is the only stress-
+  interacting term either overrides) can dominate but structurally cannot
+  cross, regardless of how far apart the two environments are. Reproducing
+  this same non-crossing outcome for several stress-level pairs and several
+  `maintenance_rate`/`repair_rate` genotype combinations during development
+  (not shown in the ledger, exploratory only) reinforced that this is the
+  model's structural behavior, not a fluke of these particular numbers.
+* **Where a crossover *would* have to come from.** `maintenance_rate`'s gain
+  term is stress-independent while `repair_rate`'s benefit scales with
+  `stress_level` — two genotypes trading off maintenance vs. repair (rather
+  than one simply having more of both, as here) are the more promising
+  candidate for a genuine crossover, but even that pairing only produced a
+  crossing margin too thin to be seed-robust in exploratory testing (see
+  `tests/test_gxe_study.py`'s own note on why its reranking tests use a
+  synthetic fitness table rather than real simulator dynamics). A cleaner
+  demonstration likely needs a genotype pair whose trade-off is genuinely
+  nonlinear in stress (e.g. interacting with `senescence_threshold` or an
+  extinction boundary) — left for a future write-up rather than forcing a
+  result here.
+* **Honest negative result, matching this document's own convention**
+  (Experiment C's early GA runs, Experiment H's hypervolume caveat): the
+  feature works exactly as designed and correctly reports "no re-ranking
+  detected" rather than fabricating a crossover that didn't occur.
+* **Scope.** Not a claim about real genetic variation or ecological
+  environments — "genotype" is a parameter-override bundle and
+  "environment" is a `stress_level` override, both abstract model
+  constructs (`docs/SCIENTIFIC_SCOPE.md`).
+
+### Reproduce
+
+```bash
+python -c "
+from telomere_lab.config import load_model_config
+from telomere_lab.schemas import GenotypeSpec, EnvironmentSpec, GxEConfig
+from telomere_lab.experiments.runner import run_gxe
+base = load_model_config('configs/demo.yaml')
+cfg = GxEConfig(
+    genotypes=(GenotypeSpec('resilient', {'maintenance_rate': 0.6, 'repair_rate': 0.6}),
+               GenotypeSpec('fragile', {})),
+    environments=(EnvironmentSpec('low_stress', {'stress_level': 0.2}),
+                  EnvironmentSpec('high_stress', {'stress_level': 0.9})),
+    eval_seeds=(1, 2, 3),
+)
+result, record = run_gxe(base, cfg)
+print(result.to_frame())
+print('reranking:', result.reranking_pairs)
+"
+```
+
+## 15. Performance (scripts/benchmark.py, same machine)
 
 | Measurement | Value |
 |---|---|

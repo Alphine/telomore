@@ -25,6 +25,8 @@ const run: FrameSource = {
     proliferative_count: [100, 1500, 20, 0],
     fraction_below_threshold: [0, 0.1, 0.5, null],
     length_cv: [0.1, 0.1, 0.2, null],
+    mean_mutation_burden: [0, 0, 0, 0],
+    apoptotic_fraction: [0, 0, 0, 0],
   },
 }
 

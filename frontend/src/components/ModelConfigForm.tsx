@@ -10,6 +10,13 @@ import { NumberInput } from './NumberInput'
 // Parameters the Streamlit sliders showed in kb (stored in bp).
 const KB_FIELDS: ReadonlySet<keyof ModelConfig> = new Set(['initial_length', 'senescence_threshold'] as const)
 
+// Step overrides for bounds whose generic range-based step (below) would be
+// wrong: mutation_threshold's PARAMETER_BOUNDS max is a huge (1e9) sentinel
+// so ModelConfig()'s own default stays valid, but the practically reachable
+// values are small fractions -- the generic "step = 1 once max - min > 2"
+// rule would reject any decimal the user types (docs/MODEL.md §2.3).
+const STEP_OVERRIDES: Partial<Record<keyof ModelConfig, number>> = { mutation_threshold: 0.01 }
+
 // Widget ranges for the structural / run-control fields that are NOT in
 // PARAMETER_BOUNDS (the model only validates them relationally, e.g.
 // carrying_capacity >= population_size >= 1, cycles >= 1). Copied from the
@@ -67,8 +74,8 @@ function BoundedField({
   const scale = kb ? 1000 : 1
   const lo = bound.min / scale
   const hi = bound.max / scale
-  // Same step rule as controls.py::_slider.
-  const step = kb ? 0.1 : bound.max - bound.min <= 2 ? 0.01 : 1
+  // Same step rule as controls.py::_slider, with per-field overrides above.
+  const step = kb ? 0.1 : STEP_OVERRIDES[name] ?? (bound.max - bound.min <= 2 ? 0.01 : 1)
   const shown = value / scale
   const off = locked || disabled
   return (

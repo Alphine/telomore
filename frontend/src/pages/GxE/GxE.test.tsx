@@ -25,7 +25,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 function cell(genotype: string, environment: string, fitness: number): GxECell {
-  return { genotype, environment, fitness, survival: 0.5, senescence: 0.2 }
+  return { genotype, environment, fitness, survival: 0.5, senescence: 0.2, canalization: 1.0 }
 }
 
 function jobSnapshot(status: GxEJob['status'], extra: Partial<GxEJob> = {}): GxEJob {

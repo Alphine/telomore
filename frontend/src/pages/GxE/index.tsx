@@ -60,6 +60,7 @@ function GxETable({ items }: { items: GxECell[] }) {
             <th className="px-3 py-2 text-right">fitness</th>
             <th className="px-3 py-2 text-right">survival</th>
             <th className="px-3 py-2 text-right">senescence</th>
+            <th className="px-3 py-2 text-right">canalization</th>
           </tr>
         </thead>
         <tbody className="font-mono">
@@ -70,6 +71,7 @@ function GxETable({ items }: { items: GxECell[] }) {
               <td className="px-3 py-1.5 text-right">{it.fitness === null ? 'n/a' : signed(it.fitness, 4)}</td>
               <td className="px-3 py-1.5 text-right">{fmt(it.survival)}</td>
               <td className="px-3 py-1.5 text-right">{fmt(it.senescence)}</td>
+              <td className="px-3 py-1.5 text-right">{fmt(it.canalization)}</td>
             </tr>
           ))}
         </tbody>
@@ -338,6 +340,7 @@ export function GxE() {
                         fitness: it.fitness,
                         survival: it.survival,
                         senescence: it.senescence,
+                        canalization: it.canalization,
                       })),
                     ),
                     'text/csv',

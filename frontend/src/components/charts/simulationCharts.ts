@@ -127,6 +127,8 @@ export function fitnessBreakdownBar(
     ['senescence', -weights.w_senescence * breakdown.senescence],
     ['instability', -weights.w_instability * breakdown.instability],
     ['cost', -weights.w_cost * breakdown.cost],
+    ['genome_instability', -weights.w_genome_instability * breakdown.genome_instability],
+    ['canalization', weights.w_canalization * breakdown.canalization],
   ]
   const sign = breakdown.total >= 0 ? '+' : ''
   const data: Data[] = [

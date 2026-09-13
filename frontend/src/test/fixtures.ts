@@ -47,7 +47,7 @@ export const BOUNDS: BoundsResponse = {
   evolvable: ['initial_length', 'shortening_rate', 'stress_level', 'maintenance_rate', 'repair_rate', 'senescence_threshold', 'replication_error_rate', 'oxidative_mutation_sensitivity', 'checkpoint_strength', 'mutation_threshold'],
   defaults: MODEL_DEFAULTS,
   demo: { ...MODEL_DEFAULTS, stress_level: 0.6, maintenance_rate: 0.1, repair_rate: 0.15, record_distribution_every: 20 },
-  fitness_weights_default: { w_survival: 0.4, w_reserve: 0.3, w_senescence: 0.2, w_instability: 0.1, w_cost: 0.3, w_genome_instability: 0 },
+  fitness_weights_default: { w_survival: 0.4, w_reserve: 0.3, w_senescence: 0.2, w_instability: 0.1, w_cost: 0.3, w_genome_instability: 0, w_canalization: 0 },
   evolution_default: {
     population_size: 32,
     generations: 20,
@@ -64,7 +64,7 @@ export const BOUNDS: BoundsResponse = {
     early_stopping_tol: 0.0001,
     checkpoint_every: 5,
     schedule_phases: 1,
-    weights: { w_survival: 0.4, w_reserve: 0.3, w_senescence: 0.2, w_instability: 0.1, w_cost: 0.3, w_genome_instability: 0 },
+    weights: { w_survival: 0.4, w_reserve: 0.3, w_senescence: 0.2, w_instability: 0.1, w_cost: 0.3, w_genome_instability: 0, w_canalization: 0 },
   },
   objectives: {
     survival: { direction: 'max', description: 'normalised proliferative-cell AUC' },
@@ -72,6 +72,8 @@ export const BOUNDS: BoundsResponse = {
     senescence: { direction: 'min', description: 'final senescent fraction' },
     instability: { direction: 'min', description: 'final length CV, scaled' },
     cost: { direction: 'min', description: 'intervention cost ½(maintenance² + repair²)' },
+    genome_instability: { direction: 'min', description: 'genomic instability index (fraction of cells over the mutation threshold)' },
+    canalization: { direction: 'max', description: 'consistency of survival across replicate seeds (1 - scaled coefficient of variation)' },
   },
   schedulable: ['stress_level', 'maintenance_rate', 'repair_rate'],
   max_phases: 8,
@@ -180,7 +182,7 @@ export function fakeRun(cycles = 4): SimulationRun {
       valid: true,
     },
     run_id: 'TEL-20260909-001',
-    fitness: { total: 0.512, survival: 0.9, reserve: 0.27, senescence: 0.12, instability: 0.2, cost: 0.02, genome_instability: 0, valid: true, reason: null },
+    fitness: { total: 0.512, survival: 0.9, reserve: 0.27, senescence: 0.12, instability: 0.2, cost: 0.02, genome_instability: 0, canalization: 1, valid: true, reason: null },
   }
 }
 

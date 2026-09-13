@@ -2,8 +2,11 @@
 // refresh sees a components-only module).
 import type { EvolutionConfig, FitnessWeights } from '../../api/types'
 
-// Copied verbatim from app/ui/controls.py::fitness_weight_controls.
-export const FITNESS_FORMULA = 'fitness = w₁·survival + w₂·reserve − w₃·senescence − w₄·instability − w₅·cost'
+// Originally copied verbatim from app/ui/controls.py::fitness_weight_controls;
+// extended with genome_instability (docs/MODEL.md §2.3) and canalization
+// (docs/MODEL.md §5, both added after that port and previously missing here).
+export const FITNESS_FORMULA =
+  'fitness = w₁·survival + w₂·reserve − w₃·senescence − w₄·instability − w₅·cost − w₆·genome_instability + w₇·canalization'
 
 export const WEIGHT_FIELDS: Array<{ key: keyof FitnessWeights; label: string }> = [
   { key: 'w_survival', label: 'w₁ survival' },
@@ -11,6 +14,8 @@ export const WEIGHT_FIELDS: Array<{ key: keyof FitnessWeights; label: string }> 
   { key: 'w_senescence', label: 'w₃ senescence' },
   { key: 'w_instability', label: 'w₄ instability' },
   { key: 'w_cost', label: 'w₅ intervention cost' },
+  { key: 'w_genome_instability', label: 'w₆ genome instability' },
+  { key: 'w_canalization', label: 'w₇ canalization' },
 ]
 
 /** Form state: EvolutionConfig with eval_seeds kept as the raw comma-separated text. */

@@ -31,7 +31,7 @@ function scenario(name: string, cfg: Partial<ModelConfig>, fitness: number, delt
     name,
     result: { ...rest, config: { ...rest.config, ...cfg } },
     fitness,
-    breakdown: { total: fitness, survival: 0.9, reserve: 0.27, senescence: 0.12, instability: 0.2, cost: 0.02, genome_instability: 0, valid: true, reason: null },
+    breakdown: { total: fitness, survival: 0.9, reserve: 0.27, senescence: 0.12, instability: 0.2, cost: 0.02, genome_instability: 0, canalization: 1, valid: true, reason: null },
     deltas,
   }
 }

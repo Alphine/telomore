@@ -121,6 +121,8 @@ export interface FitnessWeights {
   w_cost: number
   /** Weight of the genome-instability term (docs/MODEL.md §2.3); 0.0 default keeps it inert. */
   w_genome_instability: number
+  /** Weight of the canalization term (docs/MODEL.md §5); 0.0 default keeps it inert. Only meaningful with eval_seeds.length >= 2. */
+  w_canalization: number
 }
 
 // telomere_lab.schemas.EvolutionConfig.to_dict()
@@ -299,6 +301,8 @@ export interface FitnessBreakdown {
   cost: number
   /** Genome stability (docs/MODEL.md §2.3); inert (0) unless w_genome_instability is set. */
   genome_instability: number
+  /** Consistency of survival across eval_seeds replicates (docs/MODEL.md §5); always 0 from a single simulation, only meaningful once averaged across replicates. */
+  canalization: number
   valid: boolean
   reason: string | null
 }
@@ -621,6 +625,8 @@ export interface GxECell {
   fitness: number | null
   survival: number | null
   senescence: number | null
+  /** Consistency of survival across this cell's eval_seeds replicates (docs/MODEL.md §5). */
+  canalization: number | null
 }
 
 // backend/routers/gxe.py::_target return value.

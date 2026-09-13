@@ -483,11 +483,11 @@ a genotype × environment (G×E) study reusing sub-clones as genotypes
 (**DONE 2026-09-13**, see below), a canalization/robustness fitness
 objective (**DONE 2026-09-13**, see below), upgrading sub-clones toward a
 population-genetics-style model (**DONE 2026-09-13**, see below), grounding
-parameter choices in real GWAS-variant effect sizes, and a
-genome-dimensionality scaling study (these two not yet built). A "Genome
-Function Explorer" concept (predicted functional impact of a config) was
-flagged as carrying more scientific-honesty/overclaim risk and is not
-prioritized.
+parameter choices in real GWAS-variant effect sizes (**DONE 2026-09-13**,
+see below), and a genome-dimensionality scaling study (not yet built). A
+"Genome Function Explorer" concept (predicted functional impact of a
+config) was flagged as carrying more scientific-honesty/overclaim risk and
+is not prioritized.
 
 ### Per-cell heritable repair_rate (population-genetics-style) (DONE 2026-09-13)
 
@@ -517,6 +517,40 @@ the scalar "seed"/nominal value, since none of them opt into
 Full spec: `docs/MODEL.md` §2.2. Tests: `tests/test_repair_rate_drift.py`
 (pytest all green, including its own golden-fixture bit-identity proof),
 Vitest all green (176), `npx tsc -b --force` and lint clean.
+
+### GWAS-variant effect-size calibration check (DONE 2026-09-13)
+
+Same discipline as the existing literature calibration (§3.1, ROADMAP
+"Explicitly deferred" section, resolved 2026-09-12): a calibration *check*
+against real human telomere-length GWAS studies, not a parameter re-fit.
+Retrieved via general web search (Consensus.app not used this round).
+
+Checked `initial_length_sd` (founder-population spread) against twin-based
+broad-sense heritability of leukocyte telomere length (Broer et al. 2013,
+h² ≈ 0.70) and against the largest GWAS to date (Codd et al. 2021, UK
+Biobank n=472,174, 138 loci / 197 variants, only 8.1% common-SNP
+heritability and ~5.6% polygenic-score variance explained — a large gap vs.
+the twin estimate, the classic telomere-length "missing heritability").
+Decomposing the existing 800 bp phenotypic-variance anchor (Sabharwal et
+al. 2018, already used in §3.1) by the 0.70 heritability figure gives an
+implied genetic-component SD of ≈669 bp and environmental ≈438 bp — the
+current default sits at a consistent order of magnitude between the two.
+Checked `repair_rate`/`repair_rate_mutation_sigma` against DNA-repair-locus
+GWAS hits (`RTEL1`, `PARP1`, `TERT`), which report effect sizes as
+disease-risk odds ratios or T/S-ratio shifts, never a repair-*rate*
+quantity comparable to this model's unitless 0–1 knob, and against the fact
+that GWAS/heritability measure germline inter-individual variation while
+`repair_rate_mutation_sigma` is a somatic per-division drift step within
+one lineage — not the same biological quantity even in principle.
+
+**Outcome, same as §3.1: no defaults changed.** The one actionable finding
+is a documented simplification, not a numeric correction — `initial_length_sd`
+conflates genetic and environmental variance sources into a single
+founder-spread number, which this single-generation, non-pedigreed model
+has no mechanism to decompose (new `docs/MODEL.md` §7 bullet). Full spec:
+`docs/MODEL.md` §3.2 (new subsection, mirrors §3.1's table format) and §9
+References ("GWAS telomere-length calibration"). No code changes — this
+was a documentation-only exercise, consistent with §3.1's own outcome.
 
 ### Canalization / robustness fitness objective (DONE 2026-09-13)
 

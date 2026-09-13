@@ -398,6 +398,28 @@ does not claim (`docs/SCIENTIFIC_SCOPE.md`). The qualitative behaviour this
 was originally chosen for still holds: a Hayflick-like limit of a few dozen
 to ~60 divisions in the unstressed case.
 
+### 3.2 GWAS-variant effect-size calibration check (2026-09-13)
+
+Same status as §3.1 — a calibration *check*, not a re-fit — this time against
+the human telomere-length GWAS literature, for the two parameters that
+represent *inter-individual genetic variation* rather than within-cell
+biophysics: `initial_length_sd` (§2's founder-population spread) and
+`repair_rate`/`repair_rate_mutation_sigma` (§2.2.1's heritable trait).
+
+| Parameter | Default | GWAS/heritability anchor | Verdict |
+|---|---|---|---|
+| `initial_length_sd` | 800 bp | Broad-sense heritability of leukocyte telomere length (LTL) ≈ 0.70 (Broer et al., 2013, meta-analysis of 19,713 subjects, 95% CI 0.64–0.76). Decomposing the existing 800 bp total-phenotypic-variance anchor (Sabharwal et al., 2018, §3.1) by this heritability implies a genetic-component SD of √0.70 × 800 ≈ **669 bp** and an environmental/residual SD of √0.30 × 800 ≈ **438 bp** | Consistent order of magnitude — 800 bp sits between the pure-genetic and pure-phenotypic estimates, as it should if it is meant to represent total founder-population spread. The model does not decompose `initial_length_sd` into a genetic vs. environmental source (there is no cross-generation inheritance model, §7) — documented as a simplification, not corrected as an error |
+| `initial_length_sd` (missing-heritability context) | — | The largest telomere-length GWAS to date (Codd et al., 2021, *Nature Genetics*, UK Biobank, n = 472,174) found 197 independent variants across 138 loci (108 novel) but a common-SNP heritability of only **8.1%**, with the resulting polygenic score explaining **~5.6%** of variance — versus the ~70% twin-based estimate above (Codd et al., 2013, *Nature Genetics*'s original 7-loci discovery explained only ~1%) | Informational only, no verdict on a specific parameter: this "missing heritability" gap means telomere length genetics is highly polygenic with no single dominant locus, so there is no candidate "one gene = one model parameter" mapping even if a per-locus genetic term were ever added |
+| `repair_rate` | 0.20 (0–1, a.u.) | DNA-repair/telomere-maintenance loci with GWAS hits (`RTEL1`, `PARP1`) report effect sizes as disease-risk odds ratios or telomere/single-copy (T/S) ratio shifts (e.g. `TERT` rs2736100: +0.026 T/S per C allele, ≈ 3 years' attrition-equivalent) — never a repair-*rate* quantity in units comparable to this model's unitless 0–1 knob | Reconfirms §3.1's existing verdict rather than adding a new one: qualitative conceptual mapping only, no literature-calibrated numeric target exists for this parameter |
+| `repair_rate_mutation_sigma` | 0.0 (0–0.1, a.u./cycle) | Not applicable in principle, not just data-limited: GWAS effect sizes and heritability estimates quantify **germline, inter-individual** variation (fixed for an organism's lifetime), while this parameter is a **somatic, per-division drift** step within one simulated lineage — a different biological process. No GWAS study measures a per-mitosis mutation step size for a repair-related phenotype | Out of scope for this calibration exercise by construction; noted in §7 as a known simplification rather than left unaddressed |
+
+Full citations: **§9 References**, "GWAS telomere-length calibration
+(§3.2)". Net outcome, consistent with §3.1: **no defaults changed**. The one
+actionable finding is a documented gap, not a numeric correction —
+`initial_length_sd` conflates genetic and environmental variance sources
+into a single founder-spread parameter, which this deliberately
+single-generation, non-pedigreed model has no mechanism to separate (§7).
+
 ## 4. Outputs
 
 Per cycle: mean, median, 10th percentile and minimum telomere length; mean
@@ -720,6 +742,13 @@ Sources: **§9 References**, "Organ-on-a-chip calibration (§6.1)".
   other trait (shortening_rate, maintenance_rate, stress_sensitivity) is
   still a fixed clone-level constant, not a model of mutation, drift, or
   real genetic heterogeneity — see `docs/SCIENTIFIC_SCOPE.md`.
+* `initial_length_sd` conflates genetic and environmental sources of
+  inter-individual variance into one founder-spread number (§3.2): the model
+  is single-generation and non-pedigreed, so it has no mechanism to
+  decompose "genetic" vs. "environmental" spread the way a twin study can.
+  `repair_rate_mutation_sigma` (§2.2.1) is a somatic per-division drift step,
+  not a germline/inter-individual quantity — the two are not interchangeable
+  even though both are called "genetic variation" colloquially.
 
 ## 8. Software validation
 
@@ -805,6 +834,36 @@ Retrieved via Consensus.app.
 - Denchi, E.L. & de Lange, T., 2007, "Protection of telomeres through
   independent control of ATM and ATR by TRF2 and POT1" — `repair_rate`
   conceptual mapping.
+
+### GWAS telomere-length calibration (§3.2)
+
+Retrieved via general web search (peer-reviewed papers throughout).
+
+- Codd, V. et al., 2013, *Nature Genetics*, "Identification of seven loci
+  affecting mean telomere length and their association with disease" —
+  first 7 telomere-length GWAS loci (`TERC`, `TERT`, `NAF1`, `OBFC1`,
+  `RTEL1`, `ZNF208`, `ACYP2`), ~1% variance explained.
+- Codd, V. et al., 2021, *Nature Genetics*, "Polygenic basis and biomedical
+  consequences of telomere length variation" — UK Biobank (n = 472,174),
+  197 variants / 138 loci, 8.1% common-SNP heritability, ~5.6% polygenic
+  score variance explained.
+- Broer, L. et al., 2013, *European Journal of Human Genetics*,
+  "Meta-analysis of telomere length in 19,713 subjects reveals high
+  heritability, stronger maternal inheritance and a paternal age effect" —
+  twin-based broad-sense heritability (0.70).
+- Sabharwal, S. et al., 2018 — pediatric multi-tissue telomere length
+  survey, reused from §3.1 as the total-phenotypic-variance anchor for the
+  genetic/environmental decomposition above.
+- Xi'an Jiaotong-Liverpool University summary and PMC full-text mirrors of
+  the Codd et al. 2013/2021 papers, used to cross-check the loci list and
+  variance-explained figures against the primary Nature Genetics abstracts
+  (paywalled in this session).
+- Association of `TERC`/`OBFC1` haplotypes and leukocyte telomere length /
+  coronary heart disease risk (PMC) — `TERT` rs2736100 T/S-ratio effect
+  size.
+- `RTEL1`/`PARP1` variant-disease-risk association studies (prostate
+  cancer, PMC) — DNA-repair-locus effect sizes reported as odds ratios, not
+  a repair-rate quantity.
 
 ### Organ-on-a-chip calibration (§6.1)
 

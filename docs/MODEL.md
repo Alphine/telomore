@@ -455,16 +455,42 @@ fitness = w_survival    · normalized_survival
         − w_instability · clip(final_length_cv / 0.5, 0, 1)
         − w_cost        · ½ (m̄² + r̄²)          m̄, r̄ = time-averaged maintenance_rate, repair_rate
         − w_genome_instability · genomic_instability_index     (§2.3)
+        + w_canalization · canalization                        (replicate-set only, see below)
 ```
 
 For a constant (unscheduled) configuration `m̄ = maintenance_rate` and
 `r̄ = repair_rate`, i.e. the cost is ½(maintenance² + repair²) exactly as
 before; for a scheduled protocol see §2.1.
 
-Default weights 0.40 / 0.30 / 0.20 / 0.10 / 0.30 / 0.0 (the last is
-`w_genome_instability`, inert until a user opts into genome stability §2.3).
-Invalid simulations (out-of-range parameter, non-finite state) receive
-fitness −1000 and are flagged; they never compete with valid candidates.
+Default weights 0.40 / 0.30 / 0.20 / 0.10 / 0.30 / 0.0 / 0.0 (the last two
+are `w_genome_instability` and `w_canalization`, both inert until opted
+into). Invalid simulations (out-of-range parameter, non-finite state)
+receive fitness −1000 and are flagged; they never compete with valid
+candidates.
+
+**Canalization** (docs/ROADMAP.md 2026-09-13 follow-up) measures the
+*consistency* of a genotype's `survival` outcome across its `eval_seeds`
+replicate simulations — stochastic robustness, not environmental robustness
+(the G×E study, §2.2's cross-reference, covers that) and not structural
+parameter robustness (Sensitivity, above, covers that):
+```
+cv           = std(survival_i for i in eval_seeds) / mean(survival_i for i in eval_seeds)   if mean > 0 else 0
+canalization = 1 − clip(cv / 0.5, 0, 1)
+```
+Unlike every other term above, this is only defined for a *replicate set*,
+not a single simulation — `evolution/fitness.py::compute_fitness` (one
+simulation) always returns `0.0` for it; only `average_breakdowns` (which
+sees every replicate) computes the real value and adds
+`w_canalization · canalization` into `total`. The `0.5` scale mirrors
+`instability`'s own CV scale exactly; empirically, comfortable
+large-population configs show survival CV ≈ 0.7–2%, while a near-extinction
+config showed CV ≈ 50%+, so this discriminates rather than degenerating to
+always-1.0. A `mean == 0` replicate set (every seed consistently extinct) is
+defined as `cv = 0` → `canalization = 1`: a perfectly reproducible outcome,
+even a bad one, has no stochastic ambiguity. **Caveat**: `MultiObjectiveConfig`
+(§5.1) defaults `eval_seeds` to a single seed `(42,)` — with only one seed,
+canalization is trivially `1.0` for every genome and carries no information;
+meaningful use requires widening `eval_seeds` to 2 or more.
 
 **Fitness is an experimenter-chosen objective, not a biological truth.**
 The cost term is *convex* (quadratic) so the marginal cost of an
@@ -478,7 +504,7 @@ itself an assumption the user can change.
 
 ### 5.1 Multi-objective alternative (NSGA-II)
 
-`evolution/multiobjective.py` optimises any two or more of the six
+`evolution/multiobjective.py` optimises any two or more of the seven
 components above **without weights**. Objectives and their directions:
 
 | Objective | Direction | Definition |
@@ -489,6 +515,7 @@ components above **without weights**. Objectives and their directions:
 | `instability` | min | clip(final CV / 0.5, 0, 1) |
 | `cost` | min | ½(m̄² + r̄²), time-averaged maintenance / repair (§2.1) |
 | `genome_instability` | min | genomic instability index, fraction of surviving cells over the mutation threshold (§2.3) |
+| `canalization` | max | 1 − clip(survival CV across eval_seeds / 0.5, 0, 1) — see above; trivially 1.0 with this page's own single-seed `eval_seeds` default |
 
 NSGA-II (Deb et al., 2002): fast non-dominated sort, crowding distance,
 binary tournament on (rank, crowding), (μ+λ) survival with the last front

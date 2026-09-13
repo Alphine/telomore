@@ -481,12 +481,47 @@ Other genome-basis ideas from the same brainstorm (Genome Stability Lab
 picked first as the cheapest/lowest-risk/most-scientifically-grounded step):
 a genotype × environment (G×E) study reusing sub-clones as genotypes
 (**DONE 2026-09-13**, see below), a canalization/robustness fitness
-objective, upgrading sub-clones toward a population-genetics-style model,
-grounding parameter choices in real GWAS-variant effect sizes, and a
-genome-dimensionality scaling study (these four not yet built). A "Genome
-Function Explorer" concept (predicted functional impact of a config) was
-flagged as carrying more scientific-honesty/overclaim risk and is not
-prioritized.
+objective (**DONE 2026-09-13**, see below), upgrading sub-clones toward a
+population-genetics-style model, grounding parameter choices in real
+GWAS-variant effect sizes, and a genome-dimensionality scaling study (these
+three not yet built). A "Genome Function Explorer" concept (predicted
+functional impact of a config) was flagged as carrying more
+scientific-honesty/overclaim risk and is not prioritized.
+
+### Canalization / robustness fitness objective (DONE 2026-09-13)
+
+A new `canalization` fitness term measuring consistency of a genotype's
+`survival` outcome across its `eval_seeds` replicate simulations —
+deliberately narrow: stochastic robustness only, not environmental
+robustness (the G×E study above already covers that) or structural
+parameter robustness (Sensitivity already covers that). Formula: the
+coefficient of variation of `survival` across replicates, scaled the same
+way `instability` already is (`CANALIZATION_CV_SCALE = 0.5`, chosen after
+running real simulations across safe/small-population/near-extinction
+configs to confirm the scale actually discriminates rather than
+degenerating to always-1.0). Direction is "max" — unlike every other
+optional term shipped so far, it is *added* to `total`, not subtracted.
+
+Architecturally the one subtlety: canalization is a property of a
+*replicate set*, not a single simulation, so it's computed in
+`evolution/fitness.py::average_breakdowns` (which gained a required
+`weights` parameter) rather than `compute_fitness` — threaded through all
+7 call sites that average replicate fitness (GA engine ×2, NSGA-II,
+benchmark, surrogate active-learner, Sensitivity, G×E). `w_canalization`
+defaults to `0.0` (inert). Also fixed two pre-existing staleness bugs found
+while touching this code: `FitnessWeights`'s own docstring was never
+updated when `w_genome_instability` shipped, and neither the Evolve page's
+weight-slider list nor the Simulate page's fitness-breakdown bar chart ever
+got a `genome_instability` entry — both fixed in the same pass as adding
+`canalization`.
+
+Full spec: `docs/MODEL.md` §5 / §5.1, `docs/SCIENTIFIC_SCOPE.md`. Tests:
+new `tests/test_fitness.py` (no direct unit tests of `average_breakdowns`
+existed before this), plus the full regression suite for every optimizer/
+analysis path that shares `average_breakdowns` (`test_evolution.py`,
+`test_engine_best/parallel/resume.py`, `test_multiobjective.py`,
+`test_sensitivity.py`, `test_gxe_study.py`, `test_benchmark_optimizers.py`,
+`test_surrogate.py`, `test_genome_stability.py`) confirmed still green.
 
 ### Genotype × Environment (G×E) study (DONE 2026-09-13)
 

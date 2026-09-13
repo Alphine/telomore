@@ -115,3 +115,15 @@ not evidence about lifespan, disease risk, or any real ageing process. Every
 place this number is rendered in the UI carries the same short caption
 verbatim (see `frontend/src/components/biologicalAgeUtils.ts`'s
 `BIOLOGICAL_AGE_DISCLAIMER`) so the number is never shown unqualified.
+
+## Canalization (stochastic-replicate consistency)
+
+`canalization` (`FitnessBreakdown.canalization`, MODEL.md §5) measures only
+how consistent this model's own `survival` output is across its own
+stochastic replicate seeds (`eval_seeds`) for a fixed genotype and
+environment. It is **not** a measure of real developmental or evolutionary
+canalization, genetic robustness, or phenotypic buffering in any biological
+organism — the "perturbation" here is the simulator's internal
+pseudorandomness (division noise, passaging subsampling), not an
+environmental or structural one. With a single eval seed it is trivially
+1.0 for every genome and carries no information.

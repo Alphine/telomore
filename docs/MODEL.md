@@ -221,6 +221,57 @@ feature #4).
   `ModelConfig.replace()`, exactly like `analysis/sensitivity.py`'s one-axis
   sweep. See `docs/API.md`'s G×E section for the full spec.
 
+#### 2.2.1 Per-cell heritable repair_rate (population-genetics-style)
+
+By default every cell in a clone shares that clone's `repair_rate` for its
+entire life (§2.2 above). `ModelConfig.repair_rate_mutation_sigma` (0.0
+default, the feature's off switch) makes `repair_rate` a genuinely per-CELL
+continuous trait instead: mutation-selection balance on a heritable value,
+not a clone-shared constant — the population-genetics-style upgrade
+ROADMAP.md asked for.
+
+* **Seeding.** At population creation, each cell is seeded from its own
+  clone's cycle-0 `repair_rate` lookup (the same value §2.2's
+  `repair_override_mask`/`repair_override_vals` produce) — a sub-clone
+  override becomes the trait's *initial condition* per clone, not a value
+  re-applied every cycle.
+* **Inheritance and mutation.** A daughter inherits its parent's current
+  value at division (`simulator/population.py::divide`, mirroring how
+  `mutation_burden` §2.3 is inherited). Immediately afterward, every
+  dividing row (parent copy and daughter alike) gets an independent
+  `Normal(0, repair_rate_mutation_sigma)` step added and clipped to
+  `PARAMETER_BOUNDS["repair_rate"]` — the same `division_noise` RNG helper
+  §2 already uses for per-telomere length noise, just shaped per-cell
+  instead of per-telomere.
+* **Used every cycle** in place of the clone-shared `repair_lookup[clone_id]`
+  in both the shortening formula (§2) and the mutation-burden oxidative
+  offset (§2.3) — each cell's own drifted value, not its clone's.
+* **Incompatible with a `repair_rate` schedule (§2.1).** A population-wide
+  time schedule and per-cell heritable drift have no combined semantics, so
+  `ModelConfig.validate()` raises `ConfigError` if both
+  `repair_rate_mutation_sigma > 0` and `is_scheduled("repair_rate")` are set
+  — an explicit rejection rather than silently picking one.
+* **Unaffected consumers.** The GA/NSGA-II/active-learner genome encodings
+  (`evolution/genome.py`), the intervention-cost fitness term
+  (`mean_value("repair_rate")`), sensitivity sweeps, the G×E study, the
+  organ-on-a-chip adapter and the LLM protocol proposer all keep treating
+  `ModelConfig.repair_rate` (and its schedule) as the scalar "seed"/nominal
+  value — none of them opt into `repair_rate_mutation_sigma > 0` by default,
+  so they are numerically unaffected. This is a documented simplification:
+  intervention cost reflects the nominal seed value, not the emergent
+  per-cell drifted mean.
+* **Output.** `SimulationResult.mean_repair_rate` (per-cycle mean, same
+  `(T+1,)` axis as `time`) and terminal metrics `final_repair_rate_mean` /
+  `final_repair_rate_std` (the latter shows whether the population
+  diversified). All present and meaningful even at the default
+  (`_std == 0.0`, `_mean` equal to the constant seed value).
+* **Backward compatibility.** `repair_rate_mutation_sigma == 0.0` (default)
+  is bit-identical to the pre-existing model: zero RNG draws are spent on
+  the mutation step, and the shortening/mutation-burden formulas keep using
+  the exact clone-shared `repair_lookup[clone_id]` arithmetic they always
+  did (`tests/test_repair_rate_drift.py` checks this against the same
+  golden fixture `tests/test_genome_stability.py` uses).
+
 ### 2.3 Genome stability (mutation burden and apoptosis checkpoint)
 
 By default a cell's only failure mode is telomere-driven senescence (§2). A
@@ -301,6 +352,7 @@ simulator.
 | `oxidative_mutation_sensitivity` | 0.0 | 0–0.05 | 1/cycle | model (evolvable, genome stability §2.3) |
 | `checkpoint_strength` | 0.0 | 0–1 | a.u. | model (evolvable, genome stability §2.3) |
 | `mutation_threshold` | 1.0e9 | 0–1.0e9 | a.u. | model (evolvable, genome stability §2.3) |
+| `repair_rate_mutation_sigma` | 0.0 | 0–0.1 | a.u./cycle | model (per-cell heritable repair_rate §2.2.1) |
 | `cycles` | 120 | ≥1 | cycles | run control |
 | `seed` | 42 | – | – | randomness |
 | `schedule` | none | 1–8 phases | – | optional protocol (§2.1) |
@@ -663,8 +715,11 @@ Sources: **§9 References**, "Organ-on-a-chip calibration (§6.1)".
   fitted to).
 * Passaging is state-blind random sub-sampling.
 * Sub-clones (§2.2) are abstract parameter variants sharing one culture's
-  environment/schedule, not a model of mutation, drift, or real genetic
-  heterogeneity — see `docs/SCIENTIFIC_SCOPE.md`.
+  environment/schedule. `repair_rate` alone can now drift heritably at the
+  per-cell level (§2.2.1, mutation-selection balance) if opted into; every
+  other trait (shortening_rate, maintenance_rate, stress_sensitivity) is
+  still a fixed clone-level constant, not a model of mutation, drift, or
+  real genetic heterogeneity — see `docs/SCIENTIFIC_SCOPE.md`.
 
 ## 8. Software validation
 
@@ -685,6 +740,14 @@ summing to ~1.0 of the living population at every non-extinct cycle, a
 resilient-vs-fragile competition scenario where the higher-maintenance/
 repair clone's share measurably increases, the extinction edge case, and
 composition with an active schedule.
+`tests/test_repair_rate_drift.py` checks per-cell heritable `repair_rate`
+(§2.2.1): bounds validation, rejection of combining it with a `repair_rate`
+schedule, bit-identity of an unset (`repair_rate_mutation_sigma == 0.0`)
+config against the same golden fixture, values staying within
+`PARAMETER_BOUNDS` under large sigma and many divisions, measurable
+diversification (`final_repair_rate_std > 0`) versus a control run with the
+feature off, the extinction edge case, per-clone seeding at cycle 0, JSON
+export, and pure copy-on-division in `population.py::divide`.
 `tests/test_biological_age.py` checks the synthetic "biological age"
 biomarker score (§4.1): a youthful configuration scores near the youthful
 end and a heavily-stressed/senescent-by-end one scores near the senescent

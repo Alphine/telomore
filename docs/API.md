@@ -218,6 +218,30 @@ without it.
 
 Tests: `tests/test_genome_stability.py`, `tests/test_api_genome_stability.py`.
 
+### Per-cell heritable repair_rate (docs/MODEL.md §2.2.1)
+
+One new plain scalar `ModelConfig` field -- `repair_rate_mutation_sigma`
+(default `0.0`, its off switch) -- needs **zero schema changes** on this
+endpoint, exactly like the genome-stability fields above.
+
+```json
+{"config": {"repair_rate": 0.4, "repair_rate_mutation_sigma": 0.03}}
+```
+
+* The response's `run.timeseries` carries **`mean_repair_rate`** (genome-wide
+  per-cycle mean, `cycles + 1` entries, equal to the constant seed value
+  when unused).
+* `run.terminal_metrics` carries **`final_repair_rate_mean`** and
+  **`final_repair_rate_std`** (the latter is `0.0` when unused, `> 0` once
+  the population has diversified).
+* Out-of-bounds values raise `ConfigError` -> **`400`**, exactly like any
+  other `PARAMETER_BOUNDS` field (`GET /api/meta/bounds` exposes it in
+  `bounds`; not evolvable, schedulable, or sub-clone-overridable). Setting
+  it `> 0` together with a `repair_rate` schedule also raises `ConfigError`
+  -> **`400`** (the two mechanisms have no combined semantics).
+
+Tests: `tests/test_repair_rate_drift.py`.
+
 ### Genotype x Environment (G×E) study (docs/ROADMAP.md 2026-09-13 follow-up)
 
 `POST /api/gxe` starts a background job (see "Long-running jobs" below) that

@@ -482,11 +482,41 @@ picked first as the cheapest/lowest-risk/most-scientifically-grounded step):
 a genotype × environment (G×E) study reusing sub-clones as genotypes
 (**DONE 2026-09-13**, see below), a canalization/robustness fitness
 objective (**DONE 2026-09-13**, see below), upgrading sub-clones toward a
-population-genetics-style model, grounding parameter choices in real
-GWAS-variant effect sizes, and a genome-dimensionality scaling study (these
-three not yet built). A "Genome Function Explorer" concept (predicted
-functional impact of a config) was flagged as carrying more
-scientific-honesty/overclaim risk and is not prioritized.
+population-genetics-style model (**DONE 2026-09-13**, see below), grounding
+parameter choices in real GWAS-variant effect sizes, and a
+genome-dimensionality scaling study (these two not yet built). A "Genome
+Function Explorer" concept (predicted functional impact of a config) was
+flagged as carrying more scientific-honesty/overclaim risk and is not
+prioritized.
+
+### Per-cell heritable repair_rate (population-genetics-style) (DONE 2026-09-13)
+
+`repair_rate` can now be a genuinely per-CELL continuous trait instead of a
+clone-shared scalar: a new `repair_rate_mutation_sigma` field (0.0 default,
+the feature's off switch) makes each cell track its own `repair_rate`,
+seeded from its sub-clone's starting value at cycle 0, mutating by a small
+Gaussian step (clipped to `PARAMETER_BOUNDS["repair_rate"]`) at every
+division and inherited by daughters — mutation-selection balance on a
+heritable trait, the population-genetics-style model this roadmap item
+asked for. Mirrors exactly how `mutation_burden` was added as a new
+per-cell array in the Genome Stability feature above, including its
+discipline (default-inert, golden-fixture bit-identity proof unaffected).
+
+The one real design decision: `repair_rate` already had three overlapping
+identities (scalar field, `SCHEDULABLE_PARAMETERS` time schedule,
+`SUBCLONE_OVERRIDABLE_PARAMETERS` per-clone override). Rather than trying to
+reconcile per-cell drift with a population-wide time schedule, the two are
+made mutually exclusive (`ModelConfig.validate()` raises `ConfigError` if
+both are set); a sub-clone override still applies, now as the per-cell
+trait's *initial condition* per clone rather than a value re-applied every
+cycle. GA evolution, sensitivity sweeps, G×E, the chip adapter and the LLM
+protocol proposer are all unaffected — they keep treating `repair_rate` as
+the scalar "seed"/nominal value, since none of them opt into
+`repair_rate_mutation_sigma > 0` by default.
+
+Full spec: `docs/MODEL.md` §2.2. Tests: `tests/test_repair_rate_drift.py`
+(pytest all green, including its own golden-fixture bit-identity proof),
+Vitest all green (176), `npx tsc -b --force` and lint clean.
 
 ### Canalization / robustness fitness objective (DONE 2026-09-13)
 

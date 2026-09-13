@@ -66,6 +66,8 @@ PARAMETER_BOUNDS: Dict[str, tuple] = {
                             "Probability per cycle that a cell over the mutation threshold is removed; 0 disables the checkpoint."),
     "mutation_threshold": (0.0, 1.0e9, "a.u.", "Mutation burden threshold",
                            "Burden level above which the apoptosis checkpoint can trigger (only relevant when checkpoint_strength > 0)."),
+    "repair_rate_mutation_sigma": (0.0, 0.1, "a.u./cycle", "Repair-rate mutation step (SD)",
+                                   "Per-division Gaussian step size applied to each cell's own heritable repair_rate; 0 = feature unused."),
 }
 
 #: The genes the evolutionary optimizer is allowed to touch (SDD §12).
@@ -388,6 +390,15 @@ class ModelConfig:
     #: suspenders alongside checkpoint_strength=0.0.
     mutation_threshold: float = 1.0e9
 
+    # --- optional per-cell heritable repair_rate (population-genetics-style) --
+    #: Per-division Gaussian step (SD) applied to each cell's OWN repair_rate,
+    #: clipped to PARAMETER_BOUNDS["repair_rate"] and inherited by daughters --
+    #: mutation-selection balance on a heritable trait instead of a clone-
+    #: shared scalar. 0.0 (default) is the feature's off switch: repair_rate
+    #: stays the plain scalar/schedule/sub-clone-override value it always was,
+    #: bit-identical to today's model.
+    repair_rate_mutation_sigma: float = 0.0
+
     # --- run control -------------------------------------------------------
     cycles: int = 120
     seed: int = 42
@@ -418,6 +429,9 @@ class ModelConfig:
             self.schedule.validate()
         if self.subclones is not None:
             _validate_subclones(self.subclones)
+        if self.repair_rate_mutation_sigma > 0.0 and self.is_scheduled("repair_rate"):
+            raise ConfigError("repair_rate_mutation_sigma > 0.0 is incompatible with a repair_rate schedule "
+                               "(population-wide time-schedule and per-cell heritable drift have no combined semantics)")
         if self.population_size < 1:
             raise ConfigError("population_size must be >= 1")
         if self.carrying_capacity < self.population_size:
@@ -554,6 +568,10 @@ class SimulationResult:
     #: always-present timeseries field.
     mean_mutation_burden: np.ndarray = field(default_factory=lambda: np.array([]))
     apoptotic_fraction: np.ndarray = field(default_factory=lambda: np.array([]))
+    #: Genome-wide mean per-cell heritable repair_rate per cycle, on the same
+    #: ``(T+1,)`` axis as ``time``. Equal to the constant scalar/schedule value
+    #: when ``repair_rate_mutation_sigma == 0.0`` (the feature's off switch).
+    mean_repair_rate: np.ndarray = field(default_factory=lambda: np.array([]))
     terminal_metrics: Dict[str, float] = field(default_factory=dict)
     #: Synthetic "biological age" biomarker score (ROADMAP.md candidate
     #: feature #5, docs/MODEL.md §4.1) -- a derived, documented composite of
@@ -586,6 +604,7 @@ class SimulationResult:
                 "length_cv": self.length_cv,
                 "mean_mutation_burden": self.mean_mutation_burden,
                 "apoptotic_fraction": self.apoptotic_fraction,
+                "mean_repair_rate": self.mean_repair_rate,
             }
         )
 

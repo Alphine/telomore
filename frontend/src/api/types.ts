@@ -103,6 +103,8 @@ export interface ModelConfig {
   checkpoint_strength: number
   /** Mutation-burden level above which the checkpoint can trigger (only relevant when checkpoint_strength > 0). */
   mutation_threshold: number
+  /** Per-division Gaussian step (SD) on each cell's own heritable repair_rate, clipped and inherited by daughters; 0 = feature unused. */
+  repair_rate_mutation_sigma: number
   cycles: number
   seed: number
   record_distribution_every: number

@@ -24,6 +24,7 @@ const BASE_CONFIG: ModelConfig = {
   maintenance_rate: 0.1, maintenance_max_gain: 120, repair_rate: 0.15, senescence_threshold: 3000,
   noise_sd: 30, senescent_death_rate: 0.03,
   replication_error_rate: 0, oxidative_mutation_sensitivity: 0, checkpoint_strength: 0, mutation_threshold: 1e9,
+  repair_rate_mutation_sigma: 0,
   cycles: 120, seed: 42, record_distribution_every: 0,
 }
 

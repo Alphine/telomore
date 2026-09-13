@@ -15,6 +15,7 @@ import numpy as np
 def summarise_state(
     lengths: np.ndarray, senescent: np.ndarray, threshold: float,
     mutation_burden: np.ndarray | None = None, apoptotic: np.ndarray | None = None,
+    repair_rate_cells: np.ndarray | None = None,
 ) -> Dict[str, float]:
     """Summary statistics for one time-step.
 
@@ -27,6 +28,9 @@ def summarise_state(
         §2.3), optional -- ``None`` when the caller doesn't track it.
     apoptotic : (n_cells,) boolean mask of cells over the mutation threshold,
         optional.
+    repair_rate_cells : (n_cells,) per-cell heritable repair_rate, optional --
+        ``None`` when the caller doesn't track it (repair_rate_mutation_sigma
+        unused).
     """
     n_cells = lengths.shape[0]
     if n_cells == 0:
@@ -43,6 +47,7 @@ def summarise_state(
             "length_cv": np.nan,
             "mean_mutation_burden": np.nan,
             "apoptotic_fraction": np.nan,
+            "mean_repair_rate": np.nan,
         }
     flat = lengths.ravel()
     per_cell_min = lengths.min(axis=1)
@@ -61,6 +66,7 @@ def summarise_state(
         "length_cv": (std / mean) if mean > 0 else np.nan,
         "mean_mutation_burden": float(mutation_burden.mean()) if mutation_burden is not None else 0.0,
         "apoptotic_fraction": float(apoptotic.mean()) if apoptotic is not None else 0.0,
+        "mean_repair_rate": float(repair_rate_cells.mean()) if repair_rate_cells is not None else 0.0,
     }
 
 

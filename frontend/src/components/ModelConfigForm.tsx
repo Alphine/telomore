@@ -272,6 +272,7 @@ export function ModelConfigForm({
           {bounded('oxidative_mutation_sensitivity')}
           {bounded('checkpoint_strength')}
           {bounded('mutation_threshold')}
+          {bounded('repair_rate_mutation_sigma')}
         </div>
       </details>
     </div>

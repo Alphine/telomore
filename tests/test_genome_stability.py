@@ -192,8 +192,10 @@ def test_remove_apoptotic_is_noop_when_checkpoint_strength_is_zero():
     founder_id = np.arange(5)
     clone_id = np.zeros(5, dtype=int)
     mutation_burden = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
+    repair_rate_cells = np.full(5, 0.2)
     apoptotic = mutation_burden > 1.5
-    out = remove_apoptotic(rng, lengths, senescent, founder_id, clone_id, mutation_burden, apoptotic, 0.0)
+    out = remove_apoptotic(rng, lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells,
+                            apoptotic, 0.0)
     assert out[0].shape[0] == 5
     np.testing.assert_array_equal(out[4], mutation_burden)
 
@@ -205,9 +207,10 @@ def test_remove_apoptotic_removes_flagged_cells_with_seeded_rng():
     founder_id = np.arange(5)
     clone_id = np.zeros(5, dtype=int)
     mutation_burden = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
+    repair_rate_cells = np.full(5, 0.2)
     apoptotic = mutation_burden > 1.5
-    lengths2, senescent2, founder2, clone2, burden2, apop2 = remove_apoptotic(
-        rng, lengths, senescent, founder_id, clone_id, mutation_burden, apoptotic, 1.0
+    lengths2, senescent2, founder2, clone2, burden2, repair2, apop2 = remove_apoptotic(
+        rng, lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells, apoptotic, 1.0
     )
     # checkpoint_strength=1.0 removes every apoptotic cell deterministically
     assert lengths2.shape[0] == 2

@@ -42,8 +42,8 @@ def allocate_clone_ids(n: int, fractions: Sequence[float]) -> np.ndarray:
 
 def divide(
     lengths: np.ndarray, senescent: np.ndarray, founder_id: np.ndarray, clone_id: np.ndarray,
-    mutation_burden: np.ndarray,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    mutation_burden: np.ndarray, repair_rate_cells: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Every proliferative cell produces one daughter.
 
     ``founder_id`` identifies which cell of the *founding* population (at
@@ -60,10 +60,16 @@ def divide(
     accumulator; a daughter inherits its parent's burden at the moment of
     division (the per-division increment is added afterwards in the caller).
 
+    ``repair_rate_cells`` is a per-cell heritable repair_rate (population-
+    genetics-style mutation-selection balance); a daughter inherits its
+    parent's value at the moment of division (the per-division Gaussian
+    mutation step, if any, is applied afterwards in the caller -- same
+    division of responsibility as ``mutation_burden``).
+
     Returns the expanded ``lengths`` / ``senescent`` / ``founder_id`` /
-    ``clone_id`` / ``mutation_burden`` arrays and a boolean ``divided`` mask
-    marking rows that went through replication this cycle (both the parent
-    copy and the daughter copy).
+    ``clone_id`` / ``mutation_burden`` / ``repair_rate_cells`` arrays and a
+    boolean ``divided`` mask marking rows that went through replication this
+    cycle (both the parent copy and the daughter copy).
     """
     prolif = ~senescent
     daughters = lengths[prolif]
@@ -72,27 +78,31 @@ def divide(
     new_founder_id = np.concatenate([founder_id, founder_id[prolif]])
     new_clone_id = np.concatenate([clone_id, clone_id[prolif]])
     new_mutation_burden = np.concatenate([mutation_burden, mutation_burden[prolif]])
+    new_repair_rate_cells = np.concatenate([repair_rate_cells, repair_rate_cells[prolif]])
     divided = np.concatenate([prolif, np.ones(daughters.shape[0], dtype=bool)])
-    return new_lengths, new_senescent, new_founder_id, new_clone_id, new_mutation_burden, divided
+    return (new_lengths, new_senescent, new_founder_id, new_clone_id, new_mutation_burden,
+            new_repair_rate_cells, divided)
 
 
 def remove_dead(
     rng: np.random.Generator, lengths: np.ndarray, senescent: np.ndarray,
-    founder_id: np.ndarray, clone_id: np.ndarray, mutation_burden: np.ndarray, death_rate: float,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    founder_id: np.ndarray, clone_id: np.ndarray, mutation_burden: np.ndarray,
+    repair_rate_cells: np.ndarray, death_rate: float,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Senescent cells are lost with probability ``death_rate`` per cycle."""
     if death_rate <= 0 or not senescent.any():
-        return lengths, senescent, founder_id, clone_id, mutation_burden
+        return lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells
     dies = senescent & (rng.random(senescent.shape[0]) < death_rate)
     keep = ~dies
-    return lengths[keep], senescent[keep], founder_id[keep], clone_id[keep], mutation_burden[keep]
+    return (lengths[keep], senescent[keep], founder_id[keep], clone_id[keep],
+            mutation_burden[keep], repair_rate_cells[keep])
 
 
 def remove_apoptotic(
     rng: np.random.Generator, lengths: np.ndarray, senescent: np.ndarray,
     founder_id: np.ndarray, clone_id: np.ndarray, mutation_burden: np.ndarray,
-    apoptotic: np.ndarray, checkpoint_strength: float,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    repair_rate_cells: np.ndarray, apoptotic: np.ndarray, checkpoint_strength: float,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Cells over the mutation-burden threshold (docs/MODEL.md §2.3) are lost
     with probability ``checkpoint_strength`` per cycle.
 
@@ -101,17 +111,18 @@ def remove_apoptotic(
     flagged ``apoptotic``, every array is returned unchanged.
     """
     if checkpoint_strength <= 0 or not apoptotic.any():
-        return lengths, senescent, founder_id, clone_id, mutation_burden, apoptotic
+        return lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells, apoptotic
     dies = apoptotic & (rng.random(apoptotic.shape[0]) < checkpoint_strength)
     keep = ~dies
     return (lengths[keep], senescent[keep], founder_id[keep], clone_id[keep],
-            mutation_burden[keep], apoptotic[keep])
+            mutation_burden[keep], repair_rate_cells[keep], apoptotic[keep])
 
 
 def passage(
     rng: np.random.Generator, lengths: np.ndarray, senescent: np.ndarray,
-    founder_id: np.ndarray, clone_id: np.ndarray, mutation_burden: np.ndarray, capacity: int,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    founder_id: np.ndarray, clone_id: np.ndarray, mutation_burden: np.ndarray,
+    repair_rate_cells: np.ndarray, capacity: int,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Randomly dilute the culture back to ``capacity`` cells.
 
     Mirrors in-vitro passaging: cells are sampled without regard to state,
@@ -119,6 +130,7 @@ def passage(
     """
     n = lengths.shape[0]
     if n <= capacity:
-        return lengths, senescent, founder_id, clone_id, mutation_burden
+        return lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells
     idx = subsample_indices(rng, n, capacity)
-    return lengths[idx], senescent[idx], founder_id[idx], clone_id[idx], mutation_burden[idx]
+    return (lengths[idx], senescent[idx], founder_id[idx], clone_id[idx],
+            mutation_burden[idx], repair_rate_cells[idx])

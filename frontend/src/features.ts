@@ -37,6 +37,13 @@ export const FEATURES: Feature[] = [
     path: '/sensitivity',
   },
   {
+    icon: '🧪',
+    title: 'G×E Study',
+    description:
+      'Run every genotype against every environment as isolated simulations and look for fitness re-ranking (crossover) between them.',
+    path: '/gxe',
+  },
+  {
     icon: '⚖️',
     title: 'Compare',
     description:
@@ -65,6 +72,7 @@ export const NAV_ORDER = [
   '/evolve',
   '/pareto',
   '/sensitivity',
+  '/gxe',
   '/active-learning',
   '/compare',
   '/experiments',

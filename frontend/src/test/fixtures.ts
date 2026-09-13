@@ -103,6 +103,7 @@ export const BOUNDS: BoundsResponse = {
     },
   },
   subclone_overridable: ['shortening_rate', 'maintenance_rate', 'repair_rate', 'stress_sensitivity'],
+  environment_overridable: ['stress_level'],
 }
 
 // GET /api/meta/chip-presets (ROADMAP.md candidate feature #3: multi-chip comparison).

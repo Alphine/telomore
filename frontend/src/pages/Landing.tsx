@@ -99,7 +99,7 @@ optimizer  0.1.0`
 //   - frontend tests: `cd frontend && npx vitest run` = 146 (2026-09-12,
 //     dropped from 161 after removing the DNA helix hero canvas and its
 //     tests)
-//   - lab tools: `FEATURES.length` (features.ts) = 7
+//   - lab tools: `FEATURES.length` (features.ts), computed dynamically
 //   - documented experiments: `## N. Experiment` headers in
 //     docs/EXPERIMENT_PROTOCOL.md = 6 (A-F)
 const STATS: { icon: string; value: string; label: string }[] = [

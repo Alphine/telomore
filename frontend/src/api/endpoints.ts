@@ -17,6 +17,7 @@ import type {
   ExperimentSummary,
   ForgotPasswordRequest,
   ForgotPasswordResponse,
+  GxERequest,
   HealthResponse,
   JobStartResponse,
   JobStatusResponse,
@@ -105,6 +106,10 @@ export function startPareto(body: ParetoRequest): Promise<JobStartResponse> {
 
 export function startSensitivity(body: SensitivityRequest): Promise<JobStartResponse> {
   return request<JobStartResponse>('/sensitivity', { method: 'POST', body })
+}
+
+export function startGxE(body: GxERequest): Promise<JobStartResponse> {
+  return request<JobStartResponse>('/gxe', { method: 'POST', body })
 }
 
 export function startActiveLearning(body: ActiveLearningRequest): Promise<JobStartResponse> {

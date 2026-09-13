@@ -9,11 +9,11 @@ import { Landing } from './Landing'
 afterEach(() => vi.unstubAllGlobals())
 
 describe('Landing page', () => {
-  it('renders all 7 feature cards with correct hrefs', async () => {
+  it('renders a feature card per FEATURES entry with correct hrefs', async () => {
     mockFetch({ 'GET /api/health': { status: 200, body: { status: 'ok' } } })
     renderApp(<Landing />)
     const cards = screen.getAllByTestId('feature-card')
-    expect(cards).toHaveLength(7)
+    expect(cards).toHaveLength(FEATURES.length)
     const hrefs = cards.map((c) => c.getAttribute('href'))
     expect(hrefs).toEqual(FEATURES.map((f) => f.path))
     expect(hrefs).toEqual(
@@ -22,6 +22,7 @@ describe('Landing page', () => {
         '/evolve',
         '/pareto',
         '/sensitivity',
+        '/gxe',
         '/active-learning',
         '/compare',
         '/experiments',

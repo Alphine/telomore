@@ -169,6 +169,29 @@ export interface SensitivityConfig {
   weights: FitnessWeights
 }
 
+// telomere_lab.schemas.GenotypeSpec.to_dict() / EnvironmentSpec.to_dict() --
+// symmetric "named parameter-override bundle" shapes for a G×E study
+// (docs/ROADMAP.md 2026-09-13 follow-up). Genotype overrides must be one of
+// `bounds.subclone_overridable`; environment overrides one of
+// `bounds.environment_overridable`.
+export interface GenotypeSpec {
+  name: string
+  overrides: Record<string, number>
+}
+
+export interface EnvironmentSpec {
+  name: string
+  overrides: Record<string, number>
+}
+
+// telomere_lab.schemas.GxEConfig.to_dict()
+export interface GxEConfig {
+  genotypes: GenotypeSpec[]
+  environments: EnvironmentSpec[]
+  eval_seeds: number[]
+  weights: FitnessWeights
+}
+
 // telomere_lab.schemas.ActiveLearningConfig.to_dict()
 export interface ActiveLearningConfig {
   n_initial: number
@@ -214,6 +237,8 @@ export interface BoundsResponse {
   presets: Record<string, ModelConfig>
   /** SUBCLONE_OVERRIDABLE_PARAMETERS -- the only parameters a clone's `overrides` may set. */
   subclone_overridable: string[]
+  /** ENVIRONMENT_OVERRIDABLE_PARAMETERS -- the only parameters a G×E EnvironmentSpec may set. */
+  environment_overridable: string[]
 }
 
 export interface VersionResponse {
@@ -574,6 +599,41 @@ export interface SensitivityResult {
 }
 
 export type SensitivityJob = JobStatusResponse<ParameterSensitivity, SensitivityResult>
+
+// ------------------------------------------------------------------- gxe
+// Genotype x Environment reaction-norm study (docs/ROADMAP.md 2026-09-13
+// follow-up to Genome Stability). Each (genotype, environment) pair is run
+// as an ISOLATED simulation, not as competing ModelConfig.subclones -- see
+// docs/MODEL.md §2.2's cross-reference for why the sub-clone engine itself
+// is not reused here.
+export interface GxERequest {
+  model: Partial<ModelConfig>
+  gxe: Partial<GxEConfig>
+  notes: string
+}
+
+// analysis/gxe.py::GxECell.to_dict() -- one per finished (genotype,
+// environment) cell (the job's `progress`). Values are NaN (-> null) when
+// the cell's simulation is invalid.
+export interface GxECell {
+  genotype: string
+  environment: string
+  fitness: number | null
+  survival: number | null
+  senescence: number | null
+}
+
+// backend/routers/gxe.py::_target return value.
+export interface GxEResult {
+  run_id: string | null
+  items: GxECell[]
+  /** Genotype-name pairs whose fitness ordering flips between at least two environments. */
+  reranking_pairs: [string, string][]
+  evaluations: number
+  runtime_seconds: number
+}
+
+export type GxEJob = JobStatusResponse<GxECell, GxEResult>
 
 // -------------------------------------------------------- active learning
 export interface ActiveLearningRequest {

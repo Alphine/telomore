@@ -12,6 +12,7 @@ import { ActiveLearning } from './pages/ActiveLearning'
 import { Compare } from './pages/Compare'
 import { Evolve } from './pages/Evolve'
 import { Experiments } from './pages/Experiments'
+import { GxE } from './pages/GxE'
 import { Pareto } from './pages/Pareto'
 import { Placeholder } from './pages/Placeholder'
 import { Register } from './pages/Register'
@@ -28,6 +29,7 @@ const MIGRATED: Record<string, () => JSX.Element> = {
   '/evolve': Evolve,
   '/pareto': Pareto,
   '/sensitivity': Sensitivity,
+  '/gxe': GxE,
   '/active-learning': ActiveLearning,
   '/compare': Compare,
   '/experiments': Experiments,

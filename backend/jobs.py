@@ -32,7 +32,7 @@ import logging
 import threading
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +87,19 @@ def create_job(kind: str, owner_id: int) -> Job:
 def get_job(job_id: str) -> Optional[Job]:
     with _LOCK:
         return _JOBS.get(job_id)
+
+
+def list_jobs(owner_id: int) -> List[Job]:
+    """Active (not yet terminal) jobs owned by ``owner_id``, newest first.
+
+    Used by ``GET /api/jobs`` to power a persistent "jobs in progress"
+    indicator that survives page navigation (unlike a page's own local
+    ``jobId`` state, which is lost on unmount) -- see docs/API.md.
+    """
+    with _LOCK:
+        jobs = [j for j in _JOBS.values() if j.owner_id == owner_id and j.status in (STATUS_PENDING, STATUS_RUNNING)]
+    jobs.sort(key=lambda j: j.created_at, reverse=True)
+    return jobs
 
 
 def _touch(job: Job) -> None:

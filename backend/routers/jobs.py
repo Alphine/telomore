@@ -1,9 +1,17 @@
-"""GET /api/jobs/{job_id} and POST /api/jobs/{job_id}/stop -- polling + cooperative
-cancellation for the background jobs started by evolve/pareto/sensitivity/
-active-learning/benchmark. Both routes are owner-only: a user can only see
-or stop their own jobs (403 otherwise)."""
+"""GET /api/jobs (list), GET /api/jobs/{job_id} and POST /api/jobs/{job_id}/stop --
+listing + polling + cooperative cancellation for the background jobs started
+by evolve/pareto/sensitivity/gxe/active-learning/benchmark. All routes are
+owner-only: a user can only see or stop their own jobs (403 otherwise).
+
+``GET /api/jobs`` exists so the frontend has a server-side source of truth
+for "what's currently running" that survives page navigation -- a job page's
+own ``jobId`` is plain component state, lost the moment the user navigates
+away, even though the job itself keeps running server-side unaffected
+(see ``jobs.py::run_job``'s detached daemon thread). See docs/API.md."""
 
 from __future__ import annotations
+
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -14,6 +22,11 @@ from .. import schemas as api_schemas
 from ..auth import get_current_user
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+
+
+@router.get("", response_model=List[api_schemas.JobStatusResponse])
+def list_active_jobs(user: _db.User = Depends(get_current_user)) -> List[api_schemas.JobStatusResponse]:
+    return [api_schemas.JobStatusResponse(**j.to_public_dict()) for j in job_store.list_jobs(user.id)]
 
 
 def _get_owned_job(job_id: str, user: _db.User) -> job_store.Job:

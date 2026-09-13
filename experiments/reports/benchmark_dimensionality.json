@@ -1,0 +1,408 @@
+{
+  "environment": {
+    "python_version": "3.13.15",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "machine": "AMD64",
+    "processor": "AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD",
+    "numpy_version": "2.3.4",
+    "scipy_version": "1.18.0",
+    "pandas_version": "2.3.3",
+    "package_version": "0.1.0",
+    "model_version": "0.1.0",
+    "optimizer_version": "0.1.0",
+    "git_commit": "47d1539-dirty"
+  },
+  "base_config": {
+    "initial_length": 7500.0,
+    "initial_length_sd": 800.0,
+    "population_size": 100,
+    "carrying_capacity": 400,
+    "telomeres_per_cell": 32,
+    "shortening_rate": 55.0,
+    "stress_level": 0.6,
+    "stress_sensitivity": 100.0,
+    "maintenance_rate": 0.1,
+    "maintenance_max_gain": 120.0,
+    "repair_rate": 0.15,
+    "senescence_threshold": 3000.0,
+    "noise_sd": 30.0,
+    "senescent_death_rate": 0.03,
+    "replication_error_rate": 0.0,
+    "oxidative_mutation_sensitivity": 0.0,
+    "checkpoint_strength": 0.0,
+    "mutation_threshold": 1000000000.0,
+    "repair_rate_mutation_sigma": 0.0,
+    "cycles": 120,
+    "seed": 42,
+    "record_distribution_every": 0,
+    "schedule": null,
+    "subclones": null
+  },
+  "budget_evaluations": 144,
+  "ga_population": 8,
+  "ga_generations": 5,
+  "seeds": [
+    11,
+    12,
+    13
+  ],
+  "cells": [
+    {
+      "level": "genes=3",
+      "n_genes": 3,
+      "method": "GA",
+      "seeds": [
+        11,
+        12,
+        13
+      ],
+      "final_best_fitness": [
+        0.5524122543938076,
+        0.5029600899521454,
+        0.5826020819796073
+      ],
+      "mean": 0.5459914754418534,
+      "sd": 0.032829169197407054
+    },
+    {
+      "level": "genes=3",
+      "n_genes": 3,
+      "method": "random_search",
+      "seeds": [
+        11,
+        12,
+        13
+      ],
+      "final_best_fitness": [
+        0.5972560198413448,
+        0.5626195063162337,
+        0.5993938217786002
+      ],
+      "mean": 0.5864231159787262,
+      "sd": 0.016854305562752893
+    },
+    {
+      "level": "genes=3",
+      "n_genes": 3,
+      "method": "active_learning",
+      "seeds": [
+        11,
+        12,
+        13
+      ],
+      "final_best_fitness": [
+        0.6229059322797453,
+        0.6203721857749135,
+        0.6213880073936325
+      ],
+      "mean": 0.6215553751494305,
+      "sd": 0.0010411457829230008
+    },
+    {
+      "level": "genes=5",
+      "n_genes": 5,
+      "method": "GA",
+      "seeds": [
+        11,
+        12,
+        13
+      ],
+      "final_best_fitness": [
+        0.5996957100688115,
+        0.6281640266571596,
+        0.6013670122183924
+      ],
+      "mean": 0.6097422496481212,
+      "sd": 0.01304402069524199
+    },
+    {
+      "level": "genes=5",
+      "n_genes": 5,
+      "method": "random_search",
+      "seeds": [
+        11,
+        12,
+        13
+      ],
+      "final_best_fitness": [
+        0.593081601310614,
+        0.6028382842433105,
+        0.5914569542659679
+      ],
+      "mean": 0.5957922799399642,
+      "sd": 0.005026231324229659
+    },
+    {
+      "level": "genes=5",
+      "n_genes": 5,
+      "method": "active_learning",
+      "seeds": [
+        11,
+        12,
+        13
+      ],
+      "final_best_fitness": [
+        0.6215121674911535,
+        0.6253598913005313,
+        0.6248915011536679
+      ],
+      "mean": 0.6239211866484509,
+      "sd": 0.0017141328823614423
+    },
+    {
+      "level": "genes=7",
+      "n_genes": 7,
+      "method": "GA",
+      "seeds": [
+        11,
+        12,
+        13
+      ],
+      "final_best_fitness": [
+        0.6633671981549827,
+        0.6437287511101978,
+        0.5939278278594006
+      ],
+      "mean": 0.6336745923748603,
+      "sd": 0.029226370714000333
+    },
+    {
+      "level": "genes=7",
+      "n_genes": 7,
+      "method": "random_search",
+      "seeds": [
+        11,
+        12,
+        13
+      ],
+      "final_best_fitness": [
+        0.6206865601378262,
+        0.628978745811451,
+        0.6378704935675554
+      ],
+      "mean": 0.6291785998389442,
+      "sd": 0.007016734675216122
+    },
+    {
+      "level": "genes=7",
+      "n_genes": 7,
+      "method": "active_learning",
+      "seeds": [
+        11,
+        12,
+        13
+      ],
+      "final_best_fitness": [
+        0.6726835714788953,
+        0.6690132941670918,
+        0.6672004306757454
+      ],
+      "mean": 0.6696324321072442,
+      "sd": 0.002280892677366189
+    },
+    {
+      "level": "genes=10",
+      "n_genes": 10,
+      "method": "GA",
+      "seeds": [
+        11,
+        12,
+        13
+      ],
+      "final_best_fitness": [
+        0.6662946260697009,
+        0.6287199862397561,
+        0.6605406693294447
+      ],
+      "mean": 0.6518517605463006,
+      "sd": 0.016524451407310875
+    },
+    {
+      "level": "genes=10",
+      "n_genes": 10,
+      "method": "random_search",
+      "seeds": [
+        11,
+        12,
+        13
+      ],
+      "final_best_fitness": [
+        0.6272837349402943,
+        0.5824404049790348,
+        0.6378704935675554
+      ],
+      "mean": 0.6158648778289615,
+      "sd": 0.024026601972668926
+    },
+    {
+      "level": "genes=10",
+      "n_genes": 10,
+      "method": "active_learning",
+      "seeds": [
+        11,
+        12,
+        13
+      ],
+      "final_best_fitness": [
+        0.6717211669796644,
+        0.6254348791972467,
+        0.6499440451692032
+      ],
+      "mean": 0.6490333637820381,
+      "sd": 0.018907266938241758
+    },
+    {
+      "level": "K=2",
+      "n_genes": 13,
+      "method": "GA",
+      "seeds": [
+        11,
+        12,
+        13
+      ],
+      "final_best_fitness": [
+        0.6759809323151472,
+        0.5729381615302263,
+        0.5031392129641851
+      ],
+      "mean": 0.5840194356031861,
+      "sd": 0.07099606075156203
+    },
+    {
+      "level": "K=2",
+      "n_genes": 13,
+      "method": "random_search",
+      "seeds": [
+        11,
+        12,
+        13
+      ],
+      "final_best_fitness": [
+        0.6015940165848646,
+        0.6044306850552733,
+        0.6081190268423419
+      ],
+      "mean": 0.6047145761608266,
+      "sd": 0.00267137733948928
+    },
+    {
+      "level": "K=2",
+      "n_genes": 13,
+      "method": "active_learning",
+      "seeds": [
+        11,
+        12,
+        13
+      ],
+      "final_best_fitness": [
+        0.6423211908427832,
+        0.6288326178231568,
+        0.6415130903893224
+      ],
+      "mean": 0.6375556330184208,
+      "sd": 0.00617691952126762
+    },
+    {
+      "level": "K=4",
+      "n_genes": 19,
+      "method": "GA",
+      "seeds": [
+        11,
+        12,
+        13
+      ],
+      "final_best_fitness": [
+        0.6307660618557039,
+        0.5853260685721918,
+        0.5852650277971857
+      ],
+      "mean": 0.6004523860750272,
+      "sd": 0.02143502019276004
+    },
+    {
+      "level": "K=4",
+      "n_genes": 19,
+      "method": "random_search",
+      "seeds": [
+        11,
+        12,
+        13
+      ],
+      "final_best_fitness": [
+        0.616068516837931,
+        0.6029226347546064,
+        0.616177996767053
+      ],
+      "mean": 0.6117230494531968,
+      "sd": 0.0062229934176458
+    },
+    {
+      "level": "K=4",
+      "n_genes": 19,
+      "method": "active_learning",
+      "seeds": [
+        11,
+        12,
+        13
+      ],
+      "final_best_fitness": [
+        0.616068516837931,
+        0.6369060622092891,
+        0.6362485266281835
+      ],
+      "mean": 0.6297410352251346,
+      "sd": 0.009671656443664656
+    },
+    {
+      "level": "K=8",
+      "n_genes": 31,
+      "method": "GA",
+      "seeds": [
+        11,
+        12,
+        13
+      ],
+      "final_best_fitness": [
+        0.622804595024027,
+        0.5353949203382409,
+        0.6198157385875785
+      ],
+      "mean": 0.5926717513166154,
+      "sd": 0.04051921224056059
+    },
+    {
+      "level": "K=8",
+      "n_genes": 31,
+      "method": "random_search",
+      "seeds": [
+        11,
+        12,
+        13
+      ],
+      "final_best_fitness": [
+        0.6158105017470682,
+        0.6030069932941071,
+        0.627071409925504
+      ],
+      "mean": 0.6152963016555598,
+      "sd": 0.009830982936714026
+    },
+    {
+      "level": "K=8",
+      "n_genes": 31,
+      "method": "active_learning",
+      "seeds": [
+        11,
+        12,
+        13
+      ],
+      "final_best_fitness": [
+        0.6170782598811525,
+        0.6266522175909207,
+        0.6379038837368902
+      ],
+      "mean": 0.6272114537363211,
+      "sd": 0.0085112165618831
+    }
+  ]
+}

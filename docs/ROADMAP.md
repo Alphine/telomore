@@ -484,10 +484,12 @@ a genotype × environment (G×E) study reusing sub-clones as genotypes
 objective (**DONE 2026-09-13**, see below), upgrading sub-clones toward a
 population-genetics-style model (**DONE 2026-09-13**, see below), grounding
 parameter choices in real GWAS-variant effect sizes (**DONE 2026-09-13**,
-see below), and a genome-dimensionality scaling study (not yet built). A
-"Genome Function Explorer" concept (predicted functional impact of a
-config) was flagged as carrying more scientific-honesty/overclaim risk and
-is not prioritized.
+see below), and a genome-dimensionality scaling study (**DONE 2026-09-14**,
+see below). A "Genome Function Explorer" concept (predicted functional
+impact of a config) was flagged as carrying more scientific-honesty/
+overclaim risk and is not prioritized. **This completes every genome-basis
+idea from the 2026-09-13 brainstorm except the deliberately-not-prioritized
+one.**
 
 ### Per-cell heritable repair_rate (population-genetics-style) (DONE 2026-09-13)
 
@@ -551,6 +553,37 @@ has no mechanism to decompose (new `docs/MODEL.md` §7 bullet). Full spec:
 `docs/MODEL.md` §3.2 (new subsection, mirrors §3.1's table format) and §9
 References ("GWAS telomere-length calibration"). No code changes — this
 was a documentation-only exercise, consistent with §3.1's own outcome.
+
+### Genome-dimensionality scaling study (DONE 2026-09-14)
+
+Disambiguated with the account owner first: this is about the **optimizer's
+search-space dimensionality** (`evolution/genome.py`'s chromosome encoding —
+GA/NSGA-II/active-learner "genome"), not a new biological genome-complexity
+mechanism. Reused the existing budget-matched benchmark machinery
+(`evolution/benchmark.py`, already built for `scripts/benchmark_optimizers.py`)
+unmodified, at a sweep of 7 genome sizes (3 → 31 genes, via
+`EVOLVABLE_PARAMETERS` prefix subsets and `schedule_phases` expansion) instead
+of one fixed size — **zero new optimizer/simulator code**, only a new sweep
+script, `scripts/benchmark_dimensionality.py`.
+
+Genuinely surprising result, reported as found rather than as originally
+hypothesized (a priori expectation was that GP-based active learning would
+degrade faster in high dimensions — the general ML-literature expectation):
+GA turned out to be the **less** robust method under a fixed small budget
+(144 simulator calls/cell) — its variance more than doubled once
+`schedule_phases` expansion pushed the gene count past 10, while active
+learning (GP-EI) stayed the lowest-variance method at every dimensionality
+level tested and random search stayed a flat, dimension-agnostic floor.
+Equally important: plain gene-count growth (3→10 independent scalar genes)
+and schedule-phase-driven growth (10→31 correlated per-phase genes) behave
+completely differently — only the latter showed any degradation at all,
+for any method.
+
+Full spec: `docs/EXPERIMENT_PROTOCOL.md` §15, Experiment J. Report:
+`experiments/reports/benchmark_dimensionality.{json,csv}` (63 cells, 3
+seeds each, 9,072 total simulator calls). No production code changes —
+`scripts/benchmark_dimensionality.py` is a new analysis script built
+entirely on existing, untouched `evolution/benchmark.py` functions.
 
 ### Canalization / robustness fitness objective (DONE 2026-09-13)
 

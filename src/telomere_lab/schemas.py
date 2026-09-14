@@ -93,10 +93,15 @@ SCHEDULABLE_PARAMETERS = ("stress_level", "maintenance_rate", "repair_rate")
 MAX_PHASES = 8
 
 #: Parameters a sub-clone's ``overrides`` may set (docs/MODEL.md §2.2). All
-#: four are per-cell-arithmetic "biology knobs"; structural, initial-condition
+#: eight are per-cell-arithmetic "biology knobs"; structural, initial-condition
 #: and stress-input parameters cannot be overridden per clone (a clone is a
-#: genetic variant, not a different culture).
-SUBCLONE_OVERRIDABLE_PARAMETERS = ("shortening_rate", "maintenance_rate", "repair_rate", "stress_sensitivity")
+#: genetic variant, not a different culture). The last four are the genome-
+#: stability parameters (docs/MODEL.md §2.3); added 2026-09-14 to close the
+#: composition gap noted in docs/ROADMAP.md "Explicitly deferred".
+SUBCLONE_OVERRIDABLE_PARAMETERS = (
+    "shortening_rate", "maintenance_rate", "repair_rate", "stress_sensitivity",
+    "replication_error_rate", "oxidative_mutation_sensitivity", "checkpoint_strength", "mutation_threshold",
+)
 
 #: Fractions across all clones must sum to 1.0 within this tolerance.
 SUBCLONE_FRACTION_TOLERANCE = 1e-6

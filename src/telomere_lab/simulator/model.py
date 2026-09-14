@@ -154,6 +154,28 @@ class SimpleTelomereModel:
         repair_override_mask = np.array(["repair_rate" in c.overrides for c in clone_specs])
         repair_override_vals = np.array([c.overrides.get("repair_rate", 0.0) for c in clone_specs])
 
+        # Genome stability (docs/MODEL.md §2.3) is also sub-clone-overridable
+        # (2026-09-14, closing the composition gap docs/ROADMAP.md's
+        # "Explicitly deferred" section used to list). None of these four are
+        # schedulable, so -- exactly like shortening_rate_c/stress_sensitivity_c
+        # above -- they are plain per-clone constant arrays, not a
+        # mask/override-value pair. A default/no-subclones config makes every
+        # entry equal to the scalar config value, so indexing by clone_id 0
+        # reproduces the pre-existing scalar arithmetic exactly.
+        replication_error_rate_c = np.array(
+            [c.overrides.get("replication_error_rate", config.replication_error_rate) for c in clone_specs]
+        )
+        oxidative_mutation_sensitivity_c = np.array(
+            [c.overrides.get("oxidative_mutation_sensitivity", config.oxidative_mutation_sensitivity)
+             for c in clone_specs]
+        )
+        checkpoint_strength_c = np.array(
+            [c.overrides.get("checkpoint_strength", config.checkpoint_strength) for c in clone_specs]
+        )
+        mutation_threshold_c = np.array(
+            [c.overrides.get("mutation_threshold", config.mutation_threshold) for c in clone_specs]
+        )
+
         # Per-cell heritable repair_rate (population-genetics-style mutation-
         # selection balance): each cell is seeded from its own clone's
         # starting repair_rate lookup (sub-clone overrides become the initial
@@ -236,10 +258,12 @@ class SimpleTelomereModel:
                 # replication error plus an oxidative contribution offset by
                 # repair_rate, reusing the same effective repair value as
                 # above. Zero when both rate parameters are at their default,
-                # so mutation_burden never leaves zero.
+                # so mutation_burden never leaves zero. Per-clone lookup
+                # (docs/MODEL.md §2.2 composition), indexed exactly like
+                # shortening_rate_c/stress_sensitivity_c above.
                 mutation_burden[divided] += (
-                    config.replication_error_rate
-                    + stress_val * config.oxidative_mutation_sensitivity * (1.0 - effective_repair)
+                    replication_error_rate_c[clones_sub]
+                    + stress_val * oxidative_mutation_sensitivity_c[clones_sub] * (1.0 - effective_repair)
                 )
 
                 # 3.6. per-cell repair_rate mutation step (population-genetics
@@ -269,11 +293,16 @@ class SimpleTelomereModel:
             # 4.5. apoptosis checkpoint (docs/MODEL.md §2.3): cells over the
             # mutation threshold may be removed before senescent-death, so
             # they aren't double-counted this cycle. Computed unconditionally
-            # (cheap); only checkpoint_strength gates actual removal.
-            apoptotic = mutation_burden > config.mutation_threshold
+            # (cheap); only checkpoint_strength gates actual removal. Both
+            # thresholds are per-clone lookups (docs/MODEL.md §2.2
+            # composition) indexed by the FULL clone_id -- unlike
+            # replication_error_rate/oxidative_mutation_sensitivity above,
+            # these two apply to every living cell each cycle, not only
+            # cells that just divided.
+            apoptotic = mutation_burden > mutation_threshold_c[clone_id]
             lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells, apoptotic = remove_apoptotic(
                 rng, lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells, apoptotic,
-                config.checkpoint_strength
+                checkpoint_strength_c[clone_id]
             )
 
             # 5. loss of senescent cells
@@ -305,7 +334,7 @@ class SimpleTelomereModel:
             if config.subclones is not None else {}
         )
         return _assemble(config, rows, snapshots, lengths, mutation_burden, repair_rate_cells, founder_senescence_cycle,
-                         applied_schedule, clone_fraction, t0)
+                         applied_schedule, clone_fraction, t0, clone_id=clone_id, mutation_threshold_c=mutation_threshold_c)
 
 
 def _stack(rows: List[Dict[str, float]], key: str, dtype=float) -> np.ndarray:
@@ -326,7 +355,7 @@ def _clone_fractions(clone_id: np.ndarray, n_clones: int) -> np.ndarray:
 
 
 def _assemble(config, rows, snapshots, lengths, mutation_burden, repair_rate_cells, founder_senescence_cycle,
-              applied_schedule, clone_fraction, t0) -> SimulationResult:
+              applied_schedule, clone_fraction, t0, clone_id, mutation_threshold_c) -> SimulationResult:
     time = np.arange(len(rows), dtype=float)
     result = SimulationResult(
         seed=config.seed,
@@ -371,8 +400,12 @@ def _assemble(config, rows, snapshots, lengths, mutation_burden, repair_rate_cel
     result.terminal_metrics["final_mutation_burden"] = (
         float(final_burden.mean()) if final_burden.size else 0.0
     )
+    # Per-clone threshold lookup (docs/MODEL.md §2.2 composition) -- a
+    # default/no-subclones config makes every entry config.mutation_threshold,
+    # so this is unchanged from the plain scalar comparison it replaces.
+    final_threshold = mutation_threshold_c[clone_id] if final_burden.size else final_burden
     result.terminal_metrics["genomic_instability_index"] = (
-        float((final_burden > config.mutation_threshold).mean()) if final_burden.size else 0.0
+        float((final_burden > final_threshold).mean()) if final_burden.size else 0.0
     )
     # Per-cell heritable repair_rate terminal metrics: mean reflects the
     # nominal/seed value when repair_rate_mutation_sigma == 0.0 (the feature's

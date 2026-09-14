@@ -165,10 +165,12 @@ block, a list shaped exactly like `ModelConfig.to_dict()` emits it
   to `1.0` (small tolerance), and `overrides` keys restricted to
   `SUBCLONE_OVERRIDABLE_PARAMETERS` (`GET /api/meta/bounds` →
   `subclone_overridable`, currently `shortening_rate`, `maintenance_rate`,
-  `repair_rate`, `stress_sensitivity`), each bounds-checked like any other
-  parameter. Omit the key, or send `"subclones": null`, for a single
-  homogeneous population -- both are what an unset `to_dict()` round-trips
-  to.
+  `repair_rate`, `stress_sensitivity`, and -- since 2026-09-14 -- the four
+  genome-stability fields `replication_error_rate`,
+  `oxidative_mutation_sensitivity`, `checkpoint_strength`,
+  `mutation_threshold`), each bounds-checked like any other parameter. Omit
+  the key, or send `"subclones": null`, for a single homogeneous population
+  -- both are what an unset `to_dict()` round-trips to.
 * Validation is the core gate: too few clones, a bad fraction sum, a
   duplicate name, a non-overridable key or an out-of-bounds override value
   all raise `ConfigError` -> **`400`** with the core message. Only a
@@ -214,9 +216,15 @@ without it.
   over `mutation_threshold` at the final cycle, `0.0` when unused).
 * Out-of-bounds values raise `ConfigError` -> **`400`**, exactly like any
   other `PARAMETER_BOUNDS` field. `GET /api/meta/bounds` exposes all four in
-  `bounds`/`evolvable`; none are schedulable or sub-clone-overridable.
+  `bounds`/`evolvable`; none are schedulable. **Since 2026-09-14**, all four
+  ARE sub-clone-overridable (see the sub-clone section above and
+  `docs/MODEL.md` §2.2's "Composition with genome stability") -- a clone
+  without the override still reads the shared config scalar, so this closes
+  a gap this document previously called out rather than changing the
+  feature's own default-off behavior.
 
-Tests: `tests/test_genome_stability.py`, `tests/test_api_genome_stability.py`.
+Tests: `tests/test_genome_stability.py`, `tests/test_api_genome_stability.py`,
+`tests/test_subclones.py` (composition cases).
 
 ### Per-cell heritable repair_rate (docs/MODEL.md §2.2.1)
 
@@ -608,7 +616,9 @@ never hardcodes a bound in TypeScript.
     "schedulable": ["stress_level", "maintenance_rate", "repair_rate"],
     "max_phases": 8,
     "presets": {"demo_fasting": {...configs/demo_fasting.yaml model block, incl. "schedule"...}},
-    "subclone_overridable": ["shortening_rate", "maintenance_rate", "repair_rate", "stress_sensitivity"]
+    "subclone_overridable": ["shortening_rate", "maintenance_rate", "repair_rate", "stress_sensitivity",
+                              "replication_error_rate", "oxidative_mutation_sensitivity",
+                              "checkpoint_strength", "mutation_threshold"]
   }
   ```
   `bounds` has one entry per `PARAMETER_BOUNDS` key, i.e. the five-tuple

@@ -158,8 +158,11 @@ feature #4).
   `initial_fraction` must be finite and in `(0, 1]`; the fractions across all
   clones must sum to `1.0` within `SUBCLONE_FRACTION_TOLERANCE = 1e-6`.
 * `overrides` may set any subset of `SUBCLONE_OVERRIDABLE_PARAMETERS =
-  (shortening_rate, maintenance_rate, repair_rate, stress_sensitivity)` — the
-  four per-cell-arithmetic "biology knobs" of §2. Each override is
+  (shortening_rate, maintenance_rate, repair_rate, stress_sensitivity,
+  replication_error_rate, oxidative_mutation_sensitivity, checkpoint_strength,
+  mutation_threshold)` — the four per-cell-arithmetic "biology knobs" of §2
+  plus, since 2026-09-14, the four genome-stability parameters of §2.3 (see
+  "Composition with genome stability" below). Each override is
   bounds-checked against the same `PARAMETER_BOUNDS` every other value in
   this model uses. A clone may **not** override `senescence_threshold`,
   `carrying_capacity`, `stress_level`, or any structural/initial-condition
@@ -202,6 +205,34 @@ feature #4).
   reads by default, while distinct clones may each pin their own constant
   `maintenance_rate`/`repair_rate` regardless of the schedule's swings on
   that parameter (`tests/test_subclones.py::test_schedule_and_subclones_compose`).
+* **Composition with genome stability (§2.3, 2026-09-14).** All four genome-
+  stability fields — `replication_error_rate`, `oxidative_mutation_sensitivity`,
+  `checkpoint_strength`, `mutation_threshold` — are also per-clone-overridable,
+  closing the gap this document (and `docs/ROADMAP.md`'s "Explicitly deferred"
+  section) previously flagged: before this, every cell read these four as
+  plain config scalars regardless of its clone. None of the four are
+  schedulable, so — unlike `maintenance_rate`/`repair_rate` above — there is
+  no "shared schedule vs. clone override" ambiguity to resolve: each is a
+  plain per-clone constant lookup, exactly like `shortening_rate`/
+  `stress_sensitivity`. Two of the four (`replication_error_rate`,
+  `oxidative_mutation_sensitivity`) are only read when a cell divides, so
+  they are looked up the same way as `shortening_rate`/`stress_sensitivity`
+  (indexed by the *dividing* cells' clones). The other two
+  (`checkpoint_strength`, `mutation_threshold`) gate the apoptosis checkpoint,
+  which runs against every *living* cell each cycle regardless of whether it
+  just divided — so they are looked up against the *full* population's clone
+  IDs, a new lookup shape this feature introduces
+  (`simulator/model.py::checkpoint_strength_c[clone_id]` /
+  `mutation_threshold_c[clone_id]`); `simulator/population.py::remove_apoptotic`
+  now accepts a per-cell `checkpoint_strength` array in addition to the
+  original scalar, so a single-clone/unset-subclones config's RNG draw shape
+  is unchanged. `SimulationResult.terminal_metrics["genomic_instability_index"]`
+  likewise now compares each surviving cell's burden against its *own*
+  clone's threshold rather than the shared scalar.
+  **Backward compatibility**: a default/no-subclones config makes every
+  per-clone lookup entry equal to the shared scalar, so this is bit-identical
+  to the pre-2026-09-14 model (`tests/test_subclones.py
+  ::test_genome_stability_composition_bit_identical_when_unused`).
 * **Output.** `SimulationResult.clone_fraction[name]` records, on the same
   `(T+1,)` axis as `time`, the fraction of the *living* population in each
   named clone at every cycle (`0.0`, never `NaN`, when the population is
@@ -767,8 +798,14 @@ validation (fraction sum, clone count, override keys/bounds), bit-identity of
 an unset `subclones` config against the same golden fixture, `clone_fraction`
 summing to ~1.0 of the living population at every non-extinct cycle, a
 resilient-vs-fragile competition scenario where the higher-maintenance/
-repair clone's share measurably increases, the extinction edge case, and
-composition with an active schedule.
+repair clone's share measurably increases, the extinction edge case,
+composition with an active schedule, and composition with genome stability
+(§2.2's "Composition with genome stability" — a clone overriding
+`replication_error_rate` accumulates burden faster, a clone overriding
+`checkpoint_strength`/`mutation_threshold` is removed faster than one that
+doesn't, `genomic_instability_index` respects each clone's own threshold,
+and the whole composition is bit-identical to the pre-2026-09-14 model when
+unused).
 `tests/test_repair_rate_drift.py` checks per-cell heritable `repair_rate`
 (§2.2.1): bounds validation, rejection of combining it with a `repair_rate`
 schedule, bit-identity of an unset (`repair_rate_mutation_sigma == 0.0`)

@@ -106,7 +106,10 @@ export const BOUNDS: BoundsResponse = {
       },
     },
   },
-  subclone_overridable: ['shortening_rate', 'maintenance_rate', 'repair_rate', 'stress_sensitivity'],
+  subclone_overridable: [
+    'shortening_rate', 'maintenance_rate', 'repair_rate', 'stress_sensitivity',
+    'replication_error_rate', 'oxidative_mutation_sensitivity', 'checkpoint_strength', 'mutation_threshold',
+  ],
   environment_overridable: ['stress_level'],
 }
 

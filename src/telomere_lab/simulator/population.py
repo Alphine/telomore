@@ -6,7 +6,7 @@ isolation and to reuse from :mod:`telomere_lab.simulator.model`.
 
 from __future__ import annotations
 
-from typing import Sequence, Tuple
+from typing import Sequence, Tuple, Union
 
 import numpy as np
 
@@ -101,16 +101,24 @@ def remove_dead(
 def remove_apoptotic(
     rng: np.random.Generator, lengths: np.ndarray, senescent: np.ndarray,
     founder_id: np.ndarray, clone_id: np.ndarray, mutation_burden: np.ndarray,
-    repair_rate_cells: np.ndarray, apoptotic: np.ndarray, checkpoint_strength: float,
+    repair_rate_cells: np.ndarray, apoptotic: np.ndarray, checkpoint_strength: Union[float, np.ndarray],
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Cells over the mutation-burden threshold (docs/MODEL.md §2.3) are lost
     with probability ``checkpoint_strength`` per cycle.
 
+    ``checkpoint_strength`` may be a scalar (every cell shares one removal
+    probability) or a per-cell array (docs/MODEL.md §2.2's sub-clone
+    composition, one probability per cell via a clone-indexed lookup) --
+    ``rng.random(...) < checkpoint_strength`` broadcasts either way, so the
+    RNG draw shape/sequence is identical between the two.
+
     Mirrors ``remove_dead``'s shape exactly, including its no-op guard: when
-    ``checkpoint_strength <= 0`` (the feature's off switch) or nothing is
-    flagged ``apoptotic``, every array is returned unchanged.
+    every ``checkpoint_strength`` value is <= 0 (the feature's off switch) or
+    nothing is flagged ``apoptotic``, every array is returned unchanged --
+    critically, with no RNG draw spent, so an all-off config's RNG stream is
+    untouched regardless of whether ``checkpoint_strength`` is scalar or array.
     """
-    if checkpoint_strength <= 0 or not apoptotic.any():
+    if not apoptotic.any() or not np.any(np.asarray(checkpoint_strength) > 0):
         return lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells, apoptotic
     dies = apoptotic & (rng.random(apoptotic.shape[0]) < checkpoint_strength)
     keep = ~dies

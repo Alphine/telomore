@@ -57,6 +57,7 @@ def test_subclone_spec_validation():
         SubcloneSpec(name="a", initial_fraction=0.5, overrides={"repair_rate": 5.0}).validate()
     assert set(SUBCLONE_OVERRIDABLE_PARAMETERS) == {
         "shortening_rate", "maintenance_rate", "repair_rate", "stress_sensitivity",
+        "replication_error_rate", "oxidative_mutation_sensitivity", "checkpoint_strength", "mutation_threshold",
     }
 
 
@@ -241,3 +242,65 @@ def test_bounds_checked_like_any_other_evolvable_parameter():
             SubcloneSpec("bad", 0.5, {key: hi + 1.0}).validate()
         with pytest.raises(ConfigError):
             SubcloneSpec("bad", 0.5, {key: lo - 1.0}).validate()
+
+
+# ----------------------------------------------- composition with genome stability
+def test_clone_overriding_replication_error_rate_accumulates_burden_faster():
+    """A clone with a much higher baseline mutation rate should end up with a
+    higher mean mutation_burden than a clone left at the (zero) default --
+    the per-clone lookup (docs/MODEL.md §2.2 composition) must actually reach
+    the mutation_burden accumulation, not just be accepted by validation."""
+    cfg = small(subclones=(
+        SubcloneSpec("mutator", 0.5, {"replication_error_rate": 0.02}),
+        SubcloneSpec("stable", 0.5, {}),
+    ))
+    res = simulate(cfg)
+    assert res.valid
+    assert res.terminal_metrics["final_mutation_burden"] > 0.0
+
+
+def test_clone_overriding_checkpoint_strength_is_removed_faster():
+    """A clone with checkpoint_strength=1.0 and a low mutation_threshold should
+    lose essentially its entire population to apoptosis, while a clone left at
+    the (zero) default checkpoint_strength is never touched by it -- proving
+    checkpoint_strength_c/mutation_threshold_c actually reach remove_apoptotic
+    per-clone, not just the shared config scalar."""
+    cfg = small(cycles=30, subclones=(
+        SubcloneSpec("checked", 0.5, {"replication_error_rate": 0.05, "mutation_threshold": 0.02,
+                                       "checkpoint_strength": 1.0}),
+        SubcloneSpec("unchecked", 0.5, {"replication_error_rate": 0.05, "mutation_threshold": 0.02}),
+    ))
+    res = simulate(cfg)
+    assert res.valid
+    assert res.clone_fraction["checked"][-1] < res.clone_fraction["unchecked"][-1]
+
+
+def test_genome_stability_composition_bit_identical_when_unused():
+    """Two clones that don't touch any genome-stability field must behave
+    exactly like the pre-existing (shortening_rate/maintenance_rate/repair_rate
+    /stress_sensitivity-only) sub-clone composition -- the new lookups must be
+    inert no-ops when every clone's genome-stability fields equal the shared
+    config scalar (all zero/off by default)."""
+    cfg = golden_config(seed=1)
+    two = cfg.replace(subclones=[
+        {"name": "x", "initial_fraction": 0.5, "overrides": {"maintenance_rate": 0.4}},
+        {"name": "y", "initial_fraction": 0.5, "overrides": {}},
+    ])
+    res = simulate(two)
+    assert res.valid
+    assert res.terminal_metrics["final_mutation_burden"] == 0.0
+    assert res.terminal_metrics["genomic_instability_index"] == 0.0
+
+
+def test_mutation_threshold_override_gates_genomic_instability_index_per_clone():
+    """genomic_instability_index (terminal, survivors-only) must use each
+    surviving cell's OWN clone's mutation_threshold, not the shared config
+    scalar -- a clone with a very low threshold should show 100% instability
+    while a clone with the sentinel-high default threshold shows 0%."""
+    cfg = small(cycles=20, subclones=(
+        SubcloneSpec("low_threshold", 0.5, {"replication_error_rate": 0.05, "mutation_threshold": 0.01}),
+        SubcloneSpec("high_threshold", 0.5, {"replication_error_rate": 0.05}),
+    ))
+    res = simulate(cfg)
+    assert res.valid
+    assert res.terminal_metrics["genomic_instability_index"] > 0.0

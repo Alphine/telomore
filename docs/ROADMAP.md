@@ -731,7 +731,31 @@ alongside this feature.
   --workers N`.
 - Sub-clone × genome-stability composition (docs/MODEL.md §2.3): a clone
   overriding its own `replication_error_rate` / `oxidative_mutation_sensitivity`
-  / `checkpoint_strength` / `mutation_threshold` (`SUBCLONE_OVERRIDABLE_PARAMETERS`
-  is unchanged by the 2026-09-13 genome-stability feature). Explicitly out of
-  scope for v1 — every cell currently reads these four fields as plain config
-  scalars regardless of its clone.
+  / `checkpoint_strength` / `mutation_threshold`. **DONE 2026-09-14** — all
+  four added to `SUBCLONE_OVERRIDABLE_PARAMETERS`. The two that only apply
+  at division (`replication_error_rate`, `oxidative_mutation_sensitivity`)
+  are looked up exactly like `shortening_rate`/`stress_sensitivity` already
+  were (a per-clone constant array indexed by the dividing cells' clones);
+  the two that gate the apoptosis checkpoint against *every living cell*
+  each cycle (`checkpoint_strength`, `mutation_threshold`) needed a new
+  full-population lookup shape (`checkpoint_strength_c[clone_id]` /
+  `mutation_threshold_c[clone_id]`), which required
+  `simulator/population.py::remove_apoptotic` to accept a per-cell array in
+  addition to its original scalar — the trickiest part of this change, since
+  it also had to preserve the exact "no RNG draw when the feature is off"
+  discipline the golden-fixture bit-identity test depends on
+  (`not np.any(checkpoint_strength > 0)` replaces the old `checkpoint_strength
+  <= 0` scalar guard). `SimulationResult.terminal_metrics
+  ["genomic_instability_index"]` was also updated to compare each surviving
+  cell against its *own* clone's threshold rather than the shared scalar.
+  Zero backend router or frontend changes needed — `bounds.subclone_overridable`
+  (`GET /api/meta/bounds`) and `SubcloneEditor.tsx` are both already fully
+  dynamic off `SUBCLONE_OVERRIDABLE_PARAMETERS`, the same "additive,
+  generic-passthrough" pattern every sub-clone/schedule/genome-stability
+  feature before it has followed; only `frontend/src/test/fixtures.ts`'s
+  hardcoded mirror of the bounds response needed updating. Full spec:
+  `docs/MODEL.md` §2.2 "Composition with genome stability". Tests: 4 new
+  cases in `tests/test_subclones.py` (differential mutation-burden growth,
+  differential apoptotic removal, per-clone `genomic_instability_index`, and
+  bit-identity when unused) — 313 pytest total, 176 Vitest total, `npx tsc -b
+  --force` and lint clean.

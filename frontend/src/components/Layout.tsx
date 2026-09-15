@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../auth/context'
@@ -101,7 +102,7 @@ function Nav({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
-export function Layout() {
+export function Layout({ children }: { children?: ReactNode } = {}) {
   const [open, setOpen] = useState(false)
   const close = () => setOpen(false)
 
@@ -153,7 +154,7 @@ export function Layout() {
 
         <main className="min-w-0 flex-1">
           <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-10 lg:py-12">
-            <Outlet />
+            {children ?? <Outlet />}
           </div>
         </main>
       </div>

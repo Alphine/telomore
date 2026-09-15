@@ -535,6 +535,42 @@ this section:
   count — see `docs/ROADMAP.md`'s "GPU strategy" section for why that claim
   is accurate.
 
+## Pre-login Showcase page (`pages/Home.tsx`, `pages/Showcase.tsx`, 2026-09-16)
+
+`"/"` is no longer always the sidebar-wrapped `Landing` dashboard. `App.tsx`
+now routes `"/"` to `pages/Home.tsx`, a small gate that decides which page an
+anonymous vs. an authenticated visitor sees:
+
+- The `?token=`/`?reset_token=` redirect (backend-built emailed / dev-mode
+  links, `backend/routers/auth.py`) moved from `Landing.tsx` into `Home.tsx`
+  — it now runs *before* the Showcase-vs-Landing decision, so a link like
+  that still works for a visitor who isn't logged in yet. `Landing.tsx` no
+  longer has its own copy (it is only ever reached already-authenticated).
+- `status === 'authenticated'` renders `<Layout><Landing /></Layout>` — the
+  familiar sidebar dashboard, unchanged in content. `Layout` gained an
+  optional `children` prop (`{children ?? <Outlet />}`) so it can be used
+  this way *and* keep working as a plain nested-route element everywhere
+  else in `App.tsx` — zero behavior change for every other route.
+- Anonymous visitors get `pages/Showcase.tsx` instead: a standalone,
+  full-bleed marketing/"show off" page (sticky nav with anchor links, no
+  sidebar) — hero with a CTA, a six-step "how it works" icon flow, the same
+  `FEATURES` feature grid Landing uses, and a "Results" section citing three
+  real, reproducible findings straight from `docs/EXPERIMENT_PROTOCOL.md`
+  (Experiments G/F/J) rather than a fabricated case study. Reuses the app's
+  real design tokens/components throughout (`.card`, `.btn-primary`,
+  `.glass-pill`, `.gradient-text`, `.hero-glow`, the real `<ThemeToggle />`)
+  — no parallel CSS system.
+- New `components/icons.tsx`: a small set of stroke-based SVG icon
+  components (a telomere-capped double-helix logomark plus one icon per lab
+  tool) used only by `Showcase.tsx` for now — deliberately not threaded
+  through `features.ts`'s icon field (still an emoji string, used by the
+  sidebar nav and the Landing dashboard) to keep this change targeted.
+
+Tests: `pages/Home.test.tsx` (the redirect, and both branches of the
+Showcase-vs-Landing gate), `pages/Showcase.test.tsx`. The `?token=`/
+`?reset_token=` redirect test moved out of `pages/Landing.test.tsx` into
+`Home.test.tsx` along with the logic it tests.
+
 ## Ensemble (uncertainty) mode (ROADMAP.md candidate feature #2, 2026-09-11)
 
 An additive section on Simulate (`pages/Simulate/index.tsx`), separate from

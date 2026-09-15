@@ -5,7 +5,7 @@ import { Layout } from './components/Layout'
 import { FEATURES } from './features'
 import { Docs } from './pages/Docs'
 import { ForgotPassword } from './pages/ForgotPassword'
-import { Landing } from './pages/Landing'
+import { Home } from './pages/Home'
 import { Login } from './pages/Login'
 import { NotFound } from './pages/NotFound'
 import { ActiveLearning } from './pages/ActiveLearning'
@@ -39,8 +39,11 @@ const MIGRATED: Record<string, () => JSX.Element> = {
 export default function App() {
   return (
     <Routes>
+      {/* Not wrapped in <Layout/> -- Home picks between the sidebar-wrapped
+          Landing dashboard (authenticated) and the full-bleed, sidebar-free
+          pre-login Showcase page (anonymous) itself. */}
+      <Route path="/" element={<Home />} />
       <Route element={<Layout />}>
-        <Route index element={<Landing />} />
         {/* `/guide`, not `/docs` -- see features.ts's PUBLIC_NAV_LINKS comment: */}
         {/* FastAPI's own Swagger UI already owns `/docs` in production. */}
         <Route path="/guide" element={<Docs />} />

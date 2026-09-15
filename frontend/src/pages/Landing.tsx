@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useSearchParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 
 import { health } from '../api/endpoints'
 import type { SimulationRun } from '../api/types'
@@ -184,16 +184,14 @@ function BuildSection() {
   )
 }
 
+// The backend builds emailed / dev-mode links as `/?token=` and
+// `/?reset_token=` on the root path (backend/routers/auth.py). This used to
+// be handled here, but since 2026-09-16 `Home.tsx` (the actual "/" route
+// element) checks for them before it even decides whether to render this
+// dashboard or the pre-login Showcase -- Landing itself is now only ever
+// reached already-authenticated, so it no longer needs its own copy.
 export function Landing() {
   const dark = usePrefersDark()
-  // The backend builds emailed / dev-mode links as `/?token=` and
-  // `/?reset_token=` on the root path (backend/routers/auth.py). Redirect
-  // those onto the routes that handle them.
-  const [params] = useSearchParams()
-  const verifyToken = params.get('token')
-  const resetToken = params.get('reset_token')
-  if (verifyToken) return <Navigate to={`/verify?token=${encodeURIComponent(verifyToken)}`} replace />
-  if (resetToken) return <Navigate to={`/reset-password?token=${encodeURIComponent(resetToken)}`} replace />
 
   return (
     <div className="space-y-12">

@@ -1,5 +1,4 @@
 import { screen } from '@testing-library/react'
-import { Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { FEATURES } from '../features'
@@ -48,21 +47,5 @@ describe('Landing page', () => {
     expect(screen.getByText(/loading recorded run/)).toBeInTheDocument()
     expect(await screen.findByRole('img', { name: /cell population/i })).toBeInTheDocument()
     expect(screen.queryByText(/loading recorded run/)).not.toBeInTheDocument()
-  })
-
-  it('redirects backend-style /?token= and /?reset_token= links onto their routes', async () => {
-    mockFetch({})
-    const tree = (
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/verify" element={<div>VERIFY ROUTE</div>} />
-        <Route path="/reset-password" element={<div>RESET ROUTE</div>} />
-      </Routes>
-    )
-    const first = renderApp(tree, { route: '/?token=abc' })
-    expect(await screen.findByText('VERIFY ROUTE')).toBeInTheDocument()
-    first.unmount()
-    renderApp(tree, { route: '/?reset_token=xyz' })
-    expect(await screen.findByText('RESET ROUTE')).toBeInTheDocument()
   })
 })

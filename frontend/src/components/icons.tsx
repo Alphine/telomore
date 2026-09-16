@@ -207,6 +207,20 @@ export function RefreshIcon(props: IconProps) {
   )
 }
 
+/** A single population-grid dot on the Showcase page's live simulation preview. */
+export function ChromosomeDotIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" {...props}>
+      <path d="M6 2v6c0 2.5 2 3 2 6s-2 3-2 6" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" />
+      <path d="M14 2v6c0 2.5-2 3-2 6s2 3 2 6" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" />
+      <circle cx="6" cy="2" r="1.3" fill="currentColor" />
+      <circle cx="14" cy="2" r="1.3" fill="currentColor" />
+      <circle cx="6" cy="18" r="1.3" fill="currentColor" />
+      <circle cx="14" cy="18" r="1.3" fill="currentColor" />
+    </svg>
+  )
+}
+
 /** Icon for each `Feature.path` (features.ts), for the Showcase page's feature grid. */
 export const FEATURE_ICONS: Record<string, (props: IconProps) => JSX.Element> = {
   '/simulate': FlaskIcon,

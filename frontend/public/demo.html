@@ -1,0 +1,697 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Telomere Lab Walkthrough</title>
+<meta name="description" content="A self-playing demo reel of Telomere Evolution Lab -- how it works, feature tour, a live-animated simulation preview, and results.">
+<style>
+  :root {
+    --bg: #05070d;
+    --surface: #0d1424;
+    --surface-2: #0a0e1a;
+    --border: rgba(255,255,255,0.09);
+    --border-strong: rgba(255,255,255,0.18);
+    --text: #f8fafc;
+    --text-body: #cbd5e1;
+    --text-muted: #8b95a8;
+    --text-faint: #5b6577;
+    --cyan: #22d3ee;
+    --sky: #38bdf8;
+    --violet: #a855f7;
+    --pink: #ec4899;
+    --emerald: #34d399;
+    --grad: linear-gradient(90deg, var(--cyan), var(--violet));
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--bg);
+    color: var(--text-body);
+    font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+    overflow: hidden;
+  }
+  h1, h2, h3 { font-family: "Sora", ui-sans-serif, sans-serif; color: var(--text); text-wrap: balance; margin: 0; }
+
+  .stage-wrap {
+    position: relative;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+  .stage-wrap::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image: radial-gradient(rgba(255,255,255,0.045) 1px, transparent 1px);
+    background-size: 28px 28px;
+    opacity: .6;
+  }
+
+  /* ------------------------------------------------------------ progress */
+  .progress-rail {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    gap: 6px;
+    padding: 14px 20px 0;
+    flex-shrink: 0;
+  }
+  .progress-seg {
+    flex: 1;
+    height: 3px;
+    border-radius: 999px;
+    background: var(--border);
+    overflow: hidden;
+  }
+  .progress-seg > i {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: var(--grad);
+    border-radius: 999px;
+  }
+  .progress-seg.done > i { width: 100%; }
+
+  /* -------------------------------------------------------------- header */
+  .reel-header {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px 0;
+    flex-shrink: 0;
+  }
+  .reel-brand { display: flex; align-items: center; gap: 8px; }
+  .reel-brand span { font-size: 12.5px; font-weight: 700; color: var(--text-muted); letter-spacing: .02em; }
+  .reel-scene-label {
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    color: var(--text-faint);
+    letter-spacing: .04em;
+  }
+
+  /* --------------------------------------------------------------- stage */
+  .stage {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px clamp(20px, 5vw, 64px);
+  }
+  .scene {
+    position: absolute;
+    inset: 24px clamp(20px, 5vw, 64px);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .scene.active {
+    display: flex;
+    animation: scene-in .5s ease both;
+  }
+  @keyframes scene-in {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .scene.active { animation: none; }
+  }
+
+  .eyebrow {
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 14px;
+  }
+  .grad-text {
+    background-image: var(--grad);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: var(--cyan);
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* --------------------------------------------------------- scene: title */
+  #scene-title .mark { width: clamp(64px, 9vw, 96px); height: auto; margin-bottom: 22px; filter: drop-shadow(0 0 22px rgba(34,211,238,.35)); }
+  #scene-title h1 { font-size: clamp(30px, 5vw, 52px); font-weight: 800; line-height: 1.08; }
+  #scene-title .sub { margin-top: 16px; max-width: 46ch; font-size: clamp(14px, 1.6vw, 17px); color: var(--text-body); line-height: 1.6; }
+  #scene-title .badge {
+    margin-top: 26px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    padding: 8px 16px;
+    font-size: 12px;
+    color: var(--text-muted);
+    background: rgba(255,255,255,.02);
+  }
+  .dot { width: 6px; height: 6px; border-radius: 999px; background: var(--emerald); box-shadow: 0 0 8px var(--emerald); }
+
+  /* ------------------------------------------------------- scene: problem */
+  #scene-problem .art { width: clamp(140px, 18vw, 220px); height: auto; margin-bottom: 24px; opacity: .92; }
+  #scene-problem h2 { font-size: clamp(24px, 3.4vw, 38px); max-width: 20ch; }
+  #scene-problem .lines { margin-top: 18px; max-width: 56ch; display: flex; flex-direction: column; gap: 10px; }
+  #scene-problem .lines p { margin: 0; font-size: clamp(14px, 1.5vw, 16.5px); line-height: 1.65; color: var(--text-body); }
+  #scene-problem .lines strong { color: var(--text); }
+
+  /* ------------------------------------------------------------ scene: how */
+  #scene-how h2 { font-size: clamp(22px, 3vw, 32px); margin-bottom: 34px; }
+  .flow-row { position: relative; display: flex; gap: clamp(10px, 2vw, 26px); }
+  .flow-line { position: absolute; top: 22px; left: 44px; right: 44px; height: 1px; background: linear-gradient(90deg, rgba(56,189,248,.5), rgba(168,85,247,.5)); }
+  .flow-node { position: relative; z-index: 1; width: clamp(84px, 10vw, 128px); display: flex; flex-direction: column; align-items: center; gap: 8px; opacity: 0; transform: translateY(10px); transition: opacity .45s ease, transform .45s ease; }
+  .flow-node.show { opacity: 1; transform: translateY(0); }
+  .flow-icon { width: 44px; height: 44px; border-radius: 13px; background: var(--surface); border: 1px solid var(--border-strong); color: var(--cyan); display: flex; align-items: center; justify-content: center; }
+  .flow-icon svg { width: 20px; height: 20px; }
+  .flow-node b { font-size: 12px; color: var(--text); font-weight: 600; }
+  .flow-node small { font-size: 10.5px; color: var(--text-muted); line-height: 1.4; }
+
+  /* -------------------------------------------------------- scene: tools */
+  #scene-tools h2 { font-size: clamp(22px, 3vw, 32px); margin-bottom: 28px; }
+  .tool-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; max-width: 900px; }
+  .tool-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 14px;
+    text-align: left; opacity: 0; transform: translateY(10px); transition: opacity .4s ease, transform .4s ease;
+  }
+  .tool-card.show { opacity: 1; transform: translateY(0); }
+  .tool-icon { width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+  .tool-icon svg { width: 16px; height: 16px; }
+  .tool-card b { display: block; font-size: 12.5px; color: var(--text); font-weight: 600; margin-bottom: 3px; }
+  .tool-card span { font-size: 10.5px; color: var(--text-muted); line-height: 1.4; }
+  .tint-cyan { background: rgba(56,189,248,.12); color: #38bdf8; }
+  .tint-violet { background: rgba(168,85,247,.12); color: #a855f7; }
+  .tint-pink { background: rgba(236,72,153,.12); color: #ec4899; }
+
+  /* --------------------------------------------------------- scene: live */
+  #scene-live h2 { font-size: clamp(20px, 2.6vw, 28px); margin-bottom: 6px; }
+  #scene-live .cap { font-size: 12.5px; color: var(--text-muted); margin-bottom: 22px; }
+  .live-panel { width: min(920px, 100%); background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 20px 22px; text-align: left; }
+  .live-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+  .live-title { display: flex; align-items: center; gap: 8px; font-family: "Sora", sans-serif; font-weight: 600; font-size: 13px; color: var(--text); }
+  .live-chip { font-family: ui-monospace, monospace; font-size: 10.5px; color: var(--text-muted); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; }
+  .live-grid-wrap { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; }
+  .pop-grid { display: grid; grid-template-columns: repeat(10, minmax(0,1fr)); gap: 5px; }
+  .pop-dot { width: 100%; aspect-ratio: 1; border-radius: 5px; border: 1.5px solid transparent; display: flex; align-items: center; justify-content: center; transition: border-color .2s ease, background .2s ease; }
+  .pop-dot svg { width: 60%; height: 60%; }
+  .pop-dot.sel { border-color: var(--cyan); background: rgba(34,211,238,.12); }
+  .params { display: flex; flex-direction: column; gap: 10px; }
+  .param-row b { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-body); font-weight: 500; margin-bottom: 4px; }
+  .param-row b .v { font-family: ui-monospace, monospace; color: var(--cyan); }
+  .param-track { height: 5px; border-radius: 999px; background: var(--border); overflow: hidden; }
+  .param-fill { height: 100%; background: var(--grad); border-radius: 999px; }
+  .live-foot { margin-top: 14px; display: flex; align-items: center; gap: 10px; }
+  .live-chart { width: 100%; height: 34px; }
+
+  /* ------------------------------------------------------ scene: results */
+  #scene-results h2 { font-size: clamp(22px, 3vw, 32px); margin-bottom: 26px; }
+  .result-row { display: flex; gap: 14px; width: min(1000px, 100%); }
+  .result-card {
+    flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px;
+    text-align: left; opacity: 0; transform: translateY(10px); transition: opacity .45s ease, transform .45s ease;
+  }
+  .result-card.show { opacity: 1; transform: translateY(0); }
+  .result-tag { display: inline-flex; font-family: ui-monospace, monospace; font-size: 10.5px; font-weight: 700; color: #38bdf8; background: rgba(56,189,248,.12); border-radius: 6px; padding: 3px 8px; margin-bottom: 10px; }
+  .result-card h3 { font-size: 13.5px; line-height: 1.4; margin-bottom: 8px; }
+  .result-card p { margin: 0; font-size: 11.5px; line-height: 1.55; color: var(--text-muted); }
+  .result-card p strong { color: var(--text-body); }
+
+  /* ------------------------------------------------------- scene: closing */
+  #scene-close .mark { width: clamp(48px, 7vw, 72px); margin-bottom: 18px; }
+  #scene-close h2 { font-size: clamp(24px, 3.6vw, 36px); }
+  #scene-close .url { margin-top: 16px; font-family: ui-monospace, monospace; font-size: clamp(13px, 1.6vw, 16px); color: var(--cyan); }
+  #scene-close .meta { margin-top: 20px; font-size: 12px; color: var(--text-faint); }
+  #scene-close .meta a { color: var(--text-muted); }
+
+  /* --------------------------------------------------------- controls bar */
+  .controls {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 14px 20px 16px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .ctl-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 38px; height: 38px; border-radius: 999px;
+    background: rgba(255,255,255,.03); border: 1px solid var(--border-strong); color: var(--text);
+    cursor: pointer;
+  }
+  .ctl-btn:hover { background: rgba(255,255,255,.07); }
+  .ctl-btn svg { width: 15px; height: 15px; }
+  .ctl-play { width: 46px; height: 46px; background: var(--cyan); color: #04121a; border: none; }
+  .ctl-play:hover { background: #38e0f5; }
+  .ctl-dots { display: flex; gap: 7px; align-items: center; margin: 0 6px; }
+  .ctl-dot { width: 7px; height: 7px; border-radius: 999px; background: var(--border-strong); cursor: pointer; border: none; padding: 0; }
+  .ctl-dot.active { background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
+  .ctl-hint { font-size: 10.5px; color: var(--text-faint); margin-left: 8px; }
+
+  @media (max-width: 640px) {
+    .tool-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .result-row { flex-direction: column; }
+    .live-grid-wrap { grid-template-columns: 1fr; }
+    .flow-row { flex-wrap: wrap; justify-content: center; }
+    .flow-line { display: none; }
+    .ctl-hint { display: none; }
+  }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap">
+</head>
+<body>
+<div class="stage-wrap">
+  <div class="progress-rail" id="progressRail"></div>
+
+  <div class="reel-header">
+    <div class="reel-brand">
+      <svg width="18" height="18" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <path d="M10 4c6 4 6 8 0 12s-6 8 0 12" stroke="#38bdf8" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M22 4c-6 4-6 8 0 12s6 8 0 12" stroke="#a855f7" stroke-width="2.6" stroke-linecap="round"/>
+      </svg>
+      <span>TELOMERE EVOLUTION LAB</span>
+    </div>
+    <div class="reel-scene-label" id="sceneLabel">01 / 07 &middot; Intro</div>
+  </div>
+
+  <div class="stage" id="stage">
+
+    <section class="scene" id="scene-title">
+      <svg class="mark" viewBox="0 0 420 460" fill="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="g-helix" x1="0" y1="0" x2="0" y2="460"><stop stop-color="#22d3ee"/><stop offset="1" stop-color="#38bdf8"/></linearGradient>
+          <linearGradient id="g-chr" x1="0" y1="0" x2="180" y2="180"><stop stop-color="#ec4899"/><stop offset="1" stop-color="#a855f7"/></linearGradient>
+          <filter id="glow1" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <g filter="url(#glow1)">
+          <path d="M70 10c60 45 60 90 0 135s-60 90 0 135 60 90 0 135" stroke="url(#g-helix)" stroke-width="4" fill="none" stroke-linecap="round"/>
+          <path d="M150 10c-60 45-60 90 0 135s60 90 0 135-60 90 0 135" stroke="url(#g-helix)" stroke-width="4" fill="none" stroke-linecap="round"/>
+          <line x1="72" y1="45" x2="148" y2="45" stroke="url(#g-helix)" stroke-width="2.4" opacity=".8"/>
+          <line x1="72" y1="180" x2="148" y2="180" stroke="url(#g-helix)" stroke-width="2.4" opacity=".8"/>
+          <line x1="72" y1="315" x2="148" y2="315" stroke="url(#g-helix)" stroke-width="2.4" opacity=".8"/>
+          <circle cx="70" cy="10" r="7" fill="url(#g-helix)"/><circle cx="150" cy="10" r="7" fill="url(#g-helix)"/>
+          <circle cx="70" cy="415" r="7" fill="url(#g-helix)"/><circle cx="150" cy="415" r="7" fill="url(#g-helix)"/>
+        </g>
+        <g filter="url(#glow1)" transform="translate(230,140)">
+          <path d="M40 0c22 22 22 44 0 66s-22 44 0 66" stroke="url(#g-chr)" stroke-width="17" fill="none" stroke-linecap="round"/>
+          <path d="M110 0c-22 22-22 44 0 66s22 44 0 66" stroke="url(#g-chr)" stroke-width="17" fill="none" stroke-linecap="round"/>
+          <circle cx="40" cy="0" r="9.5" fill="#fb7185"/><circle cx="110" cy="0" r="9.5" fill="#fb7185"/>
+          <circle cx="40" cy="132" r="9.5" fill="#fb7185"/><circle cx="110" cy="132" r="9.5" fill="#fb7185"/>
+        </g>
+      </svg>
+      <p class="eyebrow">AI4S Open Innovation &middot; AI for Life Science</p>
+      <h1>Telomere Evolution Lab</h1>
+      <p class="sub">An evolutionary optimizer searches a telomere-dynamics model for intervention conditions worth running on a real organ-on-a-chip &mdash; simulate, evolve, compare, learn.</p>
+      <div class="badge"><span class="dot"></span> Live at telomore-production.up.railway.app</div>
+    </section>
+
+    <section class="scene" id="scene-problem">
+      <svg class="art" viewBox="0 0 200 200" fill="none" aria-hidden="true">
+        <defs><linearGradient id="g-chr2" x1="0" y1="0" x2="180" y2="180"><stop stop-color="#ec4899"/><stop offset="1" stop-color="#a855f7"/></linearGradient>
+          <filter id="glow2" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+        <g filter="url(#glow2)" transform="translate(60,20)">
+          <path d="M40 0c22 22 22 44 0 66s-22 44 0 66" stroke="url(#g-chr2)" stroke-width="16" fill="none" stroke-linecap="round"/>
+          <path d="M100 0c-22 22-22 44 0 66s22 44 0 66" stroke="url(#g-chr2)" stroke-width="16" fill="none" stroke-linecap="round"/>
+          <circle cx="40" cy="0" r="9" fill="#fb7185"/><circle cx="100" cy="0" r="9" fill="#fb7185"/>
+          <circle cx="40" cy="132" r="9" fill="#fb7185"/><circle cx="100" cy="132" r="9" fill="#fb7185"/>
+        </g>
+      </svg>
+      <h2>Telomeres shorten every division &mdash; <span class="grad-text">timing the response is the open question.</span></h2>
+      <div class="lines">
+        <p>Maintenance and repair can slow it down, but both cost the cell something, and every real intervention condition costs a real culture run.</p>
+        <p><strong>Telomere Evolution Lab</strong> searches that space in silico first, including organ-on-a-chip culture conditions &mdash; flow, oxygen, nutrients, stress &mdash; before anyone commits a physical chip.</p>
+      </div>
+    </section>
+
+    <section class="scene" id="scene-how">
+      <h2>How the experimentation loop works</h2>
+      <div class="flow-row"><div class="flow-line"></div></div>
+    </section>
+
+    <section class="scene" id="scene-tools">
+      <h2>Eight lab tools, one simulator core</h2>
+      <div class="tool-grid" id="toolGrid"></div>
+    </section>
+
+    <section class="scene" id="scene-live">
+      <h2>Live simulation preview</h2>
+      <p class="cap">The same panel as the real Simulate page &mdash; watch it run</p>
+      <div class="live-panel">
+        <div class="live-head">
+          <div class="live-title"><span class="dot"></span> Live Simulation Preview</div>
+          <span class="live-chip" id="genChip">Generation 8,420</span>
+        </div>
+        <div class="live-grid-wrap">
+          <div class="pop-grid" id="popGrid"></div>
+          <div class="params" id="paramList"></div>
+        </div>
+        <div class="live-foot">
+          <svg class="live-chart" viewBox="0 0 300 34" preserveAspectRatio="none"><polyline id="sparkline" fill="none" stroke="#22d3ee" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points=""/></svg>
+        </div>
+      </div>
+    </section>
+
+    <section class="scene" id="scene-results">
+      <h2>What the lab has actually found</h2>
+      <div class="result-row" id="resultRow"></div>
+    </section>
+
+    <section class="scene" id="scene-close">
+      <svg class="mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <path d="M10 4c6 4 6 8 0 12s-6 8 0 12" stroke="#38bdf8" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M22 4c-6 4-6 8 0 12s6 8 0 12" stroke="#a855f7" stroke-width="2.4" stroke-linecap="round"/>
+      </svg>
+      <h2>Try it live &mdash; <span class="grad-text">no login needed to look around.</span></h2>
+      <div class="url">telomore-production.up.railway.app</div>
+      <div class="meta">Built for Kaggle &mdash; AI4S Open Innovation: AI for Life Science &middot; <a href="https://basyid.dev">basyid.dev</a></div>
+    </section>
+
+  </div>
+
+  <div class="controls">
+    <button class="ctl-btn" id="btnPrev" aria-label="Previous scene" title="Previous (Left arrow)">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 4 6.5 10l6 6"/></svg>
+    </button>
+    <button class="ctl-btn ctl-play" id="btnPlay" aria-label="Play or pause" title="Play/Pause (Space)">
+      <svg id="iconPlay" viewBox="0 0 20 20" fill="currentColor"><path d="M5 3.5v13l12-6.5z"/></svg>
+      <svg id="iconPause" viewBox="0 0 20 20" fill="currentColor" hidden><rect x="4" y="3" width="4" height="14" rx="1"/><rect x="12" y="3" width="4" height="14" rx="1"/></svg>
+    </button>
+    <button class="ctl-btn" id="btnNext" aria-label="Next scene" title="Next (Right arrow)">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 4l6 6-6 6"/></svg>
+    </button>
+    <div class="ctl-dots" id="ctlDots"></div>
+    <button class="ctl-btn" id="btnRestart" aria-label="Restart" title="Restart">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.2 10a5.8 5.8 0 0 1 10-4"/><path d="M15.8 10a5.8 5.8 0 0 1-10 4"/><path d="M14.3 3.3v3h-3"/><path d="M5.7 16.7v-3h3"/></svg>
+    </button>
+    <span class="ctl-hint">Space = play/pause &middot; &larr;/&rarr; = prev/next</span>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var ICONS = {
+    flask: '<path d="M8 3h4"/><path d="M9 3v5l-4.2 7.3A1.5 1.5 0 0 0 6.1 17.5h7.8a1.5 1.5 0 0 0 1.3-2.2L11 8V3"/><path d="M7 13h6"/>',
+    helix: '<path d="M6 2.5c4 2.5 4 5 0 7.5s-4 5 0 7.5"/><path d="M14 2.5c-4 2.5-4 5 0 7.5s4 5 0 7.5"/><line x1="6.3" y1="5" x2="13.7" y2="5"/><line x1="6" y1="10" x2="14" y2="10"/><line x1="6.3" y1="15" x2="13.7" y2="15"/>',
+    scatter: '<path d="M3 3v14h14"/><path d="M6 13 9 9l3.5-2L16 5.5" stroke-dasharray="1 2.6"/><circle cx="6" cy="13" r="1.1" fill="currentColor" stroke="none"/><circle cx="9" cy="9" r="1.1" fill="currentColor" stroke="none"/><circle cx="12.5" cy="7" r="1.1" fill="currentColor" stroke="none"/><circle cx="16" cy="5.5" r="1.1" fill="currentColor" stroke="none"/>',
+    tornado: '<line x1="3" y1="4.5" x2="17" y2="4.5"/><line x1="5.5" y1="8.5" x2="14.5" y2="8.5"/><line x1="4" y1="12.5" x2="16" y2="12.5"/><line x1="7" y1="16.5" x2="13" y2="16.5"/>',
+    grid: '<rect x="3" y="3" width="6" height="6" rx="1.2"/><rect x="11" y="3" width="6" height="6" rx="1.2"/><rect x="3" y="11" width="6" height="6" rx="1.2"/><rect x="11" y="11" width="6" height="6" rx="1.2"/>',
+    scale: '<line x1="10" y1="3" x2="10" y2="16"/><line x1="4" y1="6" x2="16" y2="6"/><path d="M4 6 1.5 11a2.5 2.5 0 0 0 5 0z"/><path d="M16 6l2.5 5a2.5 2.5 0 0 1-5 0z"/><line x1="7" y1="17" x2="13" y2="17"/>',
+    ledger: '<rect x="4" y="2.5" width="12" height="15" rx="1.5"/><line x1="7" y1="6.5" x2="13" y2="6.5"/><line x1="7" y1="10" x2="13" y2="10"/><line x1="7" y1="13.5" x2="10.5" y2="13.5"/>',
+    search: '<circle cx="8.4" cy="8.4" r="5"/><line x1="12.2" y1="12.2" x2="17" y2="17"/><line x1="8.4" y1="6" x2="8.4" y2="10.8"/><line x1="6" y1="8.4" x2="10.8" y2="8.4"/>',
+    bulb: '<path d="M10 3.2a4.8 4.8 0 0 0-2.9 8.6c.6.5 1 1.2 1 2h3.8c0-.8.4-1.5 1-2A4.8 4.8 0 0 0 10 3.2z"/><line x1="8.2" y1="16.6" x2="11.8" y2="16.6"/>',
+    bars: '<line x1="3.5" y1="16.5" x2="16.5" y2="16.5" stroke-width="1.4"/><rect x="5" y="10.5" width="2.6" height="6" rx="0.4" fill="currentColor" stroke="none"/><rect x="8.7" y="6" width="2.6" height="10.5" rx="0.4" fill="currentColor" stroke="none"/><rect x="12.4" y="12.5" width="2.6" height="4" rx="0.4" fill="currentColor" stroke="none"/>',
+    target: '<circle cx="10" cy="10" r="6.5"/><circle cx="10" cy="10" r="3"/><circle cx="10" cy="10" r="0.7" fill="currentColor" stroke="none"/>',
+    refresh: '<path d="M4.2 10a5.8 5.8 0 0 1 10-4"/><path d="M15.8 10a5.8 5.8 0 0 1-10 4"/><path d="M14.3 3.3v3h-3"/><path d="M5.7 16.7v-3h3"/>',
+    chromosome: '<path d="M6 2v6c0 2.5 2 3 2 6s-2 3-2 6" stroke-width="1.7"/><path d="M14 2v6c0 2.5-2 3-2 6s2 3 2 6" stroke-width="1.7"/><circle cx="6" cy="2" r="1.2" fill="currentColor" stroke="none"/><circle cx="14" cy="2" r="1.2" fill="currentColor" stroke="none"/><circle cx="6" cy="18" r="1.2" fill="currentColor" stroke="none"/><circle cx="14" cy="18" r="1.2" fill="currentColor" stroke="none"/>'
+  };
+  function svg(name, extra) {
+    return '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"' + (extra || '') + '>' + ICONS[name] + '</svg>';
+  }
+
+  var FLOW = [
+    { icon: "bulb", t: "Hypothesis", s: "a biological question" },
+    { icon: "helix", t: "Parameter genome", s: "stress, maintenance, repair" },
+    { icon: "flask", t: "Simulation", s: "population × telomeres" },
+    { icon: "bars", t: "Outcomes", s: "length, senescence, survival" },
+    { icon: "target", t: "Fitness score", s: "explicit objective" },
+    { icon: "refresh", t: "Selection", s: "mutate & repeat" }
+  ];
+
+  var TOOLS = [
+    { icon: "flask", tint: "cyan", t: "Simulate", s: "One virtual experiment" },
+    { icon: "helix", tint: "violet", t: "Evolve", s: "Genetic algorithm search" },
+    { icon: "scatter", tint: "pink", t: "Pareto", s: "NSGA-II trade-off front" },
+    { icon: "tornado", tint: "cyan", t: "Sensitivity", s: "OAT tornado analysis" },
+    { icon: "grid", tint: "violet", t: "G×E Study", s: "Genotype × environment" },
+    { icon: "scale", tint: "pink", t: "Compare", s: "Baseline vs. evolved" },
+    { icon: "ledger", tint: "cyan", t: "Experiments", s: "Reproducibility ledger" },
+    { icon: "search", tint: "violet", t: "Active Learning", s: "GP surrogate + EI" }
+  ];
+
+  var RESULTS = [
+    { tag: "Experiment G", t: "+0.045 fitness from syncing repair timing to a fasting-like rhythm", b: "A 6-phase schedule locked to an intermittent stress pattern beat a constant response by <strong>+0.5233 → +0.5688</strong>." },
+    { tag: "Experiment F", t: "A resilient sub-clone displaces a fragile one from 50% to 100%", b: "Two clones sharing one carrying-capacity: higher maintenance/repair compounds its share every division, by <strong>cycle 75</strong>." },
+    { tag: "Experiment J", t: "The GA got less reliable as the search grew — the surrogate didn't", b: "Across a 3→31-gene sweep, GA variance <strong>more than doubled</strong> past 10 genes — the opposite of what we expected." }
+  ];
+
+  function el(tag, cls, html) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (html != null) e.innerHTML = html;
+    return e;
+  }
+
+  // ---- build static scene content -----------------------------------
+  var flowRow = document.querySelector("#scene-how .flow-row");
+  FLOW.forEach(function (f) {
+    var node = el("div", "flow-node");
+    node.innerHTML = '<div class="flow-icon">' + svg(f.icon) + '</div><b>' + f.t + '</b><small>' + f.s + '</small>';
+    flowRow.appendChild(node);
+  });
+
+  var toolGrid = document.getElementById("toolGrid");
+  TOOLS.forEach(function (t) {
+    var card = el("div", "tool-card");
+    card.innerHTML = '<div class="tool-icon tint-' + t.tint + '">' + svg(t.icon) + '</div><b>' + t.t + '</b><span>' + t.s + '</span>';
+    toolGrid.appendChild(card);
+  });
+
+  var resultRow = document.getElementById("resultRow");
+  RESULTS.forEach(function (r) {
+    var card = el("div", "result-card");
+    card.innerHTML = '<span class="result-tag">' + r.tag + '</span><h3>' + r.t + '</h3><p>' + r.b + '</p>';
+    resultRow.appendChild(card);
+  });
+
+  // ---- live preview: population grid + params ------------------------
+  var POP_COLORS = ["#22d3ee", "#ec4899"];
+  var popGrid = document.getElementById("popGrid");
+  var popCells = [];
+  for (var i = 0; i < 40; i++) {
+    var cell = el("div", "pop-dot");
+    var color = POP_COLORS[i % 2];
+    cell.innerHTML = svg("chromosome").replace("<svg ", '<svg style="color:' + color + '" ');
+    popGrid.appendChild(cell);
+    popCells.push(cell);
+  }
+
+  var PARAMS = [
+    { label: "Maintenance investment", value: 0.60 },
+    { label: "Replication pressure", value: 0.70 },
+    { label: "Mutation rate", value: 0.20 },
+    { label: "Environmental stress", value: 0.50 }
+  ];
+  var paramList = document.getElementById("paramList");
+  var paramFills = [];
+  PARAMS.forEach(function (p) {
+    var row = el("div", "param-row");
+    row.innerHTML = '<b>' + p.label + ' <span class="v">' + p.value.toFixed(2) + '</span></b><div class="param-track"><div class="param-fill" style="width:' + (p.value * 100) + '%"></div></div>';
+    paramList.appendChild(row);
+    paramFills.push({ row: row, fill: row.querySelector(".param-fill"), val: row.querySelector(".v"), base: p.value });
+  });
+
+  var sparkline = document.getElementById("sparkline");
+  var genChip = document.getElementById("genChip");
+
+  // ---- scenes / autoplay state machine --------------------------------
+  var SCENES = [
+    { id: "scene-title", label: "Intro", dur: 5000 },
+    { id: "scene-problem", label: "The problem", dur: 7000 },
+    { id: "scene-how", label: "How it works", dur: 8000, reveal: revealFlow },
+    { id: "scene-tools", label: "Feature tour", dur: 7000, reveal: revealTools },
+    { id: "scene-live", label: "Live preview", dur: 9000, loop: liveLoop },
+    { id: "scene-results", label: "Results", dur: 9000, reveal: revealResults },
+    { id: "scene-close", label: "Try it live", dur: 6000 }
+  ];
+
+  var progressRail = document.getElementById("progressRail");
+  var segs = SCENES.map(function () {
+    var seg = el("div", "progress-seg");
+    seg.appendChild(el("i"));
+    progressRail.appendChild(seg);
+    return seg;
+  });
+  var ctlDots = document.getElementById("ctlDots");
+  var dots = SCENES.map(function (s, idx) {
+    var d = el("button", "ctl-dot");
+    d.setAttribute("aria-label", "Go to " + s.label);
+    d.addEventListener("click", function () { goTo(idx); });
+    ctlDots.appendChild(d);
+    return d;
+  });
+
+  var current = -1;
+  var playing = false;
+  var raf = null;
+  var sceneStart = 0;
+  var pausedElapsed = 0;
+  var liveAnim = null;
+
+  var sceneLabel = document.getElementById("sceneLabel");
+  var iconPlay = document.getElementById("iconPlay");
+  var iconPause = document.getElementById("iconPause");
+
+  function reduceMotion() {
+    return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  function showScene(idx) {
+    SCENES.forEach(function (s, i) {
+      document.getElementById(s.id).classList.toggle("active", i === idx);
+    });
+    dots.forEach(function (d, i) { d.classList.toggle("active", i === idx); });
+    segs.forEach(function (seg, i) {
+      seg.classList.toggle("done", i < idx);
+      var bar = seg.querySelector("i");
+      if (i < idx) bar.style.width = "100%";
+      if (i > idx) bar.style.width = "0%";
+    });
+    var n = idx + 1 < 10 ? "0" + (idx + 1) : "" + (idx + 1);
+    var total = SCENES.length < 10 ? "0" + SCENES.length : "" + SCENES.length;
+    sceneLabel.textContent = n + " / " + total + " · " + SCENES[idx].label;
+    if (liveAnim) { cancelAnimationFrame(liveAnim); liveAnim = null; }
+    if (SCENES[idx].reveal) SCENES[idx].reveal();
+    if (SCENES[idx].loop) SCENES[idx].loop();
+  }
+
+  function goTo(idx) {
+    idx = Math.max(0, Math.min(SCENES.length - 1, idx));
+    current = idx;
+    pausedElapsed = 0;
+    sceneStart = performance.now();
+    showScene(idx);
+    if (playing) scheduleTick();
+  }
+
+  function next() { goTo(current + 1 >= SCENES.length ? 0 : current + 1); }
+  function prev() { goTo(current - 1 < 0 ? 0 : current - 1); }
+
+  function scheduleTick() {
+    if (raf) cancelAnimationFrame(raf);
+    function tick(now) {
+      if (!playing) return;
+      var dur = SCENES[current].dur;
+      var elapsed = pausedElapsed + (now - sceneStart);
+      var seg = segs[current].querySelector("i");
+      seg.style.width = Math.min(100, (elapsed / dur) * 100) + "%";
+      if (elapsed >= dur) {
+        next();
+        return;
+      }
+      raf = requestAnimationFrame(tick);
+    }
+    raf = requestAnimationFrame(tick);
+  }
+
+  function setPlaying(p) {
+    playing = p;
+    iconPlay.hidden = p;
+    iconPause.hidden = !p;
+    if (p) {
+      sceneStart = performance.now();
+      scheduleTick();
+    } else {
+      if (raf) cancelAnimationFrame(raf);
+      pausedElapsed += performance.now() - sceneStart;
+    }
+  }
+
+  document.getElementById("btnPlay").addEventListener("click", function () { setPlaying(!playing); });
+  document.getElementById("btnNext").addEventListener("click", function () { pausedElapsed = 0; next(); });
+  document.getElementById("btnPrev").addEventListener("click", function () { pausedElapsed = 0; prev(); });
+  document.getElementById("btnRestart").addEventListener("click", function () { pausedElapsed = 0; goTo(0); if (!playing) setPlaying(true); });
+
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "Space") { e.preventDefault(); setPlaying(!playing); }
+    else if (e.code === "ArrowRight") { pausedElapsed = 0; next(); }
+    else if (e.code === "ArrowLeft") { pausedElapsed = 0; prev(); }
+  });
+
+  // ---- per-scene reveal helpers ---------------------------------------
+  function staggerShow(nodes, gap) {
+    if (reduceMotion()) {
+      nodes.forEach(function (n) { n.classList.add("show"); });
+      return;
+    }
+    nodes.forEach(function (n, i) {
+      setTimeout(function () { n.classList.add("show"); }, i * gap);
+    });
+  }
+  function revealFlow() {
+    var nodes = Array.prototype.slice.call(document.querySelectorAll("#scene-how .flow-node"));
+    nodes.forEach(function (n) { n.classList.remove("show"); });
+    staggerShow(nodes, 300);
+  }
+  function revealTools() {
+    var nodes = Array.prototype.slice.call(document.querySelectorAll(".tool-card"));
+    nodes.forEach(function (n) { n.classList.remove("show"); });
+    staggerShow(nodes, 130);
+  }
+  function revealResults() {
+    var nodes = Array.prototype.slice.call(document.querySelectorAll(".result-card"));
+    nodes.forEach(function (n) { n.classList.remove("show"); });
+    staggerShow(nodes, 350);
+  }
+
+  function liveLoop() {
+    if (reduceMotion()) {
+      popCells[12].classList.add("sel");
+      sparkline.setAttribute("points", "0,20 40,17 80,22 120,15 160,19 200,12 240,16 280,10");
+      return;
+    }
+    var t0 = performance.now();
+    var lastSel = -1;
+    function frame(now) {
+      var t = (now - t0) / 1000;
+
+      var selIdx = Math.floor(t * 1.3) % popCells.length;
+      if (selIdx !== lastSel) {
+        if (lastSel >= 0) popCells[lastSel].classList.remove("sel");
+        popCells[selIdx].classList.add("sel");
+        lastSel = selIdx;
+      }
+
+      paramFills.forEach(function (p, i) {
+        var wobble = Math.sin(t * 0.7 + i * 1.7) * 0.12;
+        var v = Math.max(0.05, Math.min(0.95, p.base + wobble));
+        p.fill.style.width = (v * 100) + "%";
+        p.val.textContent = v.toFixed(2);
+      });
+
+      var pts = [];
+      for (var x = 0; x <= 280; x += 20) {
+        var y = 20 + Math.sin((x / 280) * 6 + t * 1.5) * 8 - (x / 280) * 6;
+        pts.push(x + "," + y.toFixed(1));
+      }
+      sparkline.setAttribute("points", pts.join(" "));
+
+      genChip.textContent = "Generation " + Math.round(8000 + Math.sin(t * 0.5) * 1800).toLocaleString();
+
+      liveAnim = requestAnimationFrame(frame);
+    }
+    liveAnim = requestAnimationFrame(frame);
+  }
+
+  // ---- boot -------------------------------------------------------------
+  goTo(0);
+  setPlaying(true);
+})();
+</script>
+</body>
+</html>

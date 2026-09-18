@@ -139,6 +139,14 @@ function Navbar() {
           <a href="#results" className="text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">
             Results
           </a>
+          <a
+            href="/demo.html"
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+          >
+            Demo
+          </a>
         </nav>
         <div className="flex items-center gap-2">
           <ThemeToggle />
@@ -703,6 +711,14 @@ export function Showcase() {
             </a>
             <a href="#results" className="text-xs text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">
               Results
+            </a>
+            <a
+              href="/demo.html"
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+            >
+              Demo
             </a>
             <a
               href="https://basyid.dev"

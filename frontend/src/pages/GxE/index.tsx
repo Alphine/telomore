@@ -27,6 +27,7 @@ import { GXE_DISCLAIMER, environmentOrder } from '../../components/gxeUtils'
 import { parseIntList, signed } from '../../components/handoff'
 import { FEATURES } from '../../features'
 import { useActiveJobOfKind } from '../../jobs/useActiveJobs'
+import { usePersistentState } from '../../state/usePersistentState'
 
 const FEATURE = FEATURES.find((f) => f.path === '/gxe')!
 
@@ -85,16 +86,16 @@ export function GxE() {
   const { bounds, error: boundsError } = useBounds()
   const dark = usePrefersDark()
 
-  const [genotypes, setGenotypes] = useState<GenotypeSpec[]>(defaultGenotypes())
-  const [environments, setEnvironments] = useState<EnvironmentSpec[]>(defaultEnvironments())
-  const [seedsText, setSeedsText] = useState(DEFAULT_SEEDS)
-  const [base, setBase] = useState<ModelConfig | null>(null)
-  const [notes, setNotes] = useState('')
+  const [genotypes, setGenotypes] = usePersistentState<GenotypeSpec[]>('gxe:genotypes', defaultGenotypes())
+  const [environments, setEnvironments] = usePersistentState<EnvironmentSpec[]>('gxe:environments', defaultEnvironments())
+  const [seedsText, setSeedsText] = usePersistentState('gxe:seedsText', DEFAULT_SEEDS)
+  const [base, setBase] = usePersistentState<ModelConfig | null>('gxe:base', null)
+  const [notes, setNotes] = usePersistentState('gxe:notes', '')
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [jobId, setJobId] = useState<string | null>(null)
-  const [submitted, setSubmitted] = useState<GxEConfig | null>(null)
-  const [live, setLive] = useState<GxECell[]>([])
+  const [jobId, setJobId] = usePersistentState<string | null>('gxe:jobId', null)
+  const [submitted, setSubmitted] = usePersistentState<GxEConfig | null>('gxe:submitted', null)
+  const [live, setLive] = usePersistentState<GxECell[]>('gxe:live', [])
 
   // Re-adopt an in-flight job of our own kind -- navigating away and back
   // must resume live progress, not reset to the idle form.

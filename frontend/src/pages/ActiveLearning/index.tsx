@@ -30,6 +30,7 @@ import { genomeToConfig, parseIntList, signed } from '../../components/handoff'
 import { isScheduled } from '../../components/scheduleUtils'
 import { FEATURES } from '../../features'
 import { useActiveJobOfKind } from '../../jobs/useActiveJobs'
+import { usePersistentState } from '../../state/usePersistentState'
 
 const FEATURE = FEATURES.find((f) => f.path === '/active-learning')!
 
@@ -76,20 +77,20 @@ export function ActiveLearning() {
   const { bounds, error: boundsError } = useBounds()
   const dark = usePrefersDark()
 
-  const [freeGenes, setFreeGenes] = useState<string[]>(['stress_level', 'maintenance_rate', 'repair_rate'])
-  const [nInitial, setNInitial] = useState(DEFAULTS.n_initial)
-  const [nIterations, setNIterations] = useState(DEFAULTS.n_iterations)
-  const [xi, setXi] = useState(DEFAULTS.xi)
-  const [seed, setSeed] = useState(DEFAULTS.seed)
-  const [seedsText, setSeedsText] = useState(DEFAULTS.seeds)
-  const [schedulePhases, setSchedulePhases] = useState(1)
-  const [base, setBase] = useState<ModelConfig | null>(null)
-  const [notes, setNotes] = useState('')
+  const [freeGenes, setFreeGenes] = usePersistentState<string[]>('activelearning:freeGenes', ['stress_level', 'maintenance_rate', 'repair_rate'])
+  const [nInitial, setNInitial] = usePersistentState('activelearning:nInitial', DEFAULTS.n_initial)
+  const [nIterations, setNIterations] = usePersistentState('activelearning:nIterations', DEFAULTS.n_iterations)
+  const [xi, setXi] = usePersistentState('activelearning:xi', DEFAULTS.xi)
+  const [seed, setSeed] = usePersistentState('activelearning:seed', DEFAULTS.seed)
+  const [seedsText, setSeedsText] = usePersistentState('activelearning:seedsText', DEFAULTS.seeds)
+  const [schedulePhases, setSchedulePhases] = usePersistentState('activelearning:schedulePhases', 1)
+  const [base, setBase] = usePersistentState<ModelConfig | null>('activelearning:base', null)
+  const [notes, setNotes] = usePersistentState('activelearning:notes', '')
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [jobId, setJobId] = useState<string | null>(null)
-  const [submitted, setSubmitted] = useState<ActiveLearningConfig | null>(null)
-  const [live, setLive] = useState<ActiveLearningRecord[]>([])
+  const [jobId, setJobId] = usePersistentState<string | null>('activelearning:jobId', null)
+  const [submitted, setSubmitted] = usePersistentState<ActiveLearningConfig | null>('activelearning:submitted', null)
+  const [live, setLive] = usePersistentState<ActiveLearningRecord[]>('activelearning:live', [])
 
   // Re-adopt an in-flight job of our own kind -- navigating away and back
   // must resume live progress, not reset to the idle form.

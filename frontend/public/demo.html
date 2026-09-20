@@ -215,6 +215,20 @@
   .live-foot { margin-top: 14px; display: flex; align-items: center; gap: 10px; }
   .live-chart { width: 100%; height: 34px; }
 
+  /* ---------------------------------------------------- scene: specimen */
+  #scene-specimen h2 { font-size: clamp(22px, 3vw, 32px); margin-bottom: 8px; }
+  #scene-specimen .cap { font-size: 12.5px; color: var(--text-muted); margin-bottom: 20px; max-width: 60ch; }
+  .spec-wrap { width: min(760px, 100%); border: 1px solid var(--border); border-radius: 18px; overflow: hidden; background: var(--surface); }
+  .spec-view { position: relative; height: 300px; background: radial-gradient(ellipse at 50% 42%, #23375c 0%, #111d35 58%, #070d19 100%); }
+  .spec-view svg.stage { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity .7s ease; }
+  .spec-view svg.stage.on { opacity: 1; }
+  .spec-badge { position: absolute; left: 14px; top: 14px; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; font-family: "Sora", sans-serif; transition: background .4s ease, color .4s ease; }
+  .spec-stats { display: flex; gap: 28px; justify-content: center; padding: 14px 18px; font-size: 11.5px; color: var(--text-muted); flex-wrap: wrap; }
+  .spec-stats b { display: block; font-family: ui-monospace, monospace; font-size: 15px; color: var(--text); font-weight: 500; }
+  .spec-bar { height: 8px; margin: 0 18px 16px; border-radius: 999px; background: linear-gradient(90deg, #1fa89c 0%, #1fa89c 18%, #e9a92f 45%, #e0812f 70%, #cc3a30 100%); position: relative; }
+  .spec-bar i { position: absolute; top: -4px; width: 4px; height: 16px; margin-left: -2px; border-radius: 2px; background: #fff; box-shadow: 0 0 0 3px rgba(0,0,0,.35); transition: left .7s ease; }
+  .spec-note { margin-top: 12px; font-size: 11px; color: var(--text-faint); max-width: 64ch; }
+
   /* ------------------------------------------------------ scene: results */
   #scene-results h2 { font-size: clamp(22px, 3vw, 32px); margin-bottom: 26px; }
   .result-row { display: flex; gap: 14px; width: min(1000px, 100%); }
@@ -285,7 +299,7 @@
       </svg>
       <span>TELOMERE EVOLUTION LAB</span>
     </div>
-    <div class="reel-scene-label" id="sceneLabel">01 / 07 &middot; Intro</div>
+    <div class="reel-scene-label" id="sceneLabel">01 / 08 &middot; Intro</div>
   </div>
 
   <div class="stage" id="stage">
@@ -365,6 +379,27 @@
       </div>
     </section>
 
+    <section class="scene" id="scene-specimen">
+      <h2>Inside one cell &mdash; telomeres in 3D</h2>
+      <p class="cap">The app's 3D view: caps shorten with every division until the cell is depleted and senescent.</p>
+      <div class="spec-wrap">
+        <div class="spec-view">
+          <svg width="0" height="0" style="position: absolute;" aria-hidden="true" focusable="false"> <defs> <linearGradient id="gBody" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#55647b"/><stop offset="0.3" stop-color="#b7c3d3"/><stop offset="0.48" stop-color="#e9eef5"/><stop offset="0.72" stop-color="#8d9db2"/><stop offset="1" stop-color="#465469"/></linearGradient> <linearGradient id="gTeal" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#075a55"/><stop offset="0.4" stop-color="#37d3c4"/><stop offset="0.6" stop-color="#1fa89c"/><stop offset="1" stop-color="#075a55"/></linearGradient> <linearGradient id="gAmber" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7d4d0b"/><stop offset="0.4" stop-color="#f6bb45"/><stop offset="0.6" stop-color="#d9932a"/><stop offset="1" stop-color="#7d4d0b"/></linearGradient> <linearGradient id="gRed" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6e100c"/><stop offset="0.4" stop-color="#f0645a"/><stop offset="0.6" stop-color="#cc3a30"/><stop offset="1" stop-color="#6e100c"/></linearGradient> <radialGradient id="gWaist" cx="0.5" cy="0.4" r="0.7"><stop offset="0" stop-color="#8b9bb1"/><stop offset="1" stop-color="#37445a"/></radialGradient> <pattern id="pBands" width="18" height="16" patternUnits="userSpaceOnUse" x="-9" y="0"><rect x="0" y="0" width="18" height="4" fill="#1d2a40" opacity="0.26"/><rect x="0" y="7" width="18" height="2" fill="#1d2a40" opacity="0.14"/><rect x="0" y="11" width="18" height="3" fill="#1d2a40" opacity="0.2"/></pattern> <filter id="fGlow" x="-150%" y="-100%" width="400%" height="300%"><feGaussianBlur stdDeviation="4"/></filter> <filter id="fSoft" x="-100%" y="-10%" width="300%" height="120%"><feGaussianBlur stdDeviation="1.1"/></filter> <g id="body"> <rect x="-9" y="-100" width="18" height="200" rx="9" fill="url(#gBody)"/> <rect x="-9" y="-100" width="18" height="200" rx="9" fill="url(#pBands)"/> <rect x="-4.5" y="-90" width="3.2" height="180" rx="1.6" fill="#ffffff" opacity="0.42" filter="url(#fSoft)"/> </g> <g id="capN"> <rect x="-14" y="-130" width="28" height="40" rx="14" fill="#2fd1c2" opacity="0.55" filter="url(#fGlow)"/> <rect x="-10.5" y="-126" width="21" height="32" rx="10.5" fill="url(#gTeal)"/> <rect x="-5.5" y="-121" width="3" height="20" rx="1.5" fill="#ffffff" opacity="0.5"/> </g> <g id="capE"> <rect x="-14" y="-118" width="28" height="28" rx="14" fill="#f2b23a" opacity="0.5" filter="url(#fGlow)"/> <rect x="-10.5" y="-114" width="21" height="20" rx="10" fill="url(#gAmber)"/> <rect x="-5.5" y="-110" width="3" height="11" rx="1.5" fill="#ffffff" opacity="0.5"/> </g> <g id="capD"> <rect x="-13" y="-110" width="26" height="20" rx="10" fill="#ef4f43" opacity="0.6" filter="url(#fGlow)"/> <rect x="-10.5" y="-105" width="21" height="10" rx="5" fill="url(#gRed)"/> <rect x="-5.5" y="-103" width="3" height="5" rx="1.5" fill="#ffffff" opacity="0.4"/> </g> <g id="chatN"><use href="#body"/><use href="#capN"/><use href="#capN" transform="scale(1,-1)"/></g> <g id="chatE"><use href="#body"/><use href="#capE"/><use href="#capE" transform="scale(1,-1)"/></g> <g id="chatD"><use href="#body"/><use href="#capD"/><use href="#capD" transform="scale(1,-1)"/></g> <g id="waist"><ellipse cx="0" cy="0" rx="12.5" ry="7.5" fill="url(#gWaist)"/><ellipse cx="-2.5" cy="-2" rx="5" ry="2" fill="#ffffff" opacity="0.25"/></g> <g id="chrN"><use href="#chatN" transform="rotate(-6)"/><use href="#chatN" transform="rotate(6)"/><use href="#waist"/></g> <g id="chrE"><use href="#chatE" transform="rotate(-6)"/><use href="#chatE" transform="rotate(6)"/><use href="#waist"/></g> <g id="chrD"><use href="#chatD" transform="rotate(-6)"/><use href="#chatD" transform="rotate(6)"/><use href="#waist"/></g> </defs> </svg> 
+          <svg class="stage on" id="specN" viewBox="0 0 600 300" role="img" aria-label="Two chromosomes with long teal telomere caps"><g style="filter: drop-shadow(0 12px 14px rgba(0,0,0,0.5));"><use href="#chrN" transform="translate(230,150) rotate(-10) scale(0.95)"/><use href="#chrN" transform="translate(370,155) rotate(8) scale(0.9)"/></g></svg>
+          <svg class="stage" id="specE" viewBox="0 0 600 300" role="img" aria-label="Two chromosomes with shortened amber telomere caps"><g style="filter: drop-shadow(0 12px 14px rgba(0,0,0,0.5));"><use href="#chrE" transform="translate(230,150) rotate(-10) scale(0.95)"/><use href="#chrE" transform="translate(370,155) rotate(8) scale(0.9)"/></g></svg>
+          <svg class="stage" id="specD" viewBox="0 0 600 300" role="img" aria-label="Two chromosomes with almost no caps joined by a fusion bridge"><path d="M263 266 Q303 312 343 266" fill="none" stroke="#3a0d0a" stroke-width="9" stroke-linecap="round" opacity="0.55"/><path d="M263 266 Q303 312 343 266" fill="none" stroke="#e0564b" stroke-width="5" stroke-linecap="round"/><g style="filter: drop-shadow(0 12px 14px rgba(0,0,0,0.5));"><use href="#chrD" transform="translate(230,150) rotate(-10) scale(0.95)"/><use href="#chrD" transform="translate(370,155) rotate(8) scale(0.9)"/></g></svg>
+          <span class="spec-badge" id="specBadge">Normal</span>
+        </div>
+        <div class="spec-stats">
+          <div>cycle<b id="specCycle">0</b></div>
+          <div>mean telomere<b id="specMean">7.48 kb</b></div>
+          <div>senescence limit<b>3.00 kb</b></div>
+        </div>
+        <div class="spec-bar"><i id="specMark" style="left:2%"></i></div>
+      </div>
+      <p class="spec-note">Illustration of a typical cell reconstructed from the run's summary statistics &mdash; not a measured single cell.</p>
+    </section>
+
     <section class="scene" id="scene-results">
       <h2>What the lab has actually found</h2>
       <div class="result-row" id="resultRow"></div>
@@ -441,12 +476,14 @@
     { icon: "grid", tint: "violet", t: "G×E Study", s: "Genotype × environment" },
     { icon: "scale", tint: "pink", t: "Compare", s: "Baseline vs. evolved" },
     { icon: "ledger", tint: "cyan", t: "Experiments", s: "Reproducibility ledger" },
-    { icon: "search", tint: "violet", t: "Active Learning", s: "GP surrogate + EI" }
+    { icon: "search", tint: "violet", t: "Active Learning", s: "GP surrogate + EI" },
+    { icon: "helix", tint: "pink", t: "Genome Explorer", s: "Toy DNA → RNA → protein" }
   ];
 
   var RESULTS = [
     { tag: "Experiment G", t: "+0.045 fitness from syncing repair timing to a fasting-like rhythm", b: "A 6-phase schedule locked to an intermittent stress pattern beat a constant response by <strong>+0.5233 → +0.5688</strong>." },
     { tag: "Experiment F", t: "A resilient sub-clone displaces a fragile one from 50% to 100%", b: "Two clones sharing one carrying-capacity: higher maintenance/repair compounds its share every division, by <strong>cycle 75</strong>." },
+    { tag: "Experiment K", t: "A checkpoint-deficient clone displaces a healthy one", b: "Healthy share <strong>0.50 → 0.01</strong> by cycle 150 (100 seeds); the identical-clone control stays at 0.47. A model mechanism, not a biological claim." },
     { tag: "Experiment J", t: "The GA got less reliable as the search grew — the surrogate didn't", b: "Across a 3→31-gene sweep, GA variance <strong>more than doubled</strong> past 10 genes — the opposite of what we expected." }
   ];
 
@@ -516,7 +553,8 @@
     { id: "scene-how", label: "How it works", dur: 8000, reveal: revealFlow },
     { id: "scene-tools", label: "Feature tour", dur: 7000, reveal: revealTools },
     { id: "scene-live", label: "Live preview", dur: 9000, loop: liveLoop },
-    { id: "scene-results", label: "Results", dur: 9000, reveal: revealResults },
+    { id: "scene-specimen", label: "3D telomeres", dur: 9000, reveal: revealSpecimen },
+    { id: "scene-results", label: "Results", dur: 11000, reveal: revealResults },
     { id: "scene-close", label: "Try it live", dur: 6000 }
   ];
 
@@ -566,6 +604,7 @@
     var total = SCENES.length < 10 ? "0" + SCENES.length : "" + SCENES.length;
     sceneLabel.textContent = n + " / " + total + " · " + SCENES[idx].label;
     if (liveAnim) { cancelAnimationFrame(liveAnim); liveAnim = null; }
+    if (specTimer) { clearInterval(specTimer); specTimer = null; }
     if (SCENES[idx].reveal) SCENES[idx].reveal();
     if (SCENES[idx].loop) SCENES[idx].loop();
   }
@@ -632,6 +671,27 @@
     nodes.forEach(function (n, i) {
       setTimeout(function () { n.classList.add("show"); }, i * gap);
     });
+  }
+  var specTimer = null;
+  var SPEC = [
+    { id: "specN", label: "Normal", cycle: 0, mean: "7.48 kb", pos: 2, bg: "#d9f3ef", fg: "#075a55" },
+    { id: "specE", label: "Partially eroded", cycle: "…", mean: "shortening", pos: 45, bg: "#fbecc8", fg: "#7d4d0b" },
+    { id: "specD", label: "Depleted — senescent", cycle: 120, mean: "3.92 kb", pos: 97, bg: "#fbd9d5", fg: "#8f1d14" }
+  ];
+  function setSpec(i) {
+    var st = SPEC[i];
+    SPEC.forEach(function (x) { document.getElementById(x.id).classList.toggle("on", x.id === st.id); });
+    var b = document.getElementById("specBadge");
+    b.textContent = st.label; b.style.background = st.bg; b.style.color = st.fg;
+    document.getElementById("specCycle").textContent = st.cycle;
+    document.getElementById("specMean").textContent = st.mean;
+    document.getElementById("specMark").style.left = st.pos + "%";
+  }
+  function revealSpecimen() {
+    setSpec(0);
+    if (reduceMotion()) { setSpec(2); return; }
+    var i = 0;
+    specTimer = setInterval(function () { i = (i + 1) % SPEC.length; setSpec(i); }, 2800);
   }
   function revealFlow() {
     var nodes = Array.prototype.slice.call(document.querySelectorAll("#scene-how .flow-node"));

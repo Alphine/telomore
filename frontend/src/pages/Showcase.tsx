@@ -565,7 +565,7 @@ export function Showcase() {
             <code className="font-mono text-xs">docs/EXPERIMENT_PROTOCOL.md</code> &mdash; including the one that
             didn't go the way we expected.
           </p>
-          <div className="grid gap-5 lg:grid-cols-3">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             <div className={card}>
               <span className={`mb-3.5 inline-flex w-fit rounded px-2 py-0.5 font-mono text-[11px] font-bold ${TINTS.cyan}`}>
                 Experiment G
@@ -610,6 +610,21 @@ export function Showcase() {
               </p>
               <div className="border-t border-slate-200 pt-3 font-mono text-[11px] text-slate-400 dark:border-white/10">
                 docs/EXPERIMENT_PROTOCOL.md &sect;15
+              </div>
+            </div>
+            <div className={card}>
+              <span className={`mb-3.5 inline-flex w-fit rounded px-2 py-0.5 font-mono text-[11px] font-bold ${TINTS.cyan}`}>
+                Experiment K
+              </span>
+              <h3 className="font-heading mb-2 text-[15px] leading-snug font-bold text-slate-900 dark:text-slate-50">
+                A checkpoint-deficient clone displaces a healthy one
+              </h3>
+              <p className="mb-4 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                The healthy clone's share falls from 0.50 to 0.01 by cycle 150 (100 seeds), while the identical-clone
+                control stays at 0.47 &mdash; a model mechanism, not a biological claim.
+              </p>
+              <div className="border-t border-slate-200 pt-3 font-mono text-[11px] text-slate-400 dark:border-white/10">
+                docs/EXPERIMENT_PROTOCOL.md &sect;15.1
               </div>
             </div>
           </div>

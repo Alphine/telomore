@@ -32,6 +32,7 @@ import { isScheduled } from '../../components/scheduleUtils'
 import { FEATURES } from '../../features'
 import { PARETO_DEFAULTS, WHY_NSGA2, defaultColorGene, frontColumns, frontRow } from './form'
 import type { ParetoForm } from './form'
+import { usePersistentState } from '../../state/usePersistentState'
 
 const FEATURE = FEATURES.find((f) => f.path === '/pareto')!
 
@@ -39,17 +40,17 @@ export function Pareto() {
   const { bounds, error: boundsError } = useBounds()
   const dark = usePrefersDark()
 
-  const [form, setForm] = useState<ParetoForm>(PARETO_DEFAULTS)
-  const [base, setBase] = useState<ModelConfig | null>(null)
-  const [notes, setNotes] = useState('')
+  const [form, setForm] = usePersistentState<ParetoForm>('pareto:form', PARETO_DEFAULTS)
+  const [base, setBase] = usePersistentState<ModelConfig | null>('pareto:base', null)
+  const [notes, setNotes] = usePersistentState('pareto:notes', '')
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [jobId, setJobId] = useState<string | null>(null)
-  const [submitted, setSubmitted] = useState<MultiObjectiveConfig | null>(null)
-  const [live, setLive] = useState<MOGenerationRecord[]>([])
-  const [colorBy, setColorBy] = useState<string | null | undefined>(undefined)
-  const [pick, setPick] = useState(0)
-  const [notice, setNotice] = useState<string | null>(null)
+  const [jobId, setJobId] = usePersistentState<string | null>('pareto:jobId', null)
+  const [submitted, setSubmitted] = usePersistentState<MultiObjectiveConfig | null>('pareto:submitted', null)
+  const [live, setLive] = usePersistentState<MOGenerationRecord[]>('pareto:live', [])
+  const [colorBy, setColorBy] = usePersistentState<string | null | undefined>('pareto:colorBy', undefined)
+  const [pick, setPick] = usePersistentState('pareto:pick', 0)
+  const [notice, setNotice] = usePersistentState<string | null>('pareto:notice', null)
 
   // Re-adopt an in-flight job of our own kind -- navigating away and back
   // must resume live progress, not reset to the idle form.

@@ -39,6 +39,7 @@ import { configPayload, isScheduled, scheduledParameters, withSchedule } from '.
 import { finalComposition, hasSubclones } from '../../components/subclonesUtils'
 import { FEATURES } from '../../features'
 import { reproduceCommand, terminalMetrics } from './metrics'
+import { usePersistentState } from '../../state/usePersistentState'
 
 // three.js is code-split: it only downloads when the 3D view is opened.
 const TelomereCell3D = lazy(() => import('../../components/TelomereCell3D'))
@@ -70,27 +71,27 @@ export function Simulate() {
   const { bounds, error: boundsError } = useBounds()
   const dark = usePrefersDark()
 
-  const [edited, setEdited] = useState<ModelConfig | null>(null)
-  const [useChip, setUseChip] = useState(false)
-  const [derived, setDerived] = useState<ChipParams | null>(null)
+  const [edited, setEdited] = usePersistentState<ModelConfig | null>('simulate:edited', null)
+  const [useChip, setUseChip] = usePersistentState('simulate:useChip', false)
+  const [derived, setDerived] = usePersistentState<ChipParams | null>('simulate:derived', null)
   const [running, setRunning] = useState(false)
-  const [run, setRun] = useState<SimulationRun | null>(null)
-  const [show3d, setShow3d] = useState(false)
+  const [run, setRun] = usePersistentState<SimulationRun | null>('simulate:run', null)
+  const [show3d, setShow3d] = usePersistentState('simulate:show3d', false)
   const [error, setError] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+  const [notice, setNotice] = usePersistentState<string | null>('simulate:notice', null)
   const [cursor, setCursor] = useState<number | null>(null)
   // Set only when the currently-loaded config came from an LLM proposal
   // (docs/ROADMAP.md LLM Layer 2); cleared by any other load/reset/edit so a
   // manually-tweaked-after-loading config isn't mis-tagged in the ledger.
-  const [provenance, setProvenance] = useState<string | null>(null)
+  const [provenance, setProvenance] = usePersistentState<string | null>('simulate:provenance', null)
 
   // Ensemble / uncertainty visualization (ROADMAP.md candidate feature #2):
   // a separate, additive mode alongside the single-run flow above -- enabling
   // it never changes what "Run simulation" does.
-  const [ensembleEnabled, setEnsembleEnabled] = useState(false)
-  const [nSeeds, setNSeeds] = useState(DEFAULT_N_SEEDS)
+  const [ensembleEnabled, setEnsembleEnabled] = usePersistentState('simulate:ensembleEnabled', false)
+  const [nSeeds, setNSeeds] = usePersistentState('simulate:nSeeds', DEFAULT_N_SEEDS)
   const [ensembleRunning, setEnsembleRunning] = useState(false)
-  const [ensemble, setEnsemble] = useState<EnsembleResponse | null>(null)
+  const [ensemble, setEnsemble] = usePersistentState<EnsembleResponse | null>('simulate:ensemble', null)
   const [ensembleError, setEnsembleError] = useState<string | null>(null)
 
   // Defaults: the session baseline ("Set as baseline") or configs/demo.yaml,

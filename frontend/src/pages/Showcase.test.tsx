@@ -33,7 +33,8 @@ describe('Showcase (pre-login) page', () => {
     renderApp(<Showcase />)
     expect(screen.getByText(/EXPERIMENT_PROTOCOL.md §12/)).toBeInTheDocument()
     expect(screen.getByText(/EXPERIMENT_PROTOCOL.md §11/)).toBeInTheDocument()
-    expect(screen.getByText(/EXPERIMENT_PROTOCOL.md §15/)).toBeInTheDocument()
+    expect(screen.getByText(/EXPERIMENT_PROTOCOL.md §15(?!\.)/)).toBeInTheDocument()
+    expect(screen.getByText(/EXPERIMENT_PROTOCOL.md §15\.1/)).toBeInTheDocument()
   })
 
   it('renders the scope disclaimer and a basyid.dev credit instead of social icons', () => {

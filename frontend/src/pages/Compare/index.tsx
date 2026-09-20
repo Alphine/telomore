@@ -25,6 +25,7 @@ import { usePrefersDark } from '../../components/charts/theme'
 import { loadCompareUserConfig, loadEvolveBest, signed } from '../../components/handoff'
 import { isScheduled, meanApplied } from '../../components/scheduleUtils'
 import { FEATURES } from '../../features'
+import { usePersistentState } from '../../state/usePersistentState'
 
 const FEATURE = FEATURES.find((f) => f.path === '/compare')!
 
@@ -69,22 +70,22 @@ export function Compare() {
   // Hand-offs are read once per mount (they only change on other pages).
   const [evolved] = useState(() => loadEvolveBest())
   const [pareto] = useState(() => loadCompareUserConfig())
-  const [includeEvolved, setIncludeEvolved] = useState(evolved !== null)
-  const [includePareto, setIncludePareto] = useState(pareto !== null)
-  const [includeManual, setIncludeManual] = useState(false)
-  const [manual, setManual] = useState<ModelConfig | null>(null)
-  const [sameSeed, setSameSeed] = useState(true)
-  const [seed, setSeed] = useState<number | null>(null)
+  const [includeEvolved, setIncludeEvolved] = usePersistentState('compare:includeEvolved', evolved !== null)
+  const [includePareto, setIncludePareto] = usePersistentState('compare:includePareto', pareto !== null)
+  const [includeManual, setIncludeManual] = usePersistentState('compare:includeManual', false)
+  const [manual, setManual] = usePersistentState<ModelConfig | null>('compare:manual', null)
+  const [sameSeed, setSameSeed] = usePersistentState('compare:sameSeed', true)
+  const [seed, setSeed] = usePersistentState<number | null>('compare:seed', null)
   const [running, setRunning] = useState(false)
-  const [response, setResponse] = useState<CompareResponse | null>(null)
+  const [response, setResponse] = usePersistentState<CompareResponse | null>('compare:response', null)
   const [error, setError] = useState<string | null>(null)
 
   // Organ-chip preset scenarios (ROADMAP.md candidate feature #3: run several
   // chip condition profiles side by side). Each entry is one added scenario;
   // the same preset may be added more than once (e.g. to bracket two
   // durations), so entries are a list of {id, presetKey}, not a set.
-  const [chipEntries, setChipEntries] = useState<Array<{ id: string; presetKey: string }>>([])
-  const [chipPickerKey, setChipPickerKey] = useState('')
+  const [chipEntries, setChipEntries] = usePersistentState<Array<{ id: string; presetKey: string }>>('compare:chipEntries', [])
+  const [chipPickerKey, setChipPickerKey] = usePersistentState('compare:chipPickerKey', '')
 
   const baseline = bounds ? (loadBaseline() ?? bounds.demo) : null
   const manualCfg = manual ?? baseline

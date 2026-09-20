@@ -25,6 +25,7 @@ import { downloadJson, downloadText, rowsCsv } from '../../components/download'
 import { parseIntList, signed } from '../../components/handoff'
 import { FEATURES } from '../../features'
 import { useActiveJobOfKind } from '../../jobs/useActiveJobs'
+import { usePersistentState } from '../../state/usePersistentState'
 
 const FEATURE = FEATURES.find((f) => f.path === '/sensitivity')!
 
@@ -74,16 +75,16 @@ export function Sensitivity() {
   const { bounds, error: boundsError } = useBounds()
   const dark = usePrefersDark()
 
-  const [params, setParams] = useState<string[] | null>(null)
-  const [fraction, setFraction] = useState(DEFAULT_FRACTION)
-  const [seedsText, setSeedsText] = useState(DEFAULT_SEEDS)
-  const [base, setBase] = useState<ModelConfig | null>(null)
-  const [notes, setNotes] = useState('')
+  const [params, setParams] = usePersistentState<string[] | null>('sensitivity:params', null)
+  const [fraction, setFraction] = usePersistentState('sensitivity:fraction', DEFAULT_FRACTION)
+  const [seedsText, setSeedsText] = usePersistentState('sensitivity:seedsText', DEFAULT_SEEDS)
+  const [base, setBase] = usePersistentState<ModelConfig | null>('sensitivity:base', null)
+  const [notes, setNotes] = usePersistentState('sensitivity:notes', '')
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [jobId, setJobId] = useState<string | null>(null)
-  const [submitted, setSubmitted] = useState<SensitivityConfig | null>(null)
-  const [live, setLive] = useState<ParameterSensitivity[]>([])
+  const [jobId, setJobId] = usePersistentState<string | null>('sensitivity:jobId', null)
+  const [submitted, setSubmitted] = usePersistentState<SensitivityConfig | null>('sensitivity:submitted', null)
+  const [live, setLive] = usePersistentState<ParameterSensitivity[]>('sensitivity:live', [])
 
   // Re-adopt an in-flight job of our own kind -- navigating away and back
   // must resume live progress, not reset to the idle form.

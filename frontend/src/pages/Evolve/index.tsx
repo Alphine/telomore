@@ -31,6 +31,7 @@ import { groupGenes, isScheduled } from '../../components/scheduleUtils'
 import { FEATURES } from '../../features'
 import { FITNESS_FORMULA, WEIGHT_FIELDS, parseSeeds, signed, toForm } from './form'
 import type { EvoForm } from './form'
+import { usePersistentState } from '../../state/usePersistentState'
 
 const FEATURE = FEATURES.find((f) => f.path === '/evolve')!
 
@@ -39,16 +40,16 @@ export function Evolve() {
   const dark = usePrefersDark()
   const navigate = useNavigate()
 
-  const [weights, setWeights] = useState<FitnessWeights | null>(null)
-  const [evo, setEvo] = useState<EvoForm | null>(null)
-  const [base, setBase] = useState<ModelConfig | null>(null)
-  const [notes, setNotes] = useState('')
+  const [weights, setWeights] = usePersistentState<FitnessWeights | null>('evolve:weights', null)
+  const [evo, setEvo] = usePersistentState<EvoForm | null>('evolve:evo', null)
+  const [base, setBase] = usePersistentState<ModelConfig | null>('evolve:base', null)
+  const [notes, setNotes] = usePersistentState('evolve:notes', '')
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [jobId, setJobId] = useState<string | null>(null)
-  const [nTotal, setNTotal] = useState(0)
-  const [live, setLive] = useState<GenerationRecord[]>([])
-  const [notice, setNotice] = useState<string | null>(null)
+  const [jobId, setJobId] = usePersistentState<string | null>('evolve:jobId', null)
+  const [nTotal, setNTotal] = usePersistentState('evolve:nTotal', 0)
+  const [live, setLive] = usePersistentState<GenerationRecord[]>('evolve:live', [])
+  const [notice, setNotice] = usePersistentState<string | null>('evolve:notice', null)
 
   // Re-adopt an in-flight job of our own kind: navigating away and back must
   // resume live progress, not reset to the idle form -- the job itself keeps

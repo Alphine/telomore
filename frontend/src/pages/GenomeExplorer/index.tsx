@@ -13,6 +13,7 @@ import { PageHeader } from '../../components/PageHeader'
 import { Plot } from '../../components/charts/Plot'
 import { PALETTE, baseLayout, usePrefersDark } from '../../components/charts/theme'
 import { FEATURES } from '../../features'
+import { usePersistentState } from '../../state/usePersistentState'
 
 const FEATURE = FEATURES.find((f) => f.path === '/genome')!
 const BASES = ['A', 'C', 'G', 'T']
@@ -122,13 +123,13 @@ function lineageFigure(res: LineageResponse, key: string, dark: boolean, title: 
 
 export function GenomeExplorer() {
   const dark = usePrefersDark()
-  const [genome, setGenome] = useState<ToyGenomeResponse | null>(null)
-  const [active, setActive] = useState(0)
+  const [genome, setGenome] = usePersistentState<ToyGenomeResponse | null>('genomeexplorer:genome', null)
+  const [active, setActive] = usePersistentState('genomeexplorer:active', 0)
   const [error, setError] = useState<string | null>(null)
-  const [rate, setRate] = useState(2e-4)
-  const [gens, setGens] = useState(60)
+  const [rate, setRate] = usePersistentState('genomeexplorer:rate', 2e-4)
+  const [gens, setGens] = usePersistentState('genomeexplorer:gens', 60)
   const [busy, setBusy] = useState(false)
-  const [lineage, setLineage] = useState<LineageResponse | null>(null)
+  const [lineage, setLineage] = usePersistentState<LineageResponse | null>('genomeexplorer:lineage', null)
 
   useEffect(() => {
     getToyGenome()

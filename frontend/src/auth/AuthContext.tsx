@@ -6,6 +6,7 @@ import { login as apiLogin, me as apiMe } from '../api/endpoints'
 import type { UserResponse } from '../api/types'
 import { AuthContext } from './context'
 import type { AuthState, AuthStatus, LoginOutcome } from './context'
+import { clearPersistentState } from '../state/usePersistentState'
 
 interface AuthProviderProps {
   children: ReactNode
@@ -26,6 +27,7 @@ export function AuthProvider({ children, initialToken }: AuthProviderProps) {
   const [status, setStatus] = useState<AuthStatus>(() => (token ? 'loading' : 'anonymous'))
 
   const clear = useCallback(() => {
+    clearPersistentState() // one user's results must not show for the next
     persistToken(null)
     setTokenState(null)
     setUser(null)

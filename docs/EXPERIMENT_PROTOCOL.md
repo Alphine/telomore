@@ -992,6 +992,39 @@ cells, 9,072 total simulator calls, 1281 s wall-clock).
 python scripts/benchmark_dimensionality.py --population 8 --generations 5 --seeds 11 12 13
 ```
 
+## 15.1 Experiment K — Healthy vs. damaged clones (checkpoint loss)
+
+**Question.** In one shared culture, what happens to a checkpoint-competent
+("healthy") clone next to a checkpoint-deficient, higher-error ("damaged")
+clone?
+
+**Setup** (`configs/demo_healthy_vs_damaged.yaml`, `scripts/run_healthy_vs_damaged.py`,
+report `experiments/reports/healthy_vs_damaged.json`). 50/50 split;
+healthy: `checkpoint_strength` 0.5, error 0.001, oxidative sensitivity 0.005;
+damaged: `checkpoint_strength` 0.0, error 0.003, sensitivity 0.010; shared
+`mutation_threshold` 0.25; 150 cycles; **100 seeds**. Shares are of the
+*living* population (extinct seeds excluded and counted as `n_alive`).
+
+**Result (healthy clone's share, mean ± SD).**
+
+| cycle | 0 | 50 | 100 | 150 |
+|---|---|---|---|---|
+| healthy vs damaged | 0.50 | 0.49 ± 0.13 | 0.47 ± 0.18 | **0.01 ± 0.02** |
+| control healthy vs healthy | 0.50 | 0.49 ± 0.13 | 0.49 ± 0.17 | 0.47 ± 0.21 |
+| control damaged vs damaged | 0.50 | 0.49 ± 0.13 | 0.49 ± 0.17 | 0.47 ± 0.23 |
+
+`mutation_threshold` sweep: ≤ 0.10 the healthy clone is gone by cycle 100;
+0.25 by cycle 150; ≥ 0.5 (and with the checkpoint unreachable, 1e9) the
+clones drift neutrally (~0.47 at cycle 150), so the displacement needs the
+checkpoint to be reachable.
+
+**Interpretation (a model mechanism, not a biological claim).** Mutation
+burden carries no fitness cost of its own in this model; only the checkpoint
+removes high-burden cells. The checkpoint-deficient clone is never culled, so
+once the healthy clone's lineages cross the threshold it is displaced — the
+same logic as clonal expansion after tumour-suppressor checkpoint loss. The
+symmetric controls show the outcome is not a simulator artefact.
+
 ## 16. Performance (scripts/benchmark.py, same machine)
 
 | Measurement | Value |

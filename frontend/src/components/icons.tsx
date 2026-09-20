@@ -231,4 +231,5 @@ export const FEATURE_ICONS: Record<string, (props: IconProps) => JSX.Element> = 
   '/compare': ScaleIcon,
   '/experiments': LedgerIcon,
   '/active-learning': SearchSparkIcon,
+  '/genome': HelixIcon,
 }

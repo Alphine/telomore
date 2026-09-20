@@ -127,3 +127,12 @@ organism — the "perturbation" here is the simulator's internal
 pseudorandomness (division noise, passaging subsampling), not an
 environmental or structural one. With a single eval seed it is trivially
 1.0 for every genome and carries no information.
+
+
+## Toy sequence layer
+
+The Genome Explorer (docs/MODEL.md §2.4) is a teaching aid. Its genes are
+synthetic and their roles are labels; its mutation and lineage rules are
+illustrative, uncalibrated, and make no claim about real genes, real cells, or
+disease. Experiment K (healthy vs. damaged clones) is likewise a statement about
+this model's mechanisms.

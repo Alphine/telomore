@@ -729,3 +729,13 @@ routers' bare `ExperimentRegistry()` calls then write `record.json` files
 and the `registry.jsonl` index under `tmp_path`, never into the real
 `experiments/` tree. Running `python -m pytest` must leave
 `git status --short` clean and `experiments/runs/` unchanged.
+
+
+## Toy genome explorer (`/api/sequence/*`)
+
+All require authentication and are synchronous. Synthetic genes only
+(docs/MODEL.md §2.4); every response has `toy: true`.
+
+* `GET /api/sequence/genome` — the three synthetic genes (`dna`, `mrna`, `protein`, substitution `profile`).
+* `POST /api/sequence/mutate` — `{gene, position, alt}` -> effect class, codons, amino acids, mutated protein. 400 for unknown gene / bad position / `alt` equal to the reference base.
+* `POST /api/sequence/lineage` — normal vs damaged lineage time series (`alive_fraction`, `mean_burden`, `<gene>_functional`) plus `model_bridge` sub-clone overrides. Extinct generations are `null`.

@@ -9,6 +9,10 @@ import type {
   ChipParams,
   ChipPresetsResponse,
   CompareRequest,
+  LineageRequest,
+  LineageResponse,
+  MutateResponse,
+  ToyGenomeResponse,
   CompareResponse,
   EnsembleRequest,
   EnsembleResponse,
@@ -158,4 +162,17 @@ export function artifactUrl(runId: string, name: string): string {
 /** Authenticated fetch of one artifact file as a Blob. */
 export function downloadArtifact(runId: string, name: string): Promise<Blob> {
   return requestBlob(`/experiments/${encodeURIComponent(runId)}/artifacts/${encodeURIComponent(name)}`)
+}
+
+// ------------------------------------------------------ genome explorer
+export function getToyGenome(): Promise<ToyGenomeResponse> {
+  return request<ToyGenomeResponse>('/sequence/genome')
+}
+
+export function mutateGene(body: { gene: string; position: number; alt: string }): Promise<MutateResponse> {
+  return request<MutateResponse>('/sequence/mutate', { method: 'POST', body })
+}
+
+export function runLineage(body: LineageRequest): Promise<LineageResponse> {
+  return request<LineageResponse>('/sequence/lineage', { method: 'POST', body })
 }

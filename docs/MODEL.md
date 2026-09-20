@@ -361,6 +361,32 @@ simulator.
   no mutation spectrum, and no phylogenetic reconstruction
   (`docs/SCIENTIFIC_SCOPE.md`).
 
+### 2.4 Toy sequence layer (DNA -> RNA -> protein)
+
+`telomere_lab.sequence` adds an *illustrative* genome explorer next to the cell
+model. It is a toy: the **standard genetic code is real**, but the three genes
+(`TOY-CHK` checkpoint, `TOY-REP` repair, `TOY-ESS` essential) are **synthetic**
+random coding sequences (ATG ... TAA), and their roles are labels, not real
+human genes.
+
+* `classify_mutation(gene, position, alt)` applies a single-base substitution
+  and classifies it: synonymous, missense, nonsense, start-loss or stop-loss,
+  returning the mutated DNA/protein.
+* `simulate_lineage` runs a normal and a damaged lineage. Each generation each
+  cell receives Poisson point mutations at `mutation_rate` per base (x
+  `repair_penalty` once `TOY-REP` is lost). The chance a mutation knocks a gene
+  out comes from that gene's own substitution table (nonsense + start-loss
+  always, missense with the toy assumption `missense_lof`). `TOY-ESS` loss
+  kills the cell; a functional `TOY-CHK` culls cells whose passenger burden
+  reaches `burden_threshold`. A "damaged" lineage starts with `TOY-CHK` and
+  `TOY-REP` already lost.
+* `subclone_overrides(checkpoint_ok, repair_ok)` maps gene state onto the
+  sub-clone genome-stability overrides of §2.3 (values match
+  `configs/demo_healthy_vs_damaged.yaml`).
+
+No default simulator path changes; the layer is separate. Not calibrated
+against any dataset.
+
 ## 3. Parameters
 
 | Name | Default | Range | Unit | Kind |

@@ -861,3 +861,65 @@ export interface LLMProposeResponse {
   estimated_cost_usd: number | null
   warnings: string[]
 }
+
+// ------------------------------------------------ toy genome explorer
+// backend/routers/sequence.py (GET /sequence/genome, POST /sequence/mutate, POST /sequence/lineage).
+// Synthetic genes only (docs/MODEL.md §2.4).
+export type MutationEffectClass = 'synonymous' | 'missense' | 'nonsense' | 'start_loss' | 'stop_loss'
+
+export interface ToyGene {
+  name: string
+  role: string
+  dna: string
+  mrna: string
+  protein: string
+  profile: Record<string, number>
+}
+
+export interface ToyGenomeResponse {
+  toy: true
+  genes: ToyGene[]
+}
+
+export interface MutateResponse {
+  toy: true
+  gene: string
+  position: number
+  ref: string
+  alt: string
+  codon_index: number
+  ref_codon: string
+  alt_codon: string
+  ref_aa: string
+  alt_aa: string
+  effect: MutationEffectClass
+  mutated_dna: string
+  mutated_mrna: string
+  mutated_protein: string
+}
+
+export interface LineageRequest {
+  cells?: number
+  generations?: number
+  mutation_rate?: number
+  repair_penalty?: number
+  missense_lof?: number
+  burden_threshold?: number
+  damaged_genes?: string[]
+  seed?: number
+}
+
+export interface LineageSeries {
+  generation: number[]
+  alive_fraction: number[]
+  mean_burden: Array<number | null>
+  extinct: boolean
+  [gene_functional: string]: unknown
+}
+
+export interface LineageResponse {
+  toy: true
+  normal: LineageSeries
+  damaged: LineageSeries
+  model_bridge: { normal: Record<string, number>; damaged: Record<string, number> }
+}

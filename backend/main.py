@@ -33,6 +33,7 @@ from .routers import (
     meta,
     pareto,
     sensitivity,
+    sequence,
     simulate,
 )
 
@@ -110,6 +111,7 @@ def create_app() -> FastAPI:
     app.include_router(jobs.router, prefix="/api")
     app.include_router(llm.router, prefix="/api")
     app.include_router(meta.router, prefix="/api")
+    app.include_router(sequence.router, prefix="/api")
 
     _mount_frontend(app, FRONTEND_DIST)
 

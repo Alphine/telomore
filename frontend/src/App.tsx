@@ -12,6 +12,7 @@ import { ActiveLearning } from './pages/ActiveLearning'
 import { Compare } from './pages/Compare'
 import { Evolve } from './pages/Evolve'
 import { Experiments } from './pages/Experiments'
+import { GenomeExplorer } from './pages/GenomeExplorer'
 import { GxE } from './pages/GxE'
 import { Pareto } from './pages/Pareto'
 import { Placeholder } from './pages/Placeholder'
@@ -33,6 +34,7 @@ const MIGRATED: Record<string, () => JSX.Element> = {
   '/active-learning': ActiveLearning,
   '/compare': Compare,
   '/experiments': Experiments,
+  '/genome': GenomeExplorer,
 }
 
 /** Route table; the Router itself is provided by main.tsx (or a MemoryRouter in tests). */

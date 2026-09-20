@@ -64,6 +64,13 @@ export const FEATURES: Feature[] = [
       'A Gaussian-process surrogate + Expected Improvement chooses which configuration to test next, reaching good fitness with fewer real simulator runs.',
     path: '/active-learning',
   },
+  {
+    icon: '🧫',
+    title: 'Genome Explorer',
+    description:
+      'A toy DNA → RNA → protein layer: mutate a synthetic gene codon by codon, then compare a normal and a damaged (checkpoint/repair-deficient) cell lineage.',
+    path: '/genome',
+  },
 ]
 
 // Sidebar order follows st.navigation() in app/streamlit_app.py.
@@ -74,6 +81,7 @@ export const NAV_ORDER = [
   '/sensitivity',
   '/gxe',
   '/active-learning',
+  '/genome',
   '/compare',
   '/experiments',
 ]

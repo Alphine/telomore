@@ -585,6 +585,16 @@ seeds each, 9,072 total simulator calls). No production code changes —
 `scripts/benchmark_dimensionality.py` is a new analysis script built
 entirely on existing, untouched `evolution/benchmark.py` functions.
 
+### Healthy-vs-damaged clones + toy Genome Explorer (DONE 2026-09-20)
+
+Tier 1: `configs/demo_healthy_vs_damaged.yaml` (also a one-click preset on
+Simulate) and Experiment K (`docs/EXPERIMENT_PROTOCOL.md` §15.1): a
+checkpoint-deficient clone displaces a healthy one, with symmetric neutral
+controls. Tier 2: `telomere_lab.sequence` + `/api/sequence/*` + the Genome
+Explorer page (`/genome`): real genetic code, *synthetic* genes, mutation
+classification and normal-vs-damaged lineages (`docs/MODEL.md` §2.4). Both are
+labelled toy / model mechanisms in `docs/SCIENTIFIC_SCOPE.md`.
+
 ### Canalization / robustness fitness objective (DONE 2026-09-13)
 
 A new `canalization` fitness term measuring consistency of a genotype's

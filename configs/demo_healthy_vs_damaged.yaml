@@ -1,0 +1,49 @@
+# "Healthy vs. damaged cell" demo (docs/MODEL.md §2.2 + §2.3,
+# docs/EXPERIMENT_PROTOCOL.md Experiment K): one shared culture, split 50/50
+# between a checkpoint-competent "healthy" clone and a "damaged" clone that
+# has lost its apoptosis checkpoint and replicates with a higher error rate.
+# Both clones share the culture's stress / maintenance / repair; only the
+# genome-stability parameters differ (sub-clone override of
+# replication_error_rate / oxidative_mutation_sensitivity / checkpoint_strength
+# / mutation_threshold, added 2026-09-14).
+#
+# What it illustrates: in this model mutation burden has NO fitness cost of
+# its own -- the only thing that ever removes a high-burden cell is the
+# checkpoint. So the checkpoint-deficient clone is never culled, and once the
+# healthy clone's lineages cross the threshold it is displaced. That is the
+# same logic as clonal expansion after loss of a tumour-suppressor checkpoint,
+# stated as a model mechanism -- not a calibrated biological claim
+# (docs/SCIENTIFIC_SCOPE.md).
+model:
+  initial_length: 7500.0
+  initial_length_sd: 800.0
+  population_size: 100
+  carrying_capacity: 400
+  telomeres_per_cell: 32
+  shortening_rate: 55.0
+  stress_level: 0.30
+  stress_sensitivity: 100.0
+  maintenance_rate: 0.50
+  maintenance_max_gain: 120.0
+  repair_rate: 0.50
+  senescence_threshold: 3000.0
+  noise_sd: 30.0
+  senescent_death_rate: 0.03
+  cycles: 150
+  seed: 42
+  record_distribution_every: 25
+  subclones:
+    - name: healthy
+      initial_fraction: 0.5
+      overrides:
+        replication_error_rate: 0.001
+        oxidative_mutation_sensitivity: 0.005
+        checkpoint_strength: 0.5
+        mutation_threshold: 0.25
+    - name: damaged
+      initial_fraction: 0.5
+      overrides:
+        replication_error_rate: 0.003
+        oxidative_mutation_sensitivity: 0.010
+        checkpoint_strength: 0.0
+        mutation_threshold: 0.25

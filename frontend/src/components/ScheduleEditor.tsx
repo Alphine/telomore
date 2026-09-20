@@ -24,6 +24,7 @@ export interface ScheduleEditorProps {
 const PRESET_LABELS: Record<string, string> = {
   demo_fasting: 'Load fasting demo',
   demo_fasting_evolved: 'Load evolved fasting response',
+  demo_healthy_vs_damaged: 'Load healthy-vs-damaged clones demo',
 }
 
 export function ScheduleEditor({

@@ -256,3 +256,11 @@ def test_compare_passes_scheduled_scenario_through(client):
     ]}, headers=_headers(token))
     assert bad.status_code == 400
     assert bad.json()["detail"].startswith("Bad: ")
+
+
+def test_bounds_serves_the_healthy_vs_damaged_preset(client):
+    body = client.get("/api/meta/bounds").json()
+    preset = body["presets"]["demo_healthy_vs_damaged"]
+    assert preset == load_model_config(CONFIG_DIR / "demo_healthy_vs_damaged.yaml").to_dict()
+    assert [c["name"] for c in preset["subclones"]] == ["healthy", "damaged"]
+    ModelConfig.from_dict(preset).validate()

@@ -70,6 +70,7 @@ def _demo_config() -> ModelConfig:
 PRESET_FILES = {
     "demo_fasting": "demo_fasting.yaml",
     "demo_fasting_evolved": "demo_fasting_evolved.yaml",
+    "demo_healthy_vs_damaged": "demo_healthy_vs_damaged.yaml",
 }
 
 

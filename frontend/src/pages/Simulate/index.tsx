@@ -1,5 +1,5 @@
 // Port of app/pages/01_Simulate.py (SDD §16, page 1).
-import { useCallback, useMemo, useState } from 'react'
+import { Suspense, lazy, useCallback, useMemo, useState } from 'react'
 
 import { ApiError } from '../../api/client'
 import { simulate as apiSimulate, simulateEnsemble } from '../../api/endpoints'
@@ -40,6 +40,9 @@ import { finalComposition, hasSubclones } from '../../components/subclonesUtils'
 import { FEATURES } from '../../features'
 import { reproduceCommand, terminalMetrics } from './metrics'
 
+// three.js is code-split: it only downloads when the 3D view is opened.
+const TelomereCell3D = lazy(() => import('../../components/TelomereCell3D'))
+
 const DEFAULT_N_SEEDS = 10
 
 const FEATURE = FEATURES.find((f) => f.path === '/simulate')!
@@ -72,6 +75,7 @@ export function Simulate() {
   const [derived, setDerived] = useState<ChipParams | null>(null)
   const [running, setRunning] = useState(false)
   const [run, setRun] = useState<SimulationRun | null>(null)
+  const [show3d, setShow3d] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [cursor, setCursor] = useState<number | null>(null)
@@ -386,6 +390,17 @@ export function Simulate() {
               <BiologicalAgeGauge score={run.biological_age} />
 
               <PopulationCanvas run={run} onCycleChange={onCycle} dark={dark} />
+
+              <div className="space-y-3">
+                <button type="button" className="btn-ghost !px-3 !py-1.5 !text-sm" aria-expanded={show3d} onClick={() => setShow3d((v) => !v)}>
+                  {show3d ? 'Hide 3D telomere view' : 'Show 3D telomere view'}
+                </button>
+                {show3d && (
+                  <Suspense fallback={<p className="prose-muted text-sm">Loading 3D view…</p>}>
+                    <TelomereCell3D run={run} dark={dark} />
+                  </Suspense>
+                )}
+              </div>
 
               {hasProtocol && figures.protocol && isScheduled(run.config) && (
                 <section className="space-y-3" aria-label="Applied protocol">

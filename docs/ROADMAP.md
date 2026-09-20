@@ -595,6 +595,17 @@ Explorer page (`/genome`): real genetic code, *synthetic* genes, mutation
 classification and normal-vs-damaged lineages (`docs/MODEL.md` §2.4). Both are
 labelled toy / model mechanisms in `docs/SCIENTIFIC_SCOPE.md`.
 
+### 3D telomere cell view (DONE 2026-09-20)
+
+Simulate has a lazy-loaded "Show 3D telomere view" (three.js, ~145 kB gzip, only
+fetched on click): chromosomes with telomere caps whose length and colour follow
+the run's per-cycle statistics (teal -> amber -> red as the shortest end nears
+the senescence limit; grey body and fusion bridges once senescent). The
+"representative cell" is reconstructed from summary statistics (lengths spread
+evenly around the mean, shortest end = mean shortest-per-cell), so it is an
+illustration, not a measured single cell; chromosome shapes are stylised.
+Code: `frontend/src/components/{telomereCell.ts,TelomereCell3D.tsx}`.
+
 ### Canalization / robustness fitness objective (DONE 2026-09-13)
 
 A new `canalization` fitness term measuring consistency of a genotype's

@@ -27,8 +27,8 @@ echo === 2/4  Menyusun paket ...
 if exist "%STAGE%" rmdir /s /q "%STAGE%"
 mkdir "%STAGE%\foci" "%STAGE%\telomore"
 xcopy /e /i /q /y "deploy\landing\*" "%STAGE%" >nul || goto gagal
-xcopy /e /i /q /y "frontend\dist\*" "%STAGE%\telomore\" >nul || goto gagal
-xcopy /e /i /q /y "foci\web\*" "%STAGE%\foci\" >nul || goto gagal
+xcopy /e /i /q /y "frontend\dist\*" "%STAGE%\telomore" >nul || goto gagal
+xcopy /e /i /q /y "foci\web\*" "%STAGE%\foci" >nul || goto gagal
 copy /y "deploy\studylab.htaccess" "%STAGE%\.htaccess" >nul || goto gagal
 del "%PKG%" 2>nul
 tar -czf "%PKG%" -C "%STAGE%" . || goto gagal

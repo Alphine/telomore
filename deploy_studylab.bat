@@ -13,7 +13,7 @@ set API=https://telomore-production.up.railway.app/api
 set STAGE=%TEMP%\studylab_site
 set PKG=%TEMP%\studylab_site.tar.gz
 
-echo === 1/4  Build frontend Telomere Lab (API -> Railway) ...
+echo === 1/4  Build frontend Telomere Lab, API ke Railway ...
 pushd frontend
 if not exist node_modules (call npm ci || (popd & goto gagal))
 set VITE_API_BASE=%API%
@@ -37,7 +37,8 @@ echo === 3/4  Upload ...
 scp -P %PORT% "%PKG%" %HOST%:studylab_site.tar.gz || goto gagal
 
 echo === 4/4  Pasang dan cek ...
-ssh -p %PORT% %HOST% "set -e; D=~/domains/studylab.id; mkdir -p $D/focilab_cache; cd $D/public_html; find . -mindepth 1 -maxdepth 1 ! -name .well-known -exec rm -rf {} +; tar xzf ~/studylab_site.tar.gz; rm -f ~/studylab_site.tar.gz; find . -type d -exec chmod 755 {} +; find . -type f -exec chmod 644 {} +; echo; for p in / /telomore/ /telomore/simulate /telomore/demo.html /simulate /foci/ /foci/data/summary.json '/foci/api/well.php?w=99_D14'; do echo \"$p -> $(curl -s -o /dev/null -w '%%{http_code} %%{content_type}' https://studylab.id$p)\"; done"
+ssh -p %PORT% %HOST% "set -e; D=~/domains/studylab.id; mkdir -p $D/focilab_cache; cd $D/public_html; find . -mindepth 1 -maxdepth 1 ! -name .well-known -exec rm -rf {} +; tar xzf ~/studylab_site.tar.gz; rm -f ~/studylab_site.tar.gz; find . -type d -exec chmod 755 {} +; find . -type f -exec chmod 644 {} +; echo; for p in / /telomore/ /telomore/simulate /telomore/demo.html /simulate /foci/ /foci/data/summary.json '/foci/api/well.php?w=99_D14'; do printf '%%s : ' $p; curl -s -o /dev/null -w '%%{http_code} %%{content_type}
+' https://studylab.id$p; done"
 if errorlevel 1 goto gagal
 
 echo.

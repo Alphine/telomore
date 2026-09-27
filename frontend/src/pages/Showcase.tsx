@@ -18,7 +18,7 @@ import {
   TargetIcon,
 } from '../components/icons'
 import { ThemeToggle } from '../components/ThemeToggle'
-import { FEATURES } from '../features'
+import { FEATURES, FOCI_LAB_URL } from '../features'
 
 // Pre-login "show off" page (2026-09-16, restyled 2026-09-18 to the
 // dark-neon-DNA direction explored in the /design canvas): a standalone,
@@ -146,6 +146,14 @@ function Navbar() {
             className="text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
           >
             Demo
+          </a>
+          <a
+            href={FOCI_LAB_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+          >
+            Foci Lab
           </a>
         </nav>
         <div className="flex items-center gap-2">
@@ -734,6 +742,14 @@ export function Showcase() {
               className="text-xs text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
             >
               Demo
+            </a>
+            <a
+              href={FOCI_LAB_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+            >
+              Foci Lab (real microscopy)
             </a>
             <a
               href="https://basyid.dev"

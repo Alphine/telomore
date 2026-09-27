@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../auth/context'
-import { NAV_FEATURES, PUBLIC_NAV_LINKS } from '../features'
+import { FOCI_LAB_URL, NAV_FEATURES, PUBLIC_NAV_LINKS } from '../features'
 import { ActiveJobsProvider } from '../jobs/ActiveJobsContext'
 import { useActiveJobs } from '../jobs/useActiveJobs'
 import { ThemeToggle } from './ThemeToggle'
@@ -82,6 +82,10 @@ function Nav({ onNavigate }: { onNavigate?: () => void }) {
           <span aria-hidden>{f.icon}</span> {f.title}
         </NavLink>
       ))}
+      <a href={FOCI_LAB_URL} target="_blank" rel="noreferrer" className={navClass({ isActive: false })} onClick={onNavigate}>
+        <span aria-hidden>📷</span> Foci Lab <span aria-hidden className="ml-auto text-xs text-slate-400">↗</span>
+        <span className="sr-only">(real microscopy, opens in a new tab)</span>
+      </a>
       <div className="my-2 border-t border-slate-200 dark:border-slate-800" />
       {NAV_FEATURES.map((f) => (
         <NavLink key={f.path} to={f.path} className={navClass} onClick={onNavigate}>

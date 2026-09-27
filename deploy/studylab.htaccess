@@ -1,0 +1,37 @@
+# studylab.id  (Hostinger, LiteSpeed/Apache)
+#   /        Telomere Evolution Lab -- static React build; API on Railway
+#   /foci/   Foci Lab -- static site + PHP image proxy (has its own .htaccess)
+Options -Indexes
+RewriteEngine On
+
+# /foci -> /foci/ so Foci Lab's relative paths resolve
+RewriteRule ^foci$ /foci/ [R=301,L]
+
+# never expose source-ish files
+RewriteRule \.(py|sh|md|log|tmp|bat)$ - [F,L]
+
+# React Router: any path that is not a real file or folder (and not Foci Lab)
+# gets the SPA shell, so /simulate, /genome, /login?token=... work on reload
+RewriteCond %{REQUEST_URI} !^/foci/
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ /index.html [L]
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+</IfModule>
+
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  Header set X-Frame-Options "SAMEORIGIN"
+  # hashed Vite bundles never change; the HTML shell must always be fresh
+  <FilesMatch "^index\.html$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType text/css "access plus 1 year"
+</IfModule>

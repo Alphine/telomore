@@ -11,9 +11,11 @@ ini_set('display_errors', '0');
 
 const IDR = 'https://idr.openmicroscopy.org';
 const UA = 'FociLab/1.0 (+https://studylab.id; companion to github.com/Alphine/telomore)';
-// Cache lives OUTSIDE the web root (public_html/api -> ../../focilab_cache) so the
-// IDR cookie jar and cached files can never be requested directly.
-$CACHE = dirname(__DIR__, 2) . '/focilab_cache';
+// Cache lives OUTSIDE the web root (next to public_html) so the IDR cookie jar
+// and cached files can never be requested directly, wherever this site is mounted.
+$DOCROOT = rtrim(str_replace('\\', '/', (string) ($_SERVER['DOCUMENT_ROOT'] ?? '')), '/');
+if ($DOCROOT === '') $DOCROOT = dirname(__DIR__, 2);
+$CACHE = dirname($DOCROOT) . '/focilab_cache';
 
 function fail(int $code, string $msg): void {
     http_response_code($code);

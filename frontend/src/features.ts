@@ -109,7 +109,7 @@ export interface NavLink {
 
 // Companion site with real microscopy (IDR idr0010 53BP1 screen), hosted
 // separately on Hostinger -- see foci/README.md.
-export const FOCI_LAB_URL = 'https://studylab.id'
+export const FOCI_LAB_URL = 'https://studylab.id/foci/'
 
 export const PUBLIC_NAV_LINKS: NavLink[] = [
   { icon: '📖', title: 'Docs', path: '/guide' },

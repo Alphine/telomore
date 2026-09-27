@@ -166,9 +166,16 @@ behind the login gate.
 | `/genome` | **Genome Explorer** | A *toy* DNA → RNA → protein layer: the real standard genetic code applied to three synthetic genes. Click a base to mutate it and see the effect (synonymous / missense / nonsense / start-loss), then compare a normal and a damaged (checkpoint- and repair-deficient) lineage. Synthetic genes, uncalibrated — a teaching aid (`docs/MODEL.md` §2.4). |
 | `/experiments` | **Experiments** | Reproducibility ledger (run ID, timestamp, git commit, versions, seed, config hash, fitness, artifacts) with per-file artifact download and a reproduction command. |
 
+## Where it runs
+
+* **https://studylab.id/** — the React app as a static build on Hostinger; every API call goes to the
+  Railway backend (`VITE_API_BASE`, CORS-allowed). Deploy with `deploy_studylab.bat`.
+* **https://telomore-production.up.railway.app/** — the same app served by FastAPI itself (the
+  backend's own origin; Python compute always runs here).
+
 ## Foci Lab (companion site with real microscopy)
 
-**https://studylab.id** explores a published genome-wide siRNA screen of 53BP1 DNA-damage foci
+**https://studylab.id/foci/** explores a published genome-wide siRNA screen of 53BP1 DNA-damage foci
 (IDR idr0010, Doil et al. 2009, CC BY 4.0): 17,536 genes, the original images, and Experiment L, an
 honest negative result on automated foci counting. See `foci/README.md`.
 

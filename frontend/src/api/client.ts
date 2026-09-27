@@ -1,8 +1,12 @@
 // Small typed fetch wrapper for the FastAPI backend (docs/API.md).
 // Base path is `/api`: proxied to uvicorn by Vite in dev, same-origin in
-// production where FastAPI serves the built frontend itself.
+// production where FastAPI serves the built frontend itself. A static copy
+// hosted elsewhere (studylab.id, see foci/deploy_hostinger.bat) is built with
+// VITE_API_BASE=https://telomore-production.up.railway.app/api and talks to
+// the Railway backend cross-origin (CORS allows that origin; auth is a bearer
+// token, not a cookie).
 
-export const API_BASE = '/api'
+export const API_BASE: string = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, '') || '/api'
 export const TOKEN_KEY = 'tel_token'
 
 export function getToken(): string | null {

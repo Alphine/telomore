@@ -1,7 +1,8 @@
 @echo off
 REM Deploy ke https://studylab.id (Hostinger):
-REM   /        Telomere Evolution Lab (build React statis, backend Python tetap di Railway)
-REM   /foci/   Foci Lab (foci\web)
+REM   /            landing page (deploy\landing)
+REM   /telomore/   Telomere Evolution Lab (build React statis, backend Python tetap di Railway)
+REM   /foci/       Foci Lab (foci\web)
 REM Password SSH diminta 2 kali (upload, pasang).
 
 setlocal
@@ -16,14 +17,17 @@ echo === 1/4  Build frontend Telomere Lab (API -> Railway) ...
 pushd frontend
 if not exist node_modules (call npm ci || (popd & goto gagal))
 set VITE_API_BASE=%API%
+set VITE_BASE=/telomore/
 call npm run build || (popd & goto gagal)
 set VITE_API_BASE=
+set VITE_BASE=
 popd
 
 echo === 2/4  Menyusun paket ...
 if exist "%STAGE%" rmdir /s /q "%STAGE%"
-mkdir "%STAGE%\foci"
-xcopy /e /i /q /y "frontend\dist\*" "%STAGE%\" >nul || goto gagal
+mkdir "%STAGE%\foci" "%STAGE%\telomore"
+xcopy /e /i /q /y "deploy\landing\*" "%STAGE%\" >nul || goto gagal
+xcopy /e /i /q /y "frontend\dist\*" "%STAGE%\telomore\" >nul || goto gagal
 xcopy /e /i /q /y "foci\web\*" "%STAGE%\foci\" >nul || goto gagal
 copy /y "deploy\studylab.htaccess" "%STAGE%\.htaccess" >nul || goto gagal
 del "%PKG%" 2>nul
@@ -33,11 +37,11 @@ echo === 3/4  Upload ...
 scp -P %PORT% "%PKG%" %HOST%:studylab_site.tar.gz || goto gagal
 
 echo === 4/4  Pasang dan cek ...
-ssh -p %PORT% %HOST% "set -e; D=~/domains/studylab.id; mkdir -p $D/focilab_cache; cd $D/public_html; find . -mindepth 1 -maxdepth 1 ! -name .well-known -exec rm -rf {} +; tar xzf ~/studylab_site.tar.gz; rm -f ~/studylab_site.tar.gz; find . -type d -exec chmod 755 {} +; find . -type f -exec chmod 644 {} +; echo; for p in / /simulate /demo.html /foci/ /foci/data/summary.json '/foci/api/well.php?w=99_D14'; do echo \"$p -> $(curl -s -o /dev/null -w '%%{http_code} %%{content_type}' https://studylab.id$p)\"; done"
+ssh -p %PORT% %HOST% "set -e; D=~/domains/studylab.id; mkdir -p $D/focilab_cache; cd $D/public_html; find . -mindepth 1 -maxdepth 1 ! -name .well-known -exec rm -rf {} +; tar xzf ~/studylab_site.tar.gz; rm -f ~/studylab_site.tar.gz; find . -type d -exec chmod 755 {} +; find . -type f -exec chmod 644 {} +; echo; for p in / /telomore/ /telomore/simulate /telomore/demo.html /simulate /foci/ /foci/data/summary.json '/foci/api/well.php?w=99_D14'; do echo \"$p -> $(curl -s -o /dev/null -w '%%{http_code} %%{content_type}' https://studylab.id$p)\"; done"
 if errorlevel 1 goto gagal
 
 echo.
-echo Selesai:  https://studylab.id   dan   https://studylab.id/foci/
+echo Selesai:  https://studylab.id  /telomore/  /foci/
 pause
 exit /b 0
 

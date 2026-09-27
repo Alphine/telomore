@@ -608,7 +608,7 @@ Code: `frontend/src/components/{telomereCell.ts,TelomereCell3D.tsx}`.
 
 ### Foci Lab: real microscopy companion site (DONE 2026-09-27)
 
-A second, static web app at https://studylab.id/foci/ (Hostinger; Telomere Lab's own static build is served at the domain root with its API on Railway) built from IDR study idr0010
+A second, static web app at https://studylab.id/foci/ (Hostinger; the domain root is a landing page for both labs and Telomere Lab's static build lives at /telomore/ with its API on Railway) built from IDR study idr0010
 (genome-wide 53BP1 foci siRNA screen, CC BY 4.0): gene explorer over the authors' per-gene
 results, original images through a caching PHP proxy, a live nucleus outline served by
 `/api/foci/overlay` on the existing Railway backend, and Experiment L (a documented negative

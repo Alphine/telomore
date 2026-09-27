@@ -140,7 +140,7 @@ function Navbar() {
             Results
           </a>
           <a
-            href="/demo.html"
+            href={`${import.meta.env.BASE_URL}demo.html`}
             target="_blank"
             rel="noreferrer"
             className="text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
@@ -736,7 +736,7 @@ export function Showcase() {
               Results
             </a>
             <a
-              href="/demo.html"
+              href={`${import.meta.env.BASE_URL}demo.html`}
               target="_blank"
               rel="noreferrer"
               className="text-xs text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"

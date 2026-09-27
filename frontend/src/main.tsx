@@ -15,7 +15,8 @@ applyInitialThemeClass()
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
-      <BrowserRouter>
+      {/* basename follows Vite's `base` so the app also works under /telomore/ */}
+      <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '') || undefined}>
         <AuthProvider>
           <App />
         </AuthProvider>

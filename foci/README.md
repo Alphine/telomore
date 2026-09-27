@@ -1,7 +1,8 @@
 # Foci Lab
 
 Companion site to Telomere Evolution Lab, served at **https://studylab.id/foci/**. Telomere Lab itself is at
-https://studylab.id/ (a static build whose API is the Railway backend).
+https://studylab.id/telomore/ (a static build whose API is the Railway backend); https://studylab.id/ is a landing
+page for both.
 It explores a real, published genome-wide siRNA screen of 53BP1 DNA-damage foci:
 IDR study [idr0010](https://idr.openmicroscopy.org/webclient/?show=screen-1351),
 Doil et al., *Cell* 2009 (doi:10.1016/j.cell.2008.12.041), licensed **CC BY 4.0**.

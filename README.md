@@ -168,8 +168,10 @@ behind the login gate.
 
 ## Where it runs
 
-* **https://studylab.id/** — the React app as a static build on Hostinger; every API call goes to the
-  Railway backend (`VITE_API_BASE`, CORS-allowed). Deploy with `deploy_studylab.bat`.
+* **https://studylab.id/** — landing page (`deploy/landing/`) for both labs.
+* **https://studylab.id/telomore/** — the React app as a static build on Hostinger (`VITE_BASE=/telomore/`);
+  every API call goes to the Railway backend (`VITE_API_BASE`, CORS-allowed). Old root links such as
+  `/simulate` redirect here. Deploy everything with `deploy_studylab.bat`.
 * **https://telomore-production.up.railway.app/** — the same app served by FastAPI itself (the
   backend's own origin; Python compute always runs here).
 

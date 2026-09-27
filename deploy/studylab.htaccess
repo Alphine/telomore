@@ -1,21 +1,25 @@
 # studylab.id  (Hostinger, LiteSpeed/Apache)
-#   /        Telomere Evolution Lab -- static React build; API on Railway
-#   /foci/   Foci Lab -- static site + PHP image proxy (has its own .htaccess)
+#   /            landing page (deploy/landing)
+#   /telomore/   Telomere Evolution Lab -- static React build (Vite base /telomore/); API on Railway
+#   /foci/       Foci Lab -- static site + PHP image proxy (has its own .htaccess)
 Options -Indexes
 RewriteEngine On
 
-# /foci -> /foci/ so Foci Lab's relative paths resolve
-RewriteRule ^foci$ /foci/ [R=301,L]
+# folder URLs without the trailing slash
+RewriteRule ^(telomore|foci)$ /$1/ [R=301,L]
+
+# the Telomere app used to live at the root: keep old links working
+RewriteRule ^(simulate|evolve|pareto|sensitivity|gxe|active-learning|compare|experiments|genome|guide|login|register|verify|forgot-password|reset-password|demo\.html)(/.*)?$ /telomore/$1$2 [R=301,L]
 
 # never expose source-ish files
 RewriteRule \.(py|sh|md|log|tmp|bat)$ - [F,L]
 
-# React Router: any path that is not a real file or folder (and not Foci Lab)
-# gets the SPA shell, so /simulate, /genome, /login?token=... work on reload
-RewriteCond %{REQUEST_URI} !^/foci/
+# React Router inside /telomore/: any path that is not a real file or folder
+# gets the app shell, so /telomore/simulate etc. work on reload
+RewriteCond %{REQUEST_URI} ^/telomore/
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^ /index.html [L]
+RewriteRule ^ /telomore/index.html [L]
 
 <IfModule mod_deflate.c>
   AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
@@ -25,7 +29,7 @@ RewriteRule ^ /index.html [L]
   Header set X-Content-Type-Options "nosniff"
   Header set Referrer-Policy "strict-origin-when-cross-origin"
   Header set X-Frame-Options "SAMEORIGIN"
-  # hashed Vite bundles never change; the HTML shell must always be fresh
+  # hashed Vite bundles never change; HTML shells must always be fresh
   <FilesMatch "^index\.html$">
     Header set Cache-Control "no-cache"
   </FilesMatch>

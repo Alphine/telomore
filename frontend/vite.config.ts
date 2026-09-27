@@ -8,6 +8,9 @@ import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // '/' for Railway (FastAPI serves the build at the root); '/telomore/' for
+  // the static copy on studylab.id (deploy_studylab.bat sets VITE_BASE).
+  base: process.env.VITE_BASE || '/',
   plugins: [react(), tailwindcss()],
   server: {
     // Dev: forward API calls to the locally running FastAPI backend

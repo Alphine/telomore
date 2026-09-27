@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StudyLab</title>
+<meta name="description" content="Two open research prototypes for life science: Telomere Evolution Lab (simulation plus AI-driven protocol search) and Foci Lab (a real genome-wide DNA-damage microscopy screen).">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500&display=swap">
+<style>
+:root {
+  --bg: #f3f5f8; --surface: #ffffff; --ink: #0e1a2b; --muted: #56657a; --faint: #6b788b;
+  --line: #dce2ea; --accent: #0b7a75; --accent-ink: #ffffff; --warm: #b45309;
+  --field: radial-gradient(ellipse at 50% 42%, #23375c 0%, #111d35 58%, #070d19 100%);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1220; --surface: #121b2d; --ink: #e8eef6; --muted: #a3b1c4; --faint: #8b99ad;
+    --line: #24324a; --accent: #2fc4b8; --accent-ink: #062321; --warm: #f2b23a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1220; --surface: #121b2d; --ink: #e8eef6; --muted: #a3b1c4; --faint: #8b99ad;
+  --line: #24324a; --accent: #2fc4b8; --accent-ink: #062321; --warm: #f2b23a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.6 "IBM Plex Sans", system-ui, sans-serif; }
+a { color: var(--accent); }
+.wrap { width: min(1100px, 100% - 32px); margin-inline: auto; }
+header.top { border-bottom: 1px solid var(--line); background: var(--surface); }
+.top-row { display: flex; align-items: center; justify-content: space-between; height: 60px; gap: 16px; }
+.brand { display: flex; align-items: center; gap: 10px; font-family: "Newsreader", Georgia, serif; font-size: 21px; color: var(--ink); text-decoration: none; }
+.top nav { display: flex; gap: 20px; font-size: 14px; }
+.top nav a { color: var(--muted); text-decoration: none; }
+.top nav a:hover { color: var(--ink); }
+.theme { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer; display: grid; place-items: center; }
+
+.hero { padding: 64px 0 36px; }
+.eyebrow { margin: 0; font: 500 12px "IBM Plex Mono", monospace; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+h1 { font-family: "Newsreader", Georgia, serif; font-weight: 500; font-size: clamp(32px, 5vw, 54px); line-height: 1.08; letter-spacing: -.015em; margin: 12px 0 16px; max-width: 18ch; }
+.lead { font-size: 17.5px; color: var(--muted); max-width: 62ch; margin: 0; }
+
+.apps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; padding-bottom: 20px; }
+.app { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; }
+.app .art { height: 210px; background: var(--field); display: grid; place-items: center; }
+.app .art svg { width: 100%; height: 100%; }
+.app .body { padding: 22px 24px 24px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+.tag { align-self: flex-start; font: 500 11.5px "IBM Plex Mono", monospace; letter-spacing: .06em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.tag.warm { background: color-mix(in srgb, var(--warm) 16%, transparent); color: var(--warm); }
+.app h2 { margin: 0; font-family: "Newsreader", Georgia, serif; font-weight: 500; font-size: 28px; line-height: 1.15; }
+.app p { margin: 0; color: var(--muted); }
+.app ul { margin: 0; padding-left: 18px; color: var(--ink); font-size: 14px; }
+.app li { margin: 3px 0; }
+.stats { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 2px; }
+.stats div { font-size: 12px; color: var(--muted); }
+.stats b { display: block; font: 500 19px "IBM Plex Mono", monospace; color: var(--ink); }
+.ctas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: auto; padding-top: 8px; }
+.btn { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 10px; background: var(--accent); color: var(--accent-ink); font-weight: 600; font-size: 14px; text-decoration: none; }
+.btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+
+.bridge { margin: 36px auto 0; padding: 28px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; display: grid; grid-template-columns: 1fr auto 1fr; gap: 20px; align-items: center; }
+.bridge h3 { margin: 0 0 6px; font-size: 16px; }
+.bridge p { margin: 0; color: var(--muted); font-size: 14px; }
+.bridge .mid { font: 500 12px "IBM Plex Mono", monospace; color: var(--faint); text-align: center; }
+.bridge .mid svg { display: block; margin: 0 auto 6px; }
+.note { color: var(--faint); font-size: 13px; max-width: 80ch; margin: 18px 0 0; }
+
+footer { margin-top: 48px; padding: 28px 0 56px; border-top: 1px solid var(--line); color: var(--faint); font-size: 13px; }
+footer p { margin: 0 0 6px; }
+@media (max-width: 820px) {
+  .apps, .bridge { grid-template-columns: 1fr; }
+  .bridge .mid svg { transform: rotate(90deg); }
+  .top nav { display: none; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap top-row">
+    <a class="brand" href="/" aria-label="StudyLab home">
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><rect x="3" y="3" width="20" height="20" rx="6" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="10" y="6.5" width="6" height="13" rx="3" fill="#0b7a75"/><rect x="10" y="6.5" width="6" height="3.5" rx="1.75" fill="#37d3c4"/><rect x="10" y="16" width="6" height="3.5" rx="1.75" fill="#37d3c4"/></svg>
+      <span>StudyLab</span>
+    </a>
+    <nav aria-label="Apps">
+      <a href="/telomore/">Telomere Lab</a>
+      <a href="/foci/">Foci Lab</a>
+      <a href="https://github.com/Alphine/telomore" rel="noopener">Code</a>
+    </nav>
+    <button class="theme" id="themeBtn" type="button" aria-label="Toggle dark mode">
+      <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3a7 7 0 1 0 7 7 5.5 5.5 0 0 1-7-7z" fill="currentColor"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <p class="eyebrow">Open research prototypes &middot; AI for life science</p>
+    <h1>Simulate telomeres. Read real DNA damage.</h1>
+    <p class="lead">Two companion labs. One simulates how telomeres erode in a dividing cell population and lets AI search for protocols that slow it. The other explores a real genome-wide microscopy screen of DNA-damage foci in human cells.</p>
+  </section>
+
+  <section class="apps" aria-label="Labs">
+    <article class="app">
+      <div class="art" aria-hidden="true">
+        <svg viewBox="0 0 520 210">
+          <defs>
+            <linearGradient id="b" x1="0" x2="1"><stop offset="0" stop-color="#55647b"/><stop offset=".45" stop-color="#e9eef5"/><stop offset="1" stop-color="#465469"/></linearGradient>
+          </defs>
+          <g transform="translate(90 105)"><rect x="-8" y="-62" width="16" height="124" rx="8" fill="url(#b)"/><rect x="-10" y="-88" width="20" height="30" rx="10" fill="#2fc4b8"/><rect x="-10" y="58" width="20" height="30" rx="10" fill="#2fc4b8"/></g>
+          <g transform="translate(200 105)"><rect x="-8" y="-62" width="16" height="124" rx="8" fill="url(#b)"/><rect x="-10" y="-80" width="20" height="20" rx="10" fill="#8fd08a"/><rect x="-10" y="60" width="20" height="20" rx="10" fill="#8fd08a"/></g>
+          <g transform="translate(310 105)"><rect x="-8" y="-62" width="16" height="124" rx="8" fill="url(#b)"/><rect x="-10" y="-74" width="20" height="14" rx="7" fill="#e9a92f"/><rect x="-10" y="60" width="20" height="14" rx="7" fill="#e9a92f"/></g>
+          <g transform="translate(420 105)"><rect x="-8" y="-62" width="16" height="124" rx="8" fill="#8391a6"/><rect x="-10" y="-68" width="20" height="8" rx="4" fill="#e0564b"/><rect x="-10" y="60" width="20" height="8" rx="4" fill="#e0564b"/></g>
+          <path d="M60 190 H460" stroke="#7ea2d8" stroke-opacity=".35"/><text x="60" y="203" fill="#a9b8d0" font-family="IBM Plex Mono, monospace" font-size="11">cycle 0</text><text x="460" y="203" fill="#a9b8d0" font-family="IBM Plex Mono, monospace" font-size="11" text-anchor="end">senescent</text>
+        </svg>
+      </div>
+      <div class="body">
+        <span class="tag">Simulation + AI search</span>
+        <h2>Telomere Evolution Lab</h2>
+        <p>A per-cell, per-telomere simulator wrapped by a genetic algorithm, NSGA-II and a Gaussian-process active learner, with an optional LLM that explains results and proposes protocols.</p>
+        <ul>
+          <li>Time-varying intervention protocols and sub-clone competition</li>
+          <li>3D telomere view, toy DNA &rarr; RNA &rarr; protein Genome Explorer</li>
+          <li>Reproducibility ledger for every run; organ-on-a-chip condition mapper</li>
+        </ul>
+        <div class="stats"><div><b>12</b>documented experiments</div><div><b>557</b>automated tests</div><div><b>9</b>lab tools</div></div>
+        <div class="ctas"><a class="btn" href="/telomore/">Open Telomere Lab</a><a class="btn ghost" href="/telomore/demo.html">Watch the 1-minute tour</a></div>
+      </div>
+    </article>
+
+    <article class="app">
+      <div class="art" aria-hidden="true">
+        <svg viewBox="0 0 520 210">
+          <g fill="#2a5aa0" fill-opacity=".85">
+            <ellipse cx="120" cy="80" rx="46" ry="34"/><ellipse cx="250" cy="120" rx="52" ry="38"/><ellipse cx="385" cy="78" rx="44" ry="32"/><ellipse cx="160" cy="160" rx="40" ry="28"/><ellipse cx="410" cy="160" rx="42" ry="30"/>
+          </g>
+          <g fill="#6fe39a">
+            <circle cx="108" cy="72" r="4"/><circle cx="130" cy="88" r="3"/><circle cx="238" cy="110" r="4.5"/><circle cx="262" cy="128" r="3.5"/><circle cx="250" cy="100" r="3"/><circle cx="276" cy="112" r="3"/><circle cx="395" cy="70" r="3.5"/><circle cx="150" cy="156" r="3"/><circle cx="420" cy="165" r="4"/><circle cx="398" cy="152" r="3"/>
+          </g>
+          <g fill="none" stroke="#e9a92f" stroke-width="1.6"><circle cx="238" cy="110" r="8"/><circle cx="262" cy="128" r="7"/><circle cx="276" cy="112" r="6.5"/></g>
+        </svg>
+      </div>
+      <div class="body">
+        <span class="tag warm">Real microscopy data</span>
+        <h2>Foci Lab</h2>
+        <p>An explorer for a published genome-wide siRNA screen that counted 53BP1 foci, the spots that mark DNA double-strand breaks, after silencing each human gene.</p>
+        <ul>
+          <li>Search every gene; the top hits reproduce the paper's RNF168 &middot; MDC1 &middot; RNF8 pathway</li>
+          <li>Original images for 56,832 wells, with a live nucleus outline</li>
+          <li>Experiment L: an honest negative result on automated foci counting</li>
+        </ul>
+        <div class="stats"><div><b>57,216</b>wells</div><div><b>17,536</b>genes</div><div><b>CC BY 4.0</b>open data</div></div>
+        <div class="ctas"><a class="btn" href="/foci/">Open Foci Lab</a><a class="btn ghost" href="/foci/?gene=RNF168">See RNF168</a></div>
+      </div>
+    </article>
+  </section>
+
+  <section class="bridge" aria-label="How the two labs connect">
+    <div>
+      <h3>In the model</h3>
+      <p>Each simulated cell carries a mutation burden and an apoptosis checkpoint. A clone that loses the checkpoint takes over the culture (Experiment K).</p>
+    </div>
+    <div class="mid">
+      <svg width="64" height="24" viewBox="0 0 64 24" aria-hidden="true"><path d="M4 12h52M48 5l8 7-8 7" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+      qualitative bridge
+    </div>
+    <div>
+      <h3>In real cells</h3>
+      <p>53BP1 foci are a per-cell readout of unrepaired breaks. The screen shows which genes raise that burden and which remove the cell's ability to mark it.</p>
+    </div>
+  </section>
+  <p class="note">Research prototypes, not diagnostic or clinical tools. Model outputs are simulations under stated assumptions; the screen does not calibrate any model parameter.</p>
+</main>
+
+<footer class="wrap">
+  <p>Built for Kaggle &mdash; AI4S Open Innovation: AI for Life Science. Code: <a href="https://github.com/Alphine/telomore" rel="noopener">github.com/Alphine/telomore</a> &middot; <a href="https://basyid.dev" rel="noopener">basyid.dev</a></p>
+  <p>Foci Lab data and images: Doil C, et al., <i>Cell</i> 2009 (doi:10.1016/j.cell.2008.12.041), via the <a href="https://idr.openmicroscopy.org/webclient/?show=screen-1351" rel="noopener">Image Data Resource, idr0010</a>, CC BY 4.0.</p>
+</footer>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  try { var s = localStorage.getItem("studylab-theme"); if (s) root.dataset.theme = s; } catch (e) {}
+  document.getElementById("themeBtn").addEventListener("click", function () {
+    var dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem("studylab-theme", root.dataset.theme); } catch (e) {}
+  });
+})();
+</script>
+</body>
+</html>

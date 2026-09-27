@@ -39,6 +39,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     create_engine,
+    func,
     inspect as sa_inspect,
     select,
     text,
@@ -258,12 +259,36 @@ def create_user(username: str, email: str, password: str, session: Optional[Sess
             db.close()
 
 
+def _find_login_user(db: Session, login: str) -> Optional[User]:
+    """Resolve what a person typed in the login box to one account.
+
+    Exact username first; otherwise the email address (case-insensitive,
+    emails are unique); otherwise a case-insensitive username, but only when
+    exactly one account matches -- never guess between ``Alice`` and ``alice``.
+    """
+    login = login.strip()
+    if not login:
+        return None
+    user = db.execute(select(User).where(User.username == login)).scalar_one_or_none()
+    if user is not None:
+        return user
+    if "@" in login:
+        user = db.execute(select(User).where(func.lower(User.email) == login.lower())).scalar_one_or_none()
+        if user is not None:
+            return user
+    matches = db.execute(select(User).where(func.lower(User.username) == login.lower()).limit(2)).scalars().all()
+    return matches[0] if len(matches) == 1 else None
+
+
 def authenticate(username: str, password: str, session: Optional[Session] = None) -> Optional[User]:
-    """Return the :class:`User` if credentials are valid, else ``None``."""
+    """Return the :class:`User` if credentials are valid, else ``None``.
+
+    ``username`` may be the username or the account's email address
+    (see :func:`_find_login_user`)."""
     own_session = session is None
     db = session or get_session()
     try:
-        user = db.execute(select(User).where(User.username == username.strip())).scalar_one_or_none()
+        user = _find_login_user(db, username)
         if user is None:
             return None
         if not _verify_password(password, user.password_hash):

@@ -155,3 +155,33 @@ def test_forgot_and_reset_password_round_trip(client):
 def test_reset_password_with_invalid_token_fails(client):
     resp = client.post("/api/auth/reset-password", json={"token": "bogus", "new_password": "whatever123"})
     assert resp.status_code == 400
+
+
+def _verified(client, username, email):
+    reg = _register(client, username=username, email=email)
+    client.get("/api/auth/verify", params={"token": _verify_token(reg.json()["dev_verification_link"])})
+
+
+def _login(client, login, password="hunter22"):
+    return client.post("/api/auth/login", json={"username": login, "password": password})
+
+
+def test_login_accepts_email_address_case_insensitively(client):
+    _verified(client, "Grace", "Grace.Hopper@Example.com")
+    assert _login(client, "grace.hopper@example.com").status_code == 200
+    assert _login(client, "  Grace.Hopper@Example.com ").status_code == 200
+    assert _login(client, "grace.hopper@example.com", "wrong").status_code == 401
+
+
+def test_login_username_is_case_insensitive_when_unambiguous(client):
+    _verified(client, "Heidi", "heidi@example.com")
+    assert _login(client, "heidi").status_code == 200
+    assert _login(client, "HEIDI").status_code == 200
+
+
+def test_login_never_guesses_between_usernames_differing_only_in_case(client):
+    _verified(client, "Ivan", "ivan1@example.com")
+    _verified(client, "ivan", "ivan2@example.com")
+    assert _login(client, "Ivan").status_code == 200   # exact match wins
+    assert _login(client, "ivan").status_code == 200
+    assert _login(client, "IVAN").status_code == 401   # two case-insensitive matches: refuse

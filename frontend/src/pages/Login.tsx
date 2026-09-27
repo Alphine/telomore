@@ -54,7 +54,7 @@ export function Login() {
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
         <div>
           <label className="label" htmlFor="login-username">
-            Username
+            Username or email
           </label>
           <input
             id="login-username"

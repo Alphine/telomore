@@ -8,7 +8,7 @@ import { Login } from './Login'
 afterEach(() => vi.unstubAllGlobals())
 
 function fillAndSubmit(username = 'alice', password = 'pw') {
-  fireEvent.change(screen.getByLabelText('Username'), { target: { value: username } })
+  fireEvent.change(screen.getByLabelText('Username or email'), { target: { value: username } })
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: password } })
   fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
 }

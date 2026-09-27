@@ -14,3 +14,4 @@ experiments/reports/*.html
 /data/
 frontend/node_modules/
 frontend/dist/
+foci/focilab_cache/

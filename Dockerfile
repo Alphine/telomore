@@ -45,6 +45,8 @@ RUN pip install --no-deps -e .
 
 COPY backend/ ./backend/
 COPY configs/ ./configs/
+# Foci Lab: the well -> IDR image index read by backend/routers/foci.py
+COPY foci/web/data/well_index.json ./foci/web/data/well_index.json
 # docs/ is excluded from the build context except this one file: backend/llm.py
 # quotes its "Language policy" section verbatim in the interpreter's system prompt.
 COPY docs/SCIENTIFIC_SCOPE.md ./docs/SCIENTIFIC_SCOPE.md

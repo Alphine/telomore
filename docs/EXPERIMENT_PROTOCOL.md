@@ -1025,6 +1025,42 @@ once the healthy clone's lineages cross the threshold it is displaced — the
 same logic as clonal expansion after tumour-suppressor checkpoint loss. The
 symmetric controls show the outcome is not a simulator artefact.
 
+## 15.2 Experiment L — Can a classical counter reproduce published 53BP1 foci counts? (Foci Lab)
+
+**Data.** IDR study idr0010 (Doil et al., *Cell* 2009, doi:10.1016/j.cell.2008.12.041; CC BY 4.0):
+a genome-wide siRNA screen in U2OS cells, 57,216 wells, 17,536 genes, one
+two-channel image (Hoechst DNA + 53BP1) per well in IDR, and the authors' own per-well cell count,
+foci count and foci/cell in `idr0010-screenA-annotation.csv`. Built by
+`scripts/build_foci_dataset.py` into `foci/web/data/`.
+
+**From the authors' table (no image analysis by us).** Median plate-normalised foci/cell per gene
+over QC-passed wells, genes with ≥ 2 wells: lowest RNF168 0.14, MDC1 0.20, RNF8 0.30; highest PSMA3 7.25, PSMB2 5.82, MAPK10 4.29 (proteasome). The three
+lowest are exactly the recruitment pathway the paper reported. Telomerase/shelterin genes sit inside
+the negative-control range (p10–p90 0.81–1.22): TERT 1.20, TERF1 1.15, TERF2 0.97, POT1 1.17, TINF2 1.40, ACD 0.94, DKC1 1.27, WRN 1.47, BLM 1.03.
+Expected for a short-term siRNA screen; not evidence these genes are unimportant.
+
+**Question.** Does our classical pipeline (`telomere_lab.foci`: background-corrected log-Otsu nuclei,
+area-based count of touching nuclei, top-hat local maxima ≥ 12 grey levels for foci) reproduce the
+authors' per-well foci/cell from the single IDR field?
+
+**Setup.** 93 QC-passed sample wells: 9 per foci/cell ninth of the screen (fixed seed) plus all
+RNF168/MDC1/RNF8 and PSMA3/PSMB2/PSMB6 wells. During development three detector designs and a
+parameter grid were fitted on a training split; none generalised, so the default parameters are
+reported, not a tuned optimum.
+
+**Result: no agreement.** Spearman ρ = -0.011, Pearson r = -0.243; our nucleus
+count vs the authors' cell count r = 0.138. Repair-knockdown wells: ours
+9.401 vs authors 0.517 foci/cell; proteasome wells: ours
+4.571 vs authors 11.498.
+
+**Interpretation.** IDR holds one 696×520 field per well (~90 cells) as an 8-bit render; the authors
+counted up to ~300 cells per well, most likely over several fields at full bit depth. On one 8-bit
+field normal nuclear texture passes as foci, and by eye the RNF168 and proteasome fields differ far
+less than the published 80-fold gap. Consequence: every biological statement in Foci Lab uses the
+authors' numbers; our counter is shown only as a labelled illustration (`validated: false` in the API).
+The synthetic-image unit tests (`tests/test_foci.py`) show the counter itself counts known nuclei and
+foci exactly, so the failure is about the data available, not arithmetic.
+
 ## 16. Performance (scripts/benchmark.py, same machine)
 
 | Measurement | Value |

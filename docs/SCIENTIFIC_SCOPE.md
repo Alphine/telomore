@@ -136,3 +136,12 @@ synthetic and their roles are labels; its mutation and lineage rules are
 illustrative, uncalibrated, and make no claim about real genes, real cells, or
 disease. Experiment K (healthy vs. damaged clones) is likewise a statement about
 this model's mechanisms.
+
+
+## Foci Lab (real microscopy)
+
+Foci Lab shows real data (IDR idr0010, CC BY 4.0, Doil et al. 2009). Biological statements there
+come from the authors' own per-well measurements. 53BP1 foci mark DNA double-strand breaks in
+general, not telomeres. The link to the Telomere Lab model is qualitative: the screen does not
+calibrate any model parameter. Our own automated foci count is labelled unvalidated because it does
+not reproduce the published counts (Experiment L).

@@ -32,6 +32,7 @@ from .routers import (
     llm,
     meta,
     pareto,
+    foci,
     sensitivity,
     sequence,
     simulate,
@@ -81,7 +82,9 @@ def create_app() -> FastAPI:
     # origin placeholder. TODO(Phase 2+): once the React app has a real
     # deployed URL, set FRONTEND_ORIGIN in Railway and tighten this list --
     # do not ship a wildcard production origin.
-    allowed_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    allowed_origins = ["http://localhost:5173", "http://127.0.0.1:5173",
+                       # Foci Lab (static companion site, calls only the public /api/foci/*)
+                       "https://studylab.id", "https://www.studylab.id"]
     extra_origin = os.environ.get("FRONTEND_ORIGIN")
     if extra_origin:
         allowed_origins.append(extra_origin)
@@ -112,6 +115,7 @@ def create_app() -> FastAPI:
     app.include_router(llm.router, prefix="/api")
     app.include_router(meta.router, prefix="/api")
     app.include_router(sequence.router, prefix="/api")
+    app.include_router(foci.router, prefix="/api")
 
     _mount_frontend(app, FRONTEND_DIST)
 

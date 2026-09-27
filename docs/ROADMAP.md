@@ -606,6 +606,15 @@ evenly around the mean, shortest end = mean shortest-per-cell), so it is an
 illustration, not a measured single cell; chromosome shapes are stylised.
 Code: `frontend/src/components/{telomereCell.ts,TelomereCell3D.tsx}`.
 
+### Foci Lab: real microscopy companion site (DONE 2026-09-27)
+
+A second, static web app at https://studylab.id (Hostinger) built from IDR study idr0010
+(genome-wide 53BP1 foci siRNA screen, CC BY 4.0): gene explorer over the authors' per-gene
+results, original images through a caching PHP proxy, a live nucleus outline served by
+`/api/foci/overlay` on the existing Railway backend, and Experiment L (a documented negative
+result: our classical counter does not reproduce the published per-well counts). Code:
+`src/telomere_lab/foci/`, `scripts/build_foci_dataset.py`, `foci/`, `backend/routers/foci.py`.
+
 ### Canalization / robustness fitness objective (DONE 2026-09-13)
 
 A new `canalization` fitness term measuring consistency of a genotype's

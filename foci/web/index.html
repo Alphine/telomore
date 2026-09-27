@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Foci Lab</title>
+<meta name="description" content="Explore a genome-wide RNAi screen of 53BP1 DNA-damage foci (Doil et al. 2009, IDR idr0010): 17,537 genes, real microscopy, and an honest validation of automated foci counting. Companion to Telomere Evolution Lab.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap top-row">
+    <a class="brand" href="#top" aria-label="Foci Lab home">
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="9" cy="10" r="2.2" fill="var(--accent)"/><circle cx="16" cy="9" r="1.6" fill="var(--accent)"/><circle cx="14" cy="16" r="2.4" fill="var(--accent)"/></svg>
+      <span>Foci Lab</span>
+    </a>
+    <nav aria-label="Sections">
+      <a href="#findings">Findings</a>
+      <a href="#explorer">Gene explorer</a>
+      <a href="#telomere">Telomere genes</a>
+      <a href="#gallery">Images</a>
+      <a href="#validation">Validation</a>
+      <a href="#bridge">Telomere Lab</a>
+    </nav>
+    <button class="theme" id="themeBtn" type="button" aria-label="Toggle dark mode">
+      <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3a7 7 0 1 0 7 7 5.5 5.5 0 0 1-7-7z" fill="currentColor"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero wrap">
+    <p class="eyebrow">Real microscopy &middot; genome-wide RNAi screen</p>
+    <h1>Which genes change DNA-damage foci in human cells?</h1>
+    <p class="lead">An explorer for a published screen that silenced <strong id="t-genes">17,537</strong> human genes one at a time and counted <strong>53BP1 foci</strong>, the bright spots that mark DNA double-strand breaks. All numbers are the authors' own measurements; the images are the original microscopy.</p>
+    <div class="tiles" id="tiles"></div>
+    <p class="note">53BP1 foci mark DNA breaks anywhere in the genome, not telomeres specifically. This site is a companion to <a href="https://telomore-production.up.railway.app" rel="noopener">Telomere Evolution Lab</a>; the link between the two is qualitative (see <a href="#bridge">below</a>).</p>
+  </section>
+
+  <section class="wrap block" id="findings">
+    <h2>What the screen found</h2>
+    <p class="sub">Foci per cell relative to the plate (1.0 = typical). The grey band is the middle 80% of negative-control wells. Genes with at least two wells.</p>
+    <div class="two">
+      <figure class="card">
+        <figcaption><b>Fewer foci</b> &mdash; silencing these stops 53BP1 gathering at breaks</figcaption>
+        <div id="lowChart" class="bars"></div>
+      </figure>
+      <figure class="card">
+        <figcaption><b>More foci</b> &mdash; silencing these leaves more unrepaired breaks</figcaption>
+        <div id="highChart" class="bars"></div>
+      </figure>
+    </div>
+    <p class="callout">The three genes whose loss removes foci most strongly, <b>RNF168</b>, <b>MDC1</b> and <b>RNF8</b>, are exactly the recruitment pathway the paper reported. The top of the list is dominated by <b>proteasome</b> subunits (PSMA/PSMB).</p>
+  </section>
+
+  <section class="wrap block" id="explorer">
+    <h2>Gene explorer</h2>
+    <p class="sub">Search any of the screened genes. Values are medians over the gene's quality-controlled wells.</p>
+    <div class="search">
+      <label for="geneInput">Gene symbol</label>
+      <input id="geneInput" list="geneList" autocomplete="off" spellcheck="false" placeholder="e.g. RNF168, TERF2, PSMA3">
+      <datalist id="geneList"></datalist>
+      <button id="geneGo" type="button" class="btn">Show</button>
+    </div>
+    <div id="geneCard" class="card gene" hidden></div>
+    <figure class="card">
+      <figcaption>Distribution of all sample wells (foci per cell relative to plate)</figcaption>
+      <div id="hist"></div>
+    </figure>
+  </section>
+
+  <section class="wrap block" id="telomere">
+    <h2>Telomere and shelterin genes</h2>
+    <p class="sub">The screen also silenced the telomerase and shelterin genes. None of them shifts 53BP1 foci outside the normal range in this short-term screen.</p>
+    <div class="card"><div id="teloChart" class="bars"></div></div>
+    <p class="note">An honest null: the screen measured foci shortly after siRNA transfection, before telomere erosion could build up. Telomere dysfunction foci typically need longer or targeted assays (for example TRF2 dominant-negative), so a flat result here is expected rather than evidence that these genes do not matter.</p>
+  </section>
+
+  <section class="wrap block" id="gallery">
+    <h2>Original images</h2>
+    <p class="sub">One microscope field per well. Blue: DNA (Hoechst). Green: 53BP1. Toggle our automatic outline to see which nuclei and spots our classical counter picked up.</p>
+    <div class="gal" id="gal"></div>
+  </section>
+
+  <section class="wrap block" id="validation">
+    <h2>Experiment L: can a simple counter reproduce the authors' numbers?</h2>
+    <p class="sub">Our classical pipeline (background-corrected Otsu nuclei, top-hat local maxima for foci) on one IDR field per well, against the authors' published per-well foci per cell.</p>
+    <div class="two">
+      <figure class="card"><figcaption>Each dot is a well</figcaption><div id="scatter"></div></figure>
+      <div class="card verdict" id="verdict"></div>
+    </div>
+  </section>
+
+  <section class="wrap block" id="bridge">
+    <h2>How this connects to Telomere Evolution Lab</h2>
+    <div class="two">
+      <div class="card">
+        <h3>In the model</h3>
+        <p>Telomere Lab's genome-stability layer gives every cell a <code>mutation_burden</code> and an apoptosis checkpoint. Its Experiment K shows that a clone which loses the checkpoint takes over a culture, because nothing culls its damaged cells.</p>
+      </div>
+      <div class="card">
+        <h3>In this screen</h3>
+        <p>53BP1 foci are a real, per-cell readout of unrepaired breaks. The screen shows which genes raise that burden (proteasome) and which remove the cell's ability to mark it (RNF8, RNF168, MDC1), which is the recruitment step a damage checkpoint relies on.</p>
+      </div>
+    </div>
+    <p class="note">This is a qualitative bridge. The screen does not calibrate any model parameter, and the model does not predict these measurements.</p>
+    <p><a class="btn" href="https://telomore-production.up.railway.app" rel="noopener">Open Telomere Evolution Lab</a></p>
+  </section>
+</main>
+
+<footer class="wrap foot">
+  <p id="attrib"></p>
+  <p>Data and images: <a href="https://idr.openmicroscopy.org/webclient/?show=screen-1351" rel="noopener">IDR idr0010</a>, licensed <a href="https://creativecommons.org/licenses/by/4.0/" rel="noopener">CC BY 4.0</a>. Research prototype, not a diagnostic or clinical tool. Code: <a href="https://github.com/Alphine/telomore" rel="noopener">github.com/Alphine/telomore</a> &middot; <a href="https://basyid.dev" rel="noopener">basyid.dev</a></p>
+</footer>
+
+<dialog id="wellDlg" aria-labelledby="wellTitle">
+  <div class="dlg-head">
+    <h3 id="wellTitle">Well</h3>
+    <button type="button" class="x" id="wellClose" aria-label="Close">&times;</button>
+  </div>
+  <div class="dlg-body">
+    <div class="dlg-img"><img id="wellImg" alt=""><p id="wellStatus" class="note"></p></div>
+    <div class="dlg-side">
+      <dl id="wellMeta"></dl>
+      <button type="button" class="btn" id="wellOutline">Outline nuclei (live, Railway)</button>
+      <p class="note">The outline runs our classical counter on this image on the Telomere Lab server. Its foci count is not validated (see Experiment L).</p>
+    </div>
+  </div>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>

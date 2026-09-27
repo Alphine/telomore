@@ -739,3 +739,11 @@ All require authentication and are synchronous. Synthetic genes only
 * `GET /api/sequence/genome` — the three synthetic genes (`dna`, `mrna`, `protein`, substitution `profile`).
 * `POST /api/sequence/mutate` — `{gene, position, alt}` -> effect class, codons, amino acids, mutated protein. 400 for unknown gene / bad position / `alt` equal to the reference base.
 * `POST /api/sequence/lineage` — normal vs damaged lineage time series (`alive_fraction`, `mean_burden`, `<gene>_functional`) plus `model_bridge` sub-clone overrides. Extinct generations are `null`.
+
+
+## Foci Lab (`/api/foci/*`)
+
+* `GET /api/foci/overlay?well=<Plate_Well>` — public, no auth. Only wells in
+  `foci/web/data/well_index.json` (IDR idr0010) are accepted (400 malformed, 404 not imaged, 502 IDR
+  unavailable). Returns `{well, image_id, nuclei, foci, foci_per_cell, jpeg (base64 overlay),
+  validated: false, note, attribution}`; memoised per image. CORS allows https://studylab.id.

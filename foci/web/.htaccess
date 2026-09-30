@@ -34,3 +34,10 @@ RewriteRule ^api/[^/]*\.(json|lock|cfg|ini)$ - [F,L]
     Header set Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src https://telomore-production.up.railway.app; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
   </FilesMatch>
 </IfModule>
+
+# Plate mode: same-origin only (the meta tag in screen.html says the same; the header adds frame-ancestors).
+<IfModule mod_headers.c>
+  <FilesMatch "^screen\.html$">
+    Header set Content-Security-Policy "default-src 'none'; script-src 'self'; worker-src 'self' blob:; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
+  </FilesMatch>
+</IfModule>

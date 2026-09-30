@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; worker-src 'self' blob:; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<title>IDR plate mode &middot; Foci Lab</title>
+<meta name="description" content="Pick one plate of the Doil et al. 53BP1 screen (IDR idr0010), let your own browser fetch its images and count nuclei and foci, and compare the result with the authors' per-well numbers. Nothing is analysed on our server.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500&display=swap">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="screen.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap top-row">
+    <a class="brand" href="index.html" aria-label="Foci Lab home">
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="9" cy="10" r="2.2" fill="var(--accent)"/><circle cx="16" cy="9" r="1.6" fill="var(--accent)"/><circle cx="14" cy="16" r="2.4" fill="var(--accent)"/></svg>
+      <span>Foci Lab</span>
+    </a>
+    <nav aria-label="Sections">
+      <a href="index.html">Screen explorer</a>
+      <a href="analyze.html">Analyse your image</a>
+      <a href="screen.html" aria-current="page">IDR plate mode</a>
+      <a href="/telomore/" rel="noopener">Telomere Lab</a>
+    </nav>
+    <button class="theme" id="themeBtn" type="button" aria-label="Toggle dark mode">
+      <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3a7 7 0 1 0 7 7 5.5 5.5 0 0 1-7-7z" fill="currentColor"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero wrap">
+    <p class="eyebrow">Screen idr0010 &middot; your browser does the work &middot; exploratory</p>
+    <h1>IDR plate mode</h1>
+    <p class="lead">Choose one plate of the genome-wide 53BP1 screen (Doil et al. 2009). Your browser downloads that plate's wells from our cache, counts nuclei and foci with the Foci Lab engine, and lines the result up with the authors' own per-well numbers. <strong>Our server never runs the analysis</strong>; it only hands out images.</p>
+
+    <div class="sc-banner sc-pair" role="note" id="pairNote">
+      <b>Open question: which annotation row belongs to which image?</b>
+      <p>The image grid of a plate and the authors' table number the wells differently. Matching them <em>by well name</em> (image A2 with row A2) and matching them by the annotation's <em>Well Number</em> with the image grid counted column by column (A1, B1, &hellip; L1, A2, &hellip;) give different pairs, and so different agreement. Experiment L2 found that the second rule agrees better with the authors' cell counts on plate 7-14, but that is indirect evidence; <b>the curators or the authors would have to confirm which is right, and this page does not claim either</b>. Both pairings are therefore shown side by side everywhere. See <code>docs/EXPERIMENT_PROTOCOL.md</code> &sect;15.4.</p>
+    </div>
+    <div class="sc-banner" role="note">
+      <b>Read this first.</b>
+      <ul>
+        <li>The counter is exploratory and <b>not validated against manual counts</b>. A low or high correlation with the authors' numbers does not by itself say which side is wrong.</li>
+        <li>53BP1 foci mark DNA double-strand breaks anywhere in the genome; they are <b>not telomere-specific</b>.</li>
+        <li>Images come from the public Image Data Resource (idr0010, CC BY 4.0) through a cache on this site; an image is fetched from IDR once and then served from the cache. Nothing you do here uploads anything.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="wrap block" id="tool" aria-labelledby="pickH">
+    <h2 id="pickH">1. Pick a plate</h2>
+    <div class="card sc-pick">
+      <div class="sc-row">
+        <div class="sc-field">
+          <label for="plateSel">Plate <span class="note" id="plateCount"></span></label>
+          <select id="plateSel" disabled><option value="">Loading plates&hellip;</option></select>
+        </div>
+        <div class="sc-field">
+          <label for="modeSel">Compute</label>
+          <select id="modeSel">
+            <option value="auto">Automatic (GPU if available, else CPU)</option>
+            <option value="reference">CPU reference engine</option>
+            <option value="gpu">GPU only (WebGPU)</option>
+          </select>
+        </div>
+        <div class="sc-field sc-engine">
+          <span class="sc-lbl">Engine</span>
+          <span id="engineBadge" class="badge">checking&hellip;</span>
+        </div>
+      </div>
+      <p id="engineMsg" class="sc-msg" role="status" hidden></p>
+
+      <div id="plateInfo" class="sc-cost" hidden>
+        <h3>What this will cost</h3>
+        <ul>
+          <li><b id="costImages"></b> image requests (<span id="costWells"></span> wells &times; 2 channels: DNA and 53BP1). Each image is fetched from IDR once and then cached on our server.</li>
+          <li id="costTime"></li>
+          <li>Per visitor the server allows <span id="costLimits"></span>. If it says &ldquo;slow down&rdquo; this page waits and tries again; it never retries forever.</li>
+          <li>Hard cap for this browser tab: <b id="costCap"></b> image requests (used so far: <span id="costUsed"></span>). One plate at a time.</li>
+          <li>Memory stays small: each well is analysed as it arrives and only its counts are kept.</li>
+        </ul>
+        <label class="sc-chk"><input type="checkbox" id="consent"> I understand, go ahead and request this plate's images.</label>
+      </div>
+
+      <details class="sc-params">
+        <summary>Engine parameters (optional)</summary>
+        <p class="note">Defaults come from the engine. To change some, enter a JSON object such as <code>{"min_height": 14}</code>; it is merged over the defaults and recorded in the provenance export.</p>
+        <pre id="paramDefaults" class="sc-pre" tabindex="0"></pre>
+        <label for="paramJson" class="sc-lbl">Overrides (JSON object)</label>
+        <textarea id="paramJson" rows="3" spellcheck="false" autocomplete="off" maxlength="2000"></textarea>
+        <p id="paramMsg" class="note" role="status"></p>
+      </details>
+
+      <div class="sc-actions">
+        <button type="button" class="btn" id="goBtn" disabled>Analyse this plate in my browser</button>
+        <button type="button" class="btn ghost" id="pauseBtn" hidden>Pause</button>
+        <button type="button" class="btn ghost" id="resumeBtn" hidden>Resume</button>
+        <button type="button" class="btn ghost" id="cancelBtn" hidden>Cancel</button>
+        <button type="button" class="btn ghost" id="retryBtn" hidden>Retry failed wells</button>
+      </div>
+      <div id="progressBox" class="sc-progress" hidden>
+        <progress id="bar" max="1" value="0" aria-label="Wells analysed"></progress>
+        <p id="progressText" class="sc-msg" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap block" id="results" aria-labelledby="resH" hidden>
+    <h2 id="resH">2. Plate heatmap</h2>
+    <div class="sc-toolbar">
+      <div class="sc-field">
+        <label for="metricSel">Show</label>
+        <select id="metricSel">
+          <option value="fpc">Our foci per cell</option>
+          <option value="nuclei">Our nucleus count</option>
+          <option value="author_fpc">Authors' foci per cell</option>
+          <option value="author_cells">Authors' cell count</option>
+        </select>
+      </div>
+      <fieldset class="sc-seg">
+        <legend>Annotation pairing (marks and the authors' values)</legend>
+        <label><input type="radio" name="pairSel" value="name" checked> A: by well name</label>
+        <label><input type="radio" name="pairSel" value="colmajor"> B: by Well Number (column-major)</label>
+      </fieldset>
+    </div>
+    <div class="sc-heat-wrap">
+      <div id="heat" class="sc-heat"></div>
+      <div id="legend" class="sc-legend"></div>
+    </div>
+    <p class="note">Rows A&ndash;L, columns 1&ndash;32, as in the IDR image grid. Hatched = the authors flagged this well for removal under the selected pairing; ring with P / N = positive / negative control under that pairing; grey = not analysed yet; red cross = failed. Use the arrow keys to move between wells.</p>
+    <div id="detail" class="sc-detail card" role="status" aria-live="polite" tabindex="-1">Hover or focus a well to see its numbers.</div>
+
+    <h2 class="sc-h2">3. Agreement with the authors' numbers</h2>
+    <p class="sub">Only wells that are analysed, have at least one nucleus, are sample wells (not controls) and passed the authors' QC are compared; <b>n</b> is shown next to every coefficient. Spearman rank correlation, ties averaged. A coefficient is not shown when fewer than 3 wells are available or one side is constant.</p>
+    <fieldset class="sc-seg sc-scatter-sel">
+      <legend>Scatter plot</legend>
+      <label><input type="radio" name="scSel" value="foci" checked> foci per cell</label>
+      <label><input type="radio" name="scSel" value="nuclei"> nucleus count vs cell count</label>
+    </fieldset>
+    <div class="sc-two" id="compare"></div>
+
+    <h2 class="sc-h2">4. Per-well table</h2>
+    <div class="card">
+      <div class="sc-toolbar"><p class="note" id="tblNote"></p>
+        <div class="sc-actions">
+          <button type="button" class="btn" id="csvBtn" disabled>Download CSV</button>
+          <button type="button" class="btn ghost" id="provBtn" disabled>Download provenance JSON</button>
+        </div>
+      </div>
+      <div class="tbl sc-tbl"><table id="tbl" aria-label="Per-well results"></table></div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap foot">
+  <p>Images and the authors' per-well numbers: Doil C, et al. RNF168 binds and amplifies ubiquitin conjugates on damaged chromosomes to allow accumulation of repair proteins. Cell 2009;136:435-446, via the <a href="https://idr.openmicroscopy.org/webclient/?show=screen-1351" rel="noopener">Image Data Resource</a> (idr0010, screen 1351), licensed <a href="https://creativecommons.org/licenses/by/4.0/" rel="noopener">CC BY 4.0</a>. Counts on this page are computed in your browser by the Foci Lab engine; they are not the authors' and not validated. Research prototype, not a diagnostic tool. Code: <a href="https://github.com/Alphine/telomore" rel="noopener">github.com/Alphine/telomore</a> &middot; <a href="https://basyid.dev" rel="noopener">basyid.dev</a></p>
+</footer>
+<noscript><p class="wrap">This page needs JavaScript: the analysis runs in your browser.</p></noscript>
+
+<script src="engine/engine.js"></script>
+<script src="screen-core.js"></script>
+<script src="screen.js"></script>
+</body>
+</html>

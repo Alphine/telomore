@@ -49,7 +49,7 @@ The ledger records what is needed to repeat it.
    is not the model that was published.
 5. **Experiments.** Every number in
    [`EXPERIMENT_PROTOCOL.md`](EXPERIMENT_PROTOCOL.md) comes from a recorded
-   run; each experiment section names its run id and the command to repeat it.
+   run; the experiment sections give the run id and/or the command to repeat it.
 
 Note that the `config_hash()` of a `ModelConfig` (used for caching) and the
 ledger's `configuration_hash` (which covers the whole configuration dict) are

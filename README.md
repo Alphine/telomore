@@ -181,6 +181,64 @@ behind the login gate.
 (IDR idr0010, Doil et al. 2009, CC BY 4.0): 17,536 genes, the original images, and Experiment L, an
 honest negative result on automated foci counting. See `foci/README.md`.
 
+## For scientists
+
+**Good for:** generating and comparing hypotheses about how shortening,
+maintenance, stress, repair and clonal selection interact; teaching; ranking
+virtual conditions worth testing at the bench first. **Not for:** diagnosis,
+predicting a patient's telomere length or ageing, or replacing measurement.
+It is not fitted to your data (see limits below). Full statement:
+[`docs/SCIENTIFIC_SCOPE.md`](docs/SCIENTIFIC_SCOPE.md).
+
+Python quickstart (run from the repo root with `PYTHONPATH=src`):
+
+```python
+import numpy as np
+from telomere_lab.schemas import ModelConfig
+from telomere_lab.simulator.model import simulate
+from telomere_lab.experiments.runner import run_ensemble, summarize_ensemble
+
+cfg = ModelConfig(seed=1)                    # library defaults (docs/MODEL.md section 3)
+res = simulate(cfg)                          # one stochastic run
+print("mean length (bp), cycle 0 -> end:", round(float(res.mean_length[0])), "->", round(float(res.mean_length[-1])))
+print("mean shortest telomere per cell (bp), end:", round(float(res.mean_shortest_per_cell[-1])))
+
+runs = run_ensemble(cfg, seeds=range(1, 11))  # 10 independent seeds
+half = [int(np.argmax(r.senescent_fraction >= 0.5)) for r in runs]
+print("cycle at which >=50% of cells are senescent, per seed:", half)
+s = summarize_ensemble(runs)                 # per-cycle p10 / p50 / p90 of mean length
+print("final mean length p10/p50/p90 (bp):", [round(s[k][-1]) for k in ("p10", "p50", "p90")])
+```
+
+Output with the defaults (checked; deterministic for a given model version):
+
+```
+mean length (bp), cycle 0 -> end: 7498 -> 3626
+mean shortest telomere per cell (bp), end: 2960
+cycle at which >=50% of cells are senescent, per seed: [52, 50, 49, 55, 51, 54, 52, 51, 49, 51]
+final mean length p10/p50/p90 (bp): [3522, 3591, 3645]
+```
+
+Mapping model outputs to lab measurements:
+
+| Model output | Closest lab measurement | Caveat |
+|---|---|---|
+| Mean telomere length (bp) | TRF mean | Not directly comparable: TRF includes subtelomeric DNA. Compare trends, not absolute values. |
+| Shortest telomere length | Q-FISH / STELA lower tail | Closest to what triggers senescence in the model; there is no assay layer yet. |
+| Senescent fraction | SA-β-gal positive % | Model senescence is a deterministic length threshold; the stain is a marker with its own false positives and negatives. |
+| Cycle (simulation step) | Population doublings | **Not** a population-doubling count: a cycle is one division round of the model, and cells that stop dividing or are removed change the culture's doublings. There is **no wall-clock time** yet. A doubling count and a time axis are being added (planned). |
+| Fitness, "biological age" score | none | Model-internal objective and vitality index, not measurable. |
+| `repair_rate`, `stress_level`, `maintenance_rate` | none directly | Abstract scalar knobs, not assayed quantities. |
+
+Reproducibility: every recorded run has an id and a line in
+`experiments/registry.jsonl` (seed, configuration hash, model version, git
+commit); frozen golden outputs are in `tests/fixtures/`. See
+[`docs/CITING_AND_REPRODUCING.md`](docs/CITING_AND_REPRODUCING.md).
+
+Honest limits: there is no bring-your-own-data import or parameter fitting yet
+(planned, see [`docs/ROADMAP.md`](docs/ROADMAP.md)), and defaults are
+within literature ranges, not fitted (`docs/MODEL.md` §3.1).
+
 ## Model in one paragraph
 
 Each cell carries a set of telomere lengths (bp). Per cell cycle every

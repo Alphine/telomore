@@ -789,3 +789,37 @@ alongside this feature.
   differential apoptotic removal, per-clone `genomic_instability_index`, and
   bit-identity when unused) — 313 pytest total, 176 Vitest total, `npx tsc -b
   --force` and lint clean.
+
+## Scientist-facing hardening (2026-09-30 audit)
+
+An audit of the docs for statements a working scientist could challenge.
+
+**Addressed in this batch (docs and metadata only):**
+
+- README made consistent with Experiment D and `SCIENTIFIC_SCOPE.md` (Level 3
+  done as a structural model-to-model comparison, not validation); the
+  contradictory "no apoptosis / no checkpoints" wording reconciled with the
+  optional MODEL §2.3 checkpoint; Foci Lab counter stated as unvalidated.
+- `docs/MODEL.md`: §2.3 composition fixed (genome-stability parameters are
+  sub-clone-overridable); §3.1 verdicts reworded to "within the range reported
+  in the literature; not fitted to data"; `senescence_threshold` vs. TRF
+  caveat; §7 limitation reworded.
+- `docs/SCIENTIFIC_SCOPE.md`: intended use and non-use; "biological age" score
+  is a model vitality index, not an epigenetic-clock-style age (docs only,
+  UI labels unchanged).
+- README "For scientists" section with a verified quickstart and an
+  output-to-measurement table.
+- `CITATION.cff`, `.zenodo.json`, `docs/CITING_AND_REPRODUCING.md` (owner
+  fills the `TODO(owner)` items and releases; not done here).
+
+**Deferred (planned, not done):**
+
+- Population-doubling count and a wall-clock time axis for the model
+  (currently a cycle is not a doubling count; no wall-clock time).
+- Bring-your-own-data CSV import and parameter fitting.
+- Assay layer: simulated TRF, Q-FISH and qPCR readouts.
+- Sobol sensitivity via SALib.
+- Wheel-safe paths and optional-dependency extras for `pip install`.
+- Notebook tutorial.
+- TelNet, GWAS and GEO integrations.
+- Raw 16-bit redo of Experiment L (Foci Lab counter).

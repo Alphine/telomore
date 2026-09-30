@@ -413,7 +413,9 @@ def test_shipped_contract(shipped, screen_ids):
 
 
 def test_shipped_sorted_compact_and_small(shipped):
-    raw = ANNOT.read_bytes()
+    raw = ANNOT.read_bytes().replace(b"
+", b"
+")  # tolerate git autocrlf checkouts
     assert len(raw) < 1_500_000
     assert raw.endswith(b"\n") and b"\r" not in raw
     assert raw.decode("utf-8") == bfa.dumps(shipped)  # canonical: sorted keys, compact separators

@@ -820,6 +820,13 @@ limits/rate limiting/job queue (`docs/API.md`), Foci Lab hit statistics with an
 empirical null and the corrected Experiment L explanation. All model additions
 are default-off and bit-identical when unused.
 
+**Done 2026-10-01 (Foci Lab, five parallel workstreams):** downloadable CSV/JSON with a manifest and
+hashes, a per-siRNA table, current HGNC symbols (3,736 of 17,536 screen symbols differ from today's), a gene-list query
+with volcano/rank plots and enrichment tests validated against scipy, a two-channel viewer with a corrected scale bar
+(0.465 um/px from the study protocol; IDR reports a placeholder 1.0), external annotations (TelNet, GWAS Catalog,
+DepMap; licences verified), a public image-analysis page backed by `POST /api/foci/analyze` with size, concurrency and
+rate limits, and Experiment L2 on raw data (bit depth ruled out; image-to-annotation pairing unresolved).
+
 **Deferred (planned, not done):**
 
 - Bring-your-own-data CSV import and parameter fitting.

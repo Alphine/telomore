@@ -1645,5 +1645,48 @@
    "ratio_median": 1.034,
    "ratio_p90": 1.746
   }
+ },
+ "build": {
+  "built_utc": "2026-09-30T13:25:08Z",
+  "git_commit": "84a125f573b4b666c08d147d3d4396906682a95f",
+  "manifest": "downloads/manifest.json"
+ },
+ "symbols": {
+  "source": "HGNC complete set (HUGO Gene Nomenclature Committee)",
+  "release": "hgnc_complete_set.txt, Last-Modified Tue, 29 Sep 2026 14:10:11 GMT",
+  "licence": "CC0",
+  "screen_genes": 17536,
+  "screen_genes_with_ensembl": 17536,
+  "ensembl_ids_in_screen": 17536,
+  "ensembl_ids_found_in_hgnc": 16478,
+  "ensembl_ids_missing_from_hgnc": 1058,
+  "ensembl_ids_shared_by_two_hgnc_entries": 0,
+  "genes_symbol_differs": 3736,
+  "genes_symbol_differs_explained_by_previous_or_alias": 2292,
+  "examples": [
+   {
+    "screen_symbol": "H2AFX",
+    "current_symbol": "H2AX"
+   },
+   {
+    "screen_symbol": "MRE11A",
+    "current_symbol": "MRE11"
+   },
+   {
+    "screen_symbol": "AADACL1",
+    "current_symbol": "NCEH1"
+   },
+   {
+    "screen_symbol": "AARS",
+    "current_symbol": "AARS1"
+   },
+   {
+    "screen_symbol": "AATK",
+    "current_symbol": "LMTK1"
+   }
+  ],
+  "lookup_tokens": 52771,
+  "ambiguous_tokens": 1522,
+  "note": "'missing' = the Ensembl ID is not attached to an approved gene in the HGNC complete set (retired, withdrawn or never assigned); the cases are not distinguishable here."
  }
 }

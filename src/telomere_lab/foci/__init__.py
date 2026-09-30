@@ -9,7 +9,7 @@ specifically. Anything this package says about the Telomere Lab model is a
 qualitative comparison, not a calibration (docs/SCIENTIFIC_SCOPE.md).
 """
 
-from .segment import FociParams, SegmentationResult, count_foci, overlay_rgb
+from .segment import FociParams, SegmentationResult, count_foci, nucleus_table, overlay_rgb
 from .idr import IdrClient, fetch_image_channels
 
 ATTRIBUTION = (
@@ -18,5 +18,5 @@ ATTRIBUTION = (
     "Via the Image Data Resource, study idr0010 (https://idr.openmicroscopy.org), CC BY 4.0."
 )
 
-__all__ = ["ATTRIBUTION", "FociParams", "SegmentationResult", "count_foci", "overlay_rgb",
+__all__ = ["ATTRIBUTION", "FociParams", "SegmentationResult", "count_foci", "nucleus_table", "overlay_rgb",
            "IdrClient", "fetch_image_channels"]

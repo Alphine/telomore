@@ -132,3 +132,34 @@ def overlay_rgb(dna: np.ndarray, foci_ch: np.ndarray, res: SegmentationResult) -
     ring = ndi.binary_dilation(res.foci > 0, iterations=3) & ~ndi.binary_dilation(res.foci > 0, iterations=1)
     rgb[ring] = (1.0, 0.72, 0.15)
     return (rgb * 255).astype(np.uint8)
+
+
+def nucleus_table(res: SegmentationResult) -> List[dict]:
+    """One row per nuclear object: id (1-based label), area in px, centroid
+    (x, y) in px, nuclei-in-object (area-based estimate, >=1) and foci count.
+
+    Additive helper for the upload analyser; count_foci itself is unchanged.
+    Memory: only foreground pixel coordinates are materialised.
+    """
+    lab = res.nuclei
+    n = int(lab.max()) if lab.size else 0
+    if n == 0:
+        return []
+    ys, xs = np.nonzero(lab)
+    owners = lab[ys, xs]
+    area = np.bincount(owners, minlength=n + 1)[1:]
+    cx = np.bincount(owners, weights=xs, minlength=n + 1)[1:] / np.maximum(area, 1)
+    cy = np.bincount(owners, weights=ys, minlength=n + 1)[1:] / np.maximum(area, 1)
+    est = estimate_nuclei(lab)
+    per = res.foci_per_nucleus
+    return [
+        {
+            "id": i + 1,
+            "area_px": int(area[i]),
+            "centroid_x": round(float(cx[i]), 1),
+            "centroid_y": round(float(cy[i]), 1),
+            "nuclei_in_object": int(est[i]),
+            "foci": int(per[i]),
+        }
+        for i in range(n)
+    ]

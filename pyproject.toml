@@ -24,6 +24,7 @@ dependencies = [
   "pyjwt>=2.8",
   "anthropic>=1.0",
   "pillow>=10.0",
+  "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]

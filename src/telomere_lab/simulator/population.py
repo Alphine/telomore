@@ -6,7 +6,7 @@ isolation and to reuse from :mod:`telomere_lab.simulator.model`.
 
 from __future__ import annotations
 
-from typing import Sequence, Tuple, Union
+from typing import Optional, Sequence, Tuple, Union
 
 import numpy as np
 
@@ -19,6 +19,34 @@ def update_senescence(lengths: np.ndarray, senescent: np.ndarray, threshold: flo
     Senescence is treated as irreversible in this model.
     """
     return senescent | (lengths.min(axis=1) < threshold)
+
+
+def stochastic_arrest(
+    rng: np.random.Generator, lengths: np.ndarray, senescent: np.ndarray, threshold: float,
+    softness_bp: float, random_rate: float,
+) -> np.ndarray:
+    """Senescence update with an optional hazard (docs/MODEL.md section 2.7).
+
+    * ``softness_bp > 0``: a proliferating cell arrests this cycle with
+      probability ``sigmoid((threshold - shortest) / softness_bp)`` INSTEAD of the
+      hard ``shortest < threshold`` rule (far below threshold -> probability 1,
+      far above -> 0, exactly 0.5 at the threshold).
+    * ``softness_bp == 0``: the hard rule is applied as in :func:`update_senescence`.
+    * ``random_rate > 0``: an independent length-independent arrest probability
+      per cycle; combined as ``1 - (1 - p_len) * (1 - random_rate)``.
+
+    Exactly one uniform per cell is drawn, so callers must not call this when
+    both parameters are 0 (the default path keeps its RNG stream untouched).
+    """
+    shortest = lengths.min(axis=1)
+    if softness_bp > 0.0:
+        x = np.clip((threshold - shortest) / softness_bp, -700.0, 700.0)
+        p = 1.0 / (1.0 + np.exp(-x))
+    else:
+        p = (shortest < threshold).astype(float)
+    if random_rate > 0.0:
+        p = 1.0 - (1.0 - p) * (1.0 - random_rate)
+    return senescent | (rng.random(lengths.shape[0]) < p)
 
 
 def allocate_clone_ids(n: int, fractions: Sequence[float]) -> np.ndarray:
@@ -43,7 +71,8 @@ def allocate_clone_ids(n: int, fractions: Sequence[float]) -> np.ndarray:
 def divide(
     lengths: np.ndarray, senescent: np.ndarray, founder_id: np.ndarray, clone_id: np.ndarray,
     mutation_burden: np.ndarray, repair_rate_cells: np.ndarray,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    shortening_mult_cells: Optional[np.ndarray] = None,
+) -> Tuple[np.ndarray, ...]:
     """Every proliferative cell produces one daughter.
 
     ``founder_id`` identifies which cell of the *founding* population (at
@@ -66,6 +95,12 @@ def divide(
     mutation step, if any, is applied afterwards in the caller -- same
     division of responsibility as ``mutation_burden``).
 
+    ``shortening_mult_cells`` (optional, docs/MODEL.md section 2.8) is the
+    per-cell heritable shortening-rate multiplier, copied to daughters like
+    ``repair_rate_cells``; when given, the expanded array is appended as one
+    extra trailing element of the returned tuple (callers that omit it get the
+    historical tuple unchanged).
+
     Returns the expanded ``lengths`` / ``senescent`` / ``founder_id`` /
     ``clone_id`` / ``mutation_burden`` / ``repair_rate_cells`` arrays and a
     boolean ``divided`` mask marking rows that went through replication this
@@ -80,29 +115,40 @@ def divide(
     new_mutation_burden = np.concatenate([mutation_burden, mutation_burden[prolif]])
     new_repair_rate_cells = np.concatenate([repair_rate_cells, repair_rate_cells[prolif]])
     divided = np.concatenate([prolif, np.ones(daughters.shape[0], dtype=bool)])
-    return (new_lengths, new_senescent, new_founder_id, new_clone_id, new_mutation_burden,
-            new_repair_rate_cells, divided)
+    out = (new_lengths, new_senescent, new_founder_id, new_clone_id, new_mutation_burden,
+           new_repair_rate_cells, divided)
+    if shortening_mult_cells is not None:
+        out = out + (np.concatenate([shortening_mult_cells, shortening_mult_cells[prolif]]),)
+    return out
 
 
 def remove_dead(
     rng: np.random.Generator, lengths: np.ndarray, senescent: np.ndarray,
     founder_id: np.ndarray, clone_id: np.ndarray, mutation_burden: np.ndarray,
     repair_rate_cells: np.ndarray, death_rate: float,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Senescent cells are lost with probability ``death_rate`` per cycle."""
+    shortening_mult_cells: Optional[np.ndarray] = None,
+) -> Tuple[np.ndarray, ...]:
+    """Senescent cells are lost with probability ``death_rate`` per cycle.
+
+    ``shortening_mult_cells`` (optional) is filtered alongside and appended as
+    a trailing element of the returned tuple when given.
+    """
     if death_rate <= 0 or not senescent.any():
-        return lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells
+        out = (lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells)
+        return out if shortening_mult_cells is None else out + (shortening_mult_cells,)
     dies = senescent & (rng.random(senescent.shape[0]) < death_rate)
     keep = ~dies
-    return (lengths[keep], senescent[keep], founder_id[keep], clone_id[keep],
-            mutation_burden[keep], repair_rate_cells[keep])
+    out = (lengths[keep], senescent[keep], founder_id[keep], clone_id[keep],
+           mutation_burden[keep], repair_rate_cells[keep])
+    return out if shortening_mult_cells is None else out + (shortening_mult_cells[keep],)
 
 
 def remove_apoptotic(
     rng: np.random.Generator, lengths: np.ndarray, senescent: np.ndarray,
     founder_id: np.ndarray, clone_id: np.ndarray, mutation_burden: np.ndarray,
     repair_rate_cells: np.ndarray, apoptotic: np.ndarray, checkpoint_strength: Union[float, np.ndarray],
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    shortening_mult_cells: Optional[np.ndarray] = None,
+) -> Tuple[np.ndarray, ...]:
     """Cells over the mutation-burden threshold (docs/MODEL.md §2.3) are lost
     with probability ``checkpoint_strength`` per cycle.
 
@@ -119,18 +165,21 @@ def remove_apoptotic(
     untouched regardless of whether ``checkpoint_strength`` is scalar or array.
     """
     if not apoptotic.any() or not np.any(np.asarray(checkpoint_strength) > 0):
-        return lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells, apoptotic
+        out = (lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells, apoptotic)
+        return out if shortening_mult_cells is None else out + (shortening_mult_cells,)
     dies = apoptotic & (rng.random(apoptotic.shape[0]) < checkpoint_strength)
     keep = ~dies
-    return (lengths[keep], senescent[keep], founder_id[keep], clone_id[keep],
-            mutation_burden[keep], repair_rate_cells[keep], apoptotic[keep])
+    out = (lengths[keep], senescent[keep], founder_id[keep], clone_id[keep],
+           mutation_burden[keep], repair_rate_cells[keep], apoptotic[keep])
+    return out if shortening_mult_cells is None else out + (shortening_mult_cells[keep],)
 
 
 def passage(
     rng: np.random.Generator, lengths: np.ndarray, senescent: np.ndarray,
     founder_id: np.ndarray, clone_id: np.ndarray, mutation_burden: np.ndarray,
     repair_rate_cells: np.ndarray, capacity: int,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    shortening_mult_cells: Optional[np.ndarray] = None,
+) -> Tuple[np.ndarray, ...]:
     """Randomly dilute the culture back to ``capacity`` cells.
 
     Mirrors in-vitro passaging: cells are sampled without regard to state,
@@ -138,7 +187,9 @@ def passage(
     """
     n = lengths.shape[0]
     if n <= capacity:
-        return lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells
+        out = (lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells)
+        return out if shortening_mult_cells is None else out + (shortening_mult_cells,)
     idx = subsample_indices(rng, n, capacity)
-    return (lengths[idx], senescent[idx], founder_id[idx], clone_id[idx],
-            mutation_burden[idx], repair_rate_cells[idx])
+    out = (lengths[idx], senescent[idx], founder_id[idx], clone_id[idx],
+           mutation_burden[idx], repair_rate_cells[idx])
+    return out if shortening_mult_cells is None else out + (shortening_mult_cells[idx],)

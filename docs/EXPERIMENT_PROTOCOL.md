@@ -1096,6 +1096,61 @@ statement in Foci Lab uses the authors' numbers; our counter is shown only as a 
 illustration (`validated: false` in the API). The synthetic-image unit tests (`tests/test_foci.py`) show the
 counter counts known nuclei and foci exactly, so the failure is about the data available, not arithmetic.
 
+## 15.3 Experiment M — Can the model express heterogeneous senescence? (stochastic arrest, qualitative)
+
+**Question.** With the hard threshold, every cell of a culture stops when its
+shortest telomere crosses one line, so senescence is sharp and nearly
+deterministic. Do the optional mechanisms of MODEL.md §2.7 (logistic hazard,
+random arrest) and §2.8 (per-cell shortening-rate CV) let the model produce
+heterogeneous senescence — a broad transition, and large culture-to-culture
+differences in timing — as reported for yeast type A/type B and clonal
+fibroblasts? **Qualitative only: nothing is fitted; this shows capability, not
+agreement with any dataset.**
+
+**Setup.** Default `ModelConfig`, 200 cycles, 40 seeds (0-39) per variant
+(`scripts/run_stochastic_senescence.py`, `--seeds` >= 30). Variants: `hard`;
+`hard_cv0.3` (`shortening_rate_cv` 0.3); `soft300` (`senescence_softness_bp`
+300); `soft300_cv0.3`; `random_arrest0.02` (`random_arrest_rate` 0.02).
+Metrics: onset = first cycle with >= 10 % senescent (mean and SD across
+seeds); width = cycles between 10 % and 90 % senescent; PD when the culture
+first reaches 50 % senescent (`population_doublings`, MODEL.md §2.5). An extinct
+culture counts as fully senescent. Raw per-seed values are in
+`experiments/reports/stochastic_senescence.json`.
+
+**Result (mean, SD across seeds).**
+
+| Variant | Onset t10 | 10-90 % width (cycles) | PD at 50 % senescent |
+|---|---|---|---|
+| hard | 41.4 (1.6) | 14.2 (2.2) | 49.2 (1.8) |
+| hard + cv 0.3 | 40.5 (6.9) | 42.5 (10.9) | 72.0 (8.9) |
+| hazard, softness 300 bp | 31.6 (1.8) | 24.6 (2.9) | 44.0 (1.6) |
+| hazard 300 + cv 0.3 | 32.3 (3.3) | 50.6 (8.8) | 62.7 (7.3) |
+| random arrest 0.02 | 38.4 (2.8) | 17.1 (3.4) | 47.6 (1.7) |
+
+**Interpretation (within the model).**
+
+* The hard threshold is extremely sharp (onset SD 1.6 cycles, 10-90 % width
+  14 cycles).
+* The hazard alone starts senescence earlier (about 10 cycles) and widens the
+  transition (14 -> 25 cycles), but it does **not** increase the across-seed
+  dispersion of onset (SD 1.8 vs 1.6): a null result for that particular
+  measure. With 400 cells per culture, hazard noise averages out.
+* Shortening-rate CV is the mechanism that produces large heterogeneity:
+  onset SD rises about 4x (1.6 -> 6.9), the 10-90 % width triples (14 -> 43),
+  and the culture reaches 50 % senescent far later (t50 51 -> 77 cycles, PD
+  49 -> 72), because slowly shortening lineages keep dividing and outgrow the
+  fast ones. Note this delays the *median* culture rather than only widening
+  it, and the onset t10 barely moves (40.5 vs 41.4) since the fast-shortening
+  tail arrests on schedule.
+* Combining hazard and CV gives the earliest onset and the broadest
+  transition; the hazard reduces onset dispersion relative to CV alone
+  (SD 3.3 vs 6.9) in this configuration, an unexpected result we did not
+  probe further.
+* The parameters (softness 300 bp, CV 0.3, arrest 0.02) are illustrative; no
+  value is calibrated.
+
+**Reproduce.** `PYTHONPATH=src python scripts/run_stochastic_senescence.py`
+
 ## 16. Performance (scripts/benchmark.py, same machine)
 
 | Measurement | Value |

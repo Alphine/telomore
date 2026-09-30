@@ -21,9 +21,12 @@
     <nav aria-label="Sections">
       <a href="#findings">Findings</a>
       <a href="#explorer">Gene explorer</a>
+      <a href="#genelist">Test a gene list</a>
       <a href="#telomere">Telomere genes</a>
       <a href="#gallery">Images</a>
       <a href="#validation">Validation</a>
+      <a href="#data">Data &amp; cite</a>
+      <a href="analyze.html">Analyze your image</a>
       <a href="#bridge">Telomere Lab</a>
     </nav>
     <button class="theme" id="themeBtn" type="button" aria-label="Toggle dark mode">
@@ -38,7 +41,7 @@
     <h1>Which genes change DNA-damage foci in human cells?</h1>
     <p class="lead">An explorer for a published screen that silenced <strong id="t-genes">17,536</strong> human genes one at a time and counted <strong>53BP1 foci</strong>, the bright spots that mark DNA double-strand breaks. All numbers are the authors' own measurements; the images are the original microscopy.</p>
     <div class="tiles" id="tiles"></div>
-    <p class="note">53BP1 foci mark DNA breaks anywhere in the genome, not telomeres specifically. This site is a companion to <a href="/telomore/" rel="noopener">Telomere Evolution Lab</a>; the link between the two is qualitative (see <a href="#bridge">below</a>).</p>
+    <p class="note">53BP1 foci mark DNA breaks anywhere in the genome, not telomeres specifically. This site is a companion to <a href="/telomore/" rel="noopener">Telomere Evolution Lab</a>; the link between the two is qualitative (see <a href="#bridge">below</a>). Have your own microscopy image? Try our simple, unvalidated counter on the <a href="analyze.html">Analyze your image</a> page.</p>
   </section>
 
   <section class="wrap block" id="findings">
@@ -64,18 +67,35 @@
 
   <section class="wrap block" id="explorer">
     <h2>Gene explorer</h2>
-    <p class="sub">Search any of the screened genes. Values come from the gene's quality-controlled wells; a gene needs two wells and two siRNAs before it can be called a hit.</p>
-    <div class="search">
-      <label for="geneInput">Gene symbol</label>
-      <input id="geneInput" list="geneList" autocomplete="off" spellcheck="false" placeholder="e.g. RNF168, TERF2, PSMA3">
+    <p class="sub">Search any of the screened genes by symbol or Ensembl ID (aliases and previous names too, when the HGNC table is available). Values come from the gene's quality-controlled wells; a gene needs two wells and two siRNAs before it can be called a hit.</p>
+    <form class="search" id="geneForm" role="search">
+      <label for="geneInput">Gene symbol, Ensembl ID or alias</label>
+      <input id="geneInput" list="geneList" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="e.g. RNF168, TERF2, ENSG00000163961">
       <datalist id="geneList"></datalist>
-      <button id="geneGo" type="button" class="btn">Show</button>
-    </div>
+      <button id="geneGo" type="submit" class="btn">Show</button>
+    </form>
+    <p class="note resolve-note" id="resolveNote" role="status"></p>
     <div id="geneCard" class="card gene" hidden></div>
     <figure class="card">
       <figcaption>Distribution of all sample wells (foci per cell relative to plate)</figcaption>
       <div id="hist"></div>
     </figure>
+  </section>
+
+  <section class="wrap block" id="genelist">
+    <h2>Test your gene list</h2>
+    <p class="sub">Paste a list of genes and see where they sit in this screen: a table, a volcano plot, a rank plot and two simple enrichment tests. Exploratory only (see the caveats below the results).</p>
+    <div class="card">
+      <label for="listInput" class="lbl">Genes: symbols, Ensembl IDs or aliases, separated by spaces, commas, semicolons or new lines (up to 2,000)</label>
+      <textarea id="listInput" rows="5" spellcheck="false" autocomplete="off" autocapitalize="off" maxlength="120000" placeholder="RNF168, RNF8, MDC1&#10;ENSG00000175054"></textarea>
+      <div class="row">
+        <button type="button" class="btn" id="listGo">Analyse list</button>
+        <button type="button" class="btn ghost" id="listExample">Load example list</button>
+        <button type="button" class="btn ghost" id="listClear">Clear</button>
+      </div>
+      <p class="note" id="listLink" role="status"></p>
+      <div id="listOut"></div>
+    </div>
   </section>
 
   <section class="wrap block" id="telomere">
@@ -99,6 +119,29 @@
     <div class="two">
       <figure class="card"><figcaption>Each dot is a well</figcaption><div id="scatter"></div></figure>
       <div class="card verdict" id="verdict"></div>
+    </div>
+  </section>
+
+  <section class="wrap block" id="data">
+    <h2>Data, export and citation</h2>
+    <p class="sub">Everything on this site is computed from open data. Download the processed tables, or copy a citation for exactly what you are looking at.</p>
+    <div class="two">
+      <div class="card" id="dlCard">
+        <h3>Download data</h3>
+        <div id="dlBody" class="dl-body"><p class="note">Checking for downloadable files&hellip;</p></div>
+      </div>
+      <div class="card" id="citeCard">
+        <h3>Cite this view</h3>
+        <p class="note" id="citeView"></p>
+        <label for="citeText" class="sr">Citation text</label>
+        <textarea id="citeText" class="cite" rows="9" readonly></textarea>
+        <div class="row">
+          <button type="button" class="btn" id="citeCopy">Copy citation</button>
+          <button type="button" class="btn ghost" id="bibCopy">Copy BibTeX (paper)</button>
+          <span class="note" id="citeMsg" role="status"></span>
+        </div>
+        <details class="bib"><summary>BibTeX for the paper</summary><pre id="bibText" tabindex="0"></pre></details>
+      </div>
     </div>
   </section>
 
@@ -129,16 +172,48 @@
     <h3 id="wellTitle">Well</h3>
     <button type="button" class="x" id="wellClose" aria-label="Close">&times;</button>
   </div>
-  <div class="dlg-body">
-    <div class="dlg-img"><img id="wellImg" alt=""><p id="wellStatus" class="note"></p></div>
+  <div class="dlg-body" id="dlgBody">
+    <div class="dlg-img">
+      <div class="vw-tools" id="vwTools">
+        <div class="vw-group" role="group" aria-label="Channel" id="vwChannels">
+          <button type="button" data-mode="merged" aria-pressed="true">Merged</button>
+          <button type="button" data-mode="dna" aria-pressed="false">DNA</button>
+          <button type="button" data-mode="foci" aria-pressed="false">53BP1</button>
+        </div>
+        <div class="vw-group" role="group" aria-label="Zoom">
+          <button type="button" id="vwOut" aria-label="Zoom out">&minus;</button>
+          <button type="button" id="vwIn" aria-label="Zoom in">+</button>
+          <button type="button" id="vwReset">Reset</button>
+        </div>
+      </div>
+      <div class="vw-panes" id="vwPanes"></div>
+      <p class="note" id="vwHelp">Zoom: mouse wheel, pinch, the buttons, or + / &minus; when the image has focus. Pan: drag or arrow keys.</p>
+    </div>
     <div class="dlg-side">
       <dl id="wellMeta"></dl>
+      <p><a id="wellIdr" class="btn ghost" href="https://idr.openmicroscopy.org/" target="_blank" rel="noopener" hidden>Open in IDR</a></p>
       <button type="button" class="btn" id="wellOutline">Outline nuclei (live, Railway)</button>
       <p class="note">The outline runs our classical counter on this image on the Telomere Lab server. Its foci count is not validated (see Experiment L).</p>
+      <fieldset class="cmp" id="cmpBox">
+        <legend>Compare with another well</legend>
+        <div class="row">
+          <button type="button" class="btn ghost" id="cmpCtl">Negative control</button>
+          <button type="button" class="btn ghost" id="cmpOff" hidden>Stop comparing</button>
+        </div>
+        <label for="cmpGene">Or another gene</label>
+        <input id="cmpGene" list="cmpList" autocomplete="off" spellcheck="false" placeholder="gene symbol">
+        <datalist id="cmpList"></datalist>
+        <label for="cmpWell">Well</label>
+        <select id="cmpWell"><option value="">choose a gene first</option></select>
+        <button type="button" class="btn" id="cmpGo" disabled>Compare</button>
+      </fieldset>
     </div>
   </div>
 </dialog>
 
+<script src="lib.js"></script>
+<script src="viewer.js"></script>
 <script src="app.js"></script>
+<script src="list.js"></script>
 </body>
 </html>

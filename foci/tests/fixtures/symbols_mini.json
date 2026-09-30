@@ -1,0 +1,7 @@
+{"version":1,"source":{"name":"HGNC","url":"https://www.genenames.org","licence":"CC0","retrieved_utc":"2026-01-01","release":"x"},
+ "by_ensembl":{
+  "ENSG00000067369":{"symbol":"TP53BP1","name":"tumor protein p53 binding protein 1","aliases":["53BP1","P202"],"previous":["TRP53BP1"]},
+  "ENSG00000163961":{"symbol":"RNF168","name":"ring finger protein 168","aliases":["RNF168A"],"previous":[]},
+  "ENSG00000999999":{"symbol":"NOTSCREENED","name":"x","aliases":["NS1"],"previous":[]}},
+ "lookup":{"TP53BP1":"ENSG00000067369","53BP1":"ENSG00000067369","P202":"ENSG00000067369","TRP53BP1":"ENSG00000067369","RNF168":"ENSG00000163961","RNF168A":"ENSG00000163961","NS1":"ENSG00000999999","CONSTRUCTOR":"ENSG00000163961","SHARED":"ENSG00000163961"},
+ "ambiguous":{"SHARED":["ENSG00000163961","ENSG00000100567"],"HASOWNPROPERTY":["ENSG00000163961","ENSG00000067369"]}}

@@ -1,0 +1,2 @@
+{"version":1,"columns":["sirna","plate_well","z","norm_fpc","fpc","cells","qc","imaged","sense","antisense"],
+ "by_gene":{"RNF168":[["126170","90-27_D6",-10.2,0.206,0.3,236,"pass",true,"GAUC","CUAG"],["126171","90-27_D17",-16.4,0.078,0.1,77,"pass",true,null,null],["126172","90-27_D18",3.0,1.5,1.5,100,"remove",true,"A,B","C\"D"]]}}

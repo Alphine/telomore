@@ -435,7 +435,7 @@
   $("addSet").addEventListener("click", function () {
     var f = S.files.filter(function (x) { return x.status === "ok"; })[0]; if (!f) return;
     var g = f.channels.length > 1 ? Core.guessChannels(f.channels.map(function (c) { return c.name; })) : { nuclei: 0, foci: -1 };
-    S.sets.push({ id: S.nextSet++, key: "manual:" + S.nextSet, name: "Manual set " + (S.sets.length + 1), manual: true, nuc: { fileId: f.id, ch: g.nuclei }, foc: { fileId: f.id, ch: g.foci }, condition: "", replicate: "", include: true, status: "idle", msg: "", result: null, summary: null });
+    S.sets.push({ id: S.nextSet++, key: "manual:" + S.nextSet, name: "Manual set " + (S.sets.length + 1), manual: true, nuc: { fileId: f.id, ch: g.nuclei }, foc: { fileId: f.id, ch: g.foci >= 0 ? g.foci : 0 }, condition: "", replicate: "", include: true, status: "idle", msg: "", result: null, summary: null });
     renderSets(); $("bulkBox").hidden = false;
     var last = S.sets[S.sets.length - 1]; var n = $("s" + last.id + "nuclei"); if (n) n.focus();
   });

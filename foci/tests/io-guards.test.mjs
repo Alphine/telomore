@@ -157,3 +157,14 @@ test("TIFF: many pages sharing one huge strip table never get that table read", 
   // the 70-page fixture is refused from the page count alone
   await assert.rejects(IO.readBytes(fx("io_bad_tiff_70pages.tif"), "x.tif"), { code: "unsupported" });
 });
+
+test("OME-XML scanning is linear-time on hostile input", () => {
+  const T = require("../web/io/tiff.js");
+  const t0 = Date.now();
+  for (const evil of ["<Image><Pixels " + "<Channel".repeat(400000), "<Image " + "<Image".repeat(300000), "<Image><Pixels SizeC=\"2\">" + "<Channel Name=\"a\" ".repeat(200000), "<Image><Pixels>" + "<UUID ".repeat(300000)]) {
+    T._parseOME(evil, []);
+  }
+  assert.ok(Date.now() - t0 < 3000, "took " + (Date.now() - t0) + " ms");
+  const ok = T._parseOME('<OME><Image><Pixels SizeC="2" PhysicalSizeX="0.5" PhysicalSizeXUnit="nm"><Channel Name="A"/><Channel Name="B"></Channel></Pixels></Image></OME>', []);
+  assert.deepEqual(ok.names, ["A", "B"]); assert.ok(Math.abs(ok.pixelSizeUm - 0.0005) < 1e-12);
+});

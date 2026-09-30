@@ -81,6 +81,7 @@
     var at = total <= inline ? e.vpos : r.off(e.vpos);
     if (at < 0 || at + total > r.len) throw IOError("truncated", "TIFF tag " + e.tag + " points outside the file (truncated or corrupt).");
     if (e.type === 2 || e.type === 7 || asText) {
+      if (total > 16 * 1048576) return "";                         // not plausible metadata; do not decode it
       var bytes = new Uint8Array(r.dv.buffer, r.dv.byteOffset + at, total);
       var end = bytes.length; while (end > 0 && bytes[end - 1] === 0) end--;
       return new TextDecoder("utf-8").decode(bytes.subarray(0, end));
@@ -131,30 +132,48 @@
     return f === undefined ? null : f;
   }
 
+  // Linear-time scanner for start tags named `name` (no regex backtracking on hostile input).
+  // Returns the attribute text of each tag, in order, up to `limit` tags.
+  function tagAttrs(xml, name, limit) {
+    var out = [], pos = 0, key = "<" + name;
+    while (out.length < limit) {
+      var i = xml.indexOf(key, pos);
+      if (i < 0) break;
+      var after = xml.charCodeAt(i + key.length);                       // must end the tag name: space, /, > or end
+      var end = xml.indexOf(">", i);
+      if (end < 0) break;
+      if (after === 32 || after === 9 || after === 10 || after === 13 || after === 47 || after === 62) out.push(xml.slice(i + key.length, end).replace(/\/$/, ""));
+      pos = end + 1;
+    }
+    return out;
+  }
+
   function parseOME(xml, warnings) {
-    if (xml.length > 8e6) { warnings.push("OME-XML is very large and was not read."); return null; }
-    var imgStarts = [], re = /<Image\b/g, m;
-    while ((m = re.exec(xml))) { imgStarts.push(m.index); if (imgStarts.length > 10000) break; }
+    if (xml.length > 4e6) { warnings.push("OME-XML is very large and was not read."); return null; }
+    var imgStarts = [], pos = 0, at;
+    while ((at = xml.indexOf("<Image", pos)) >= 0 && imgStarts.length < 10000) {
+      var c = xml.charCodeAt(at + 6);
+      if (c === 32 || c === 9 || c === 10 || c === 13 || c === 62 || c === 47) imgStarts.push(at);
+      pos = at + 6;
+    }
     if (!imgStarts.length) return null;
     var first = xml.slice(imgStarts[0], imgStarts[1] || xml.length);
-    var pm = /<Pixels\b([^>]*)>/.exec(first);
-    if (!pm) return null;
-    var pa = attrs(pm[1]);
+    var pixels = tagAttrs(first, "Pixels", 1);
+    if (!pixels.length) return null;
+    var pa = attrs(pixels[0]);
     var ome = { series: imgStarts.length, names: [], sizeC: +pa.SizeC || 1, sizeZ: +pa.SizeZ || 1, sizeT: +pa.SizeT || 1,
       order: /^XY[ZCT]{3}$/.test(pa.DimensionOrder || "") ? pa.DimensionOrder : "XYCZT", pixelSizeUm: null, multiFile: false };
-    var cre = /<Channel\b([^>]*?)\/?>/g, cm;
-    while ((cm = cre.exec(first))) {
-      var ca = attrs(cm[1]);
+    tagAttrs(first, "Channel", 4096).forEach(function (a) {
+      var ca = attrs(a);
       ome.names.push(clean(ca.Name || ca.ID || "", 80) || null);
-      if (ome.names.length > 4096) break;
-    }
+    });
     var px = pa.PhysicalSizeX != null ? parseFloat(pa.PhysicalSizeX) : NaN;
     if (px > 0 && isFinite(px)) {
       var f = unitToUm(pa.PhysicalSizeXUnit);
       if (f == null) warnings.push("OME pixel-size unit '" + clean(pa.PhysicalSizeXUnit, 20) + "' is not recognised; pixel size ignored.");
       else ome.pixelSizeUm = px * f;
     }
-    if (/<UUID\b[^>]*FileName\s*=/.test(xml)) ome.multiFile = true;
+    if (tagAttrs(xml, "UUID", 4).some(function (a) { return /(^|\s)FileName\s*=/.test(a); })) ome.multiFile = true;
     return ome;
   }
 

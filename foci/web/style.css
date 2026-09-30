@@ -116,3 +116,18 @@ dialog::backdrop { background: rgba(5, 10, 20, .55); }
   nav { display: none; }
 }
 @media (max-width: 520px) { .gal { grid-template-columns: 1fr; } }
+
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.flags { margin: 8px 0; padding-left: 18px; color: var(--ink); font-size: 13.5px; }
+.caveat { border-left: 3px solid var(--focus); padding-left: 10px; color: var(--muted); }
+.how { margin-top: 18px; }
+.how summary { cursor: pointer; font-weight: 600; min-height: 32px; }
+.how summary:focus-visible, .bars .gene:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.how p { max-width: 80ch; font-size: 14px; color: var(--muted); }
+.how b { color: var(--ink); }
+.tbl { overflow-x: auto; margin-top: 14px; }
+.tbl table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl th, .tbl td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.tbl thead th { color: var(--muted); font-weight: 600; }
+.tbl tbody th { font-family: "IBM Plex Mono", monospace; font-weight: 500; }
+.pill.mid { color: var(--ink); }

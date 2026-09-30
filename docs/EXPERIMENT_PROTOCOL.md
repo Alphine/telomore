@@ -1033,11 +1033,33 @@ two-channel image (Hoechst DNA + 53BP1) per well in IDR, and the authors' own pe
 foci count and foci/cell in `idr0010-screenA-annotation.csv`. Built by
 `scripts/build_foci_dataset.py` into `foci/web/data/`.
 
-**From the authors' table (no image analysis by us).** Median plate-normalised foci/cell per gene
-over QC-passed wells, genes with ≥ 2 wells: lowest RNF168 0.14, MDC1 0.20, RNF8 0.30; highest PSMA3 7.25, PSMB2 5.82, MAPK10 4.29 (proteasome). The three
-lowest are exactly the recruitment pathway the paper reported. Telomerase/shelterin genes sit inside
-the negative-control range (p10–p90 0.81–1.22): TERT 1.20, TERF1 1.15, TERF2 0.97, POT1 1.17, TINF2 1.40, ACD 0.94, DKC1 1.27, WRN 1.47, BLM 1.03.
-Expected for a short-term siRNA screen; not evidence these genes are unimportant.
+**From the authors' table (no image analysis by us).** Per-well score z = log2 of the plate-normalised
+foci/cell, minus the median of the 838 QC-passed negative-control wells (log2 median -0.002), divided by their
+robust SD (1.4826 x MAD = 0.223 log2 units). Per gene (QC-passed wells; 17,536 genes, 13,330 with >= 2 wells,
+4,206 with a single well): wells, distinct siRNAs, median z, and for >= 2 wells a Stouffer combined z. The
+theoretical N(0,1) null is far too liberal (1,438 genes at q < 0.05, because wells of a gene share plate and
+siRNA effects), so p and Benjamini-Hochberg q use an empirical null fitted to the combined z (median 0.56,
+robust SD 1.605), which leaves 39 genes at q < 0.05. **Supported hit** = at least 2 distinct siRNAs each with
+|z| > 2 in the same direction AND empirical-null q < 0.05: **4 down (RNF168, MDC1, RNF8, WDR65) and 25 up**
+(mostly proteasome subunits PSMA/PSMB and PSMC3, plus KIAA0391, SF3B2, SNRPD3, OAZ2 and a few others). 10 further genes reach q < 0.05 without two supporting
+siRNAs and are reported but not called; single-well genes are listed but never called. Telomerase/shelterin genes
+(TERT, TERF1, TERF2, POT1, TINF2, ACD, BLM) are not hits; WRN and DKC1 have a single QC-passed well and cannot be
+ranked; TERC and RTEL1 are absent from the table and TERF2IP has no QC-passed well. Expected for a short-term
+siRNA screen; not evidence these genes are unimportant.
+
+*Reproducibility limits, computed from the data.* Across 13,298 genes with >= 2 siRNAs, the first two siRNAs of
+a gene correlate weakly (Spearman 0.11; -0.01 after shuffling across genes; 0.07 inside the bulk |z| < 2). When
+one siRNA has |z| >= 3 (732 genes) the other confirms it (same sign, |z| > 2) for 19% of genes vs 10.5% under
+shuffling: only the extreme tail is reproducible, which is why hits require two siRNAs. Foci/cell falls with
+cell count (Spearman z vs cells -0.28), a possible toxicity confound; wells under 60 cells (3.6% of wells) are
+flagged and cell count is shown beside every value.
+
+*Check against the authors' own phenotype annotations* ("increased DNA damage": 57 wells / 18 genes; "defective
+DNA damage response": 6 wells / RNF8, MDC1, RNF168). This is a consistency check, not independent validation,
+because the annotations come from the same screen. Our combined-z ranking places 17 of the 18 increased-damage
+genes in the top 50 (all 18 in the top 100) of 13,330 (gene-level AUC 0.999; well-level AUC 0.925 over 50
+QC-passed wells), and all 3 defective-response genes in the bottom 50 (AUC 1.0). All numbers are produced by
+`telomere_lab.foci.stats` and `scripts/build_foci_dataset.py`.
 
 **Question.** Does our classical pipeline (`telomere_lab.foci`: background-corrected log-Otsu nuclei,
 area-based count of touching nuclei, top-hat local maxima ≥ 12 grey levels for foci) reproduce the
@@ -1053,13 +1075,19 @@ count vs the authors' cell count r = 0.138. Repair-knockdown wells: ours
 9.401 vs authors 0.517 foci/cell; proteasome wells: ours
 4.571 vs authors 11.498.
 
-**Interpretation.** IDR holds one 696×520 field per well (~90 cells) as an 8-bit render; the authors
-counted up to ~300 cells per well, most likely over several fields at full bit depth. On one 8-bit
-field normal nuclear texture passes as foci, and by eye the RNF168 and proteasome fields differ far
-less than the published 80-fold gap. Consequence: every biological statement in Foci Lab uses the
-authors' numbers; our counter is shown only as a labelled illustration (`validated: false` in the API).
-The synthetic-image unit tests (`tests/test_foci.py`) show the counter itself counts known nuclei and
-foci exactly, so the failure is about the data available, not arithmetic.
+**Interpretation (untested).** An earlier version of this section said IDR holds one field of about 90
+cells while the authors counted up to about 300 over several fields; that is not supported. IDR holds exactly
+one image per well, and on the 106 cached images our nucleus count has median 135 against the authors' Cell Count
+median of 126 (ratio of medians 1.07; per-well ratio median 1.03, 10th-90th percentile 0.51-1.75), so the two
+count roughly the same nuclei. The likelier causes of the foci disagreement are (1) the source images are 16-bit
+(pixel range 0-65535) while the API render we fetch is a windowed 8-bit PNG, clipping bright foci and compressing
+dim ones, and (2) the authors' focus definition and thresholds are not published in the table. Neither was
+tested. A better-posed re-test needs the raw 16-bit data (BioImage Archive S-BIAD885 holds OME-Zarr zips of about
+450 MB per plate) and a comparison of per-nucleus intensity distributions against the authors' 63
+phenotype-annotated wells instead of counts. **That re-test was not done.** Consequence: every biological
+statement in Foci Lab uses the authors' numbers; our counter is shown only as a labelled, unvalidated
+illustration (`validated: false` in the API). The synthetic-image unit tests (`tests/test_foci.py`) show the
+counter counts known nuclei and foci exactly, so the failure is about the data available, not arithmetic.
 
 ## 16. Performance (scripts/benchmark.py, same machine)
 

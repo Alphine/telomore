@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
@@ -20,6 +21,7 @@ if str(SRC) not in sys.path:
 
 from telomere_lab.foci import ATTRIBUTION, FociParams, count_foci, overlay_rgb  # noqa: E402
 from telomere_lab.foci.segment import estimate_nuclei, otsu_threshold, segment_nuclei  # noqa: E402
+from telomere_lab.foci.stats import auc, bh_qvalues, empirical_null, gene_stats, well_scores  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -102,9 +104,81 @@ def test_published_dataset_is_consistent():
     g = json.loads((data / "genes.json").read_text())
     assert s["license"] == "CC BY 4.0"
     assert len(g["rows"]) == s["totals"]["genes"]
-    lowest3 = [r[0] for r in s["lowest"][:3]]
-    assert set(lowest3) == {"RNF168", "MDC1", "RNF8"}  # the paper's pathway, from the authors' own table
-    assert s["experiment_l"]["n_wells"] >= 80
+    col = {c: i for i, c in enumerate(g["columns"])}
+    # the three strongest supported decreases are the paper's recruitment pathway
+    lowest3 = s["lowest"][:3]
+    assert {r["gene"] for r in lowest3} == {"RNF168", "MDC1", "RNF8"}
+    assert all(r["status"] == "hit_down" and r["sirnas"] >= 2 for r in lowest3)
+    # every called hit has >= 2 distinct siRNAs and q < 0.05; single-well genes are never hits
+    for r in g["rows"]:
+        if r[col["status"]].startswith("hit"):
+            assert r[col["sirnas"]] >= 2 and r[col["q"]] < 0.05
+        if r[col["wells"]] < 2:
+            assert r[col["status"]] == "single_well" and r[col["q"]] is None and r[col["rank"]] is None
+    st = s["stats"]
+    assert st["supported_hits_down"] + st["supported_hits_up"] == sum(r[col["status"]].startswith("hit") for r in g["rows"])
+    assert st["genes_q05_empirical_null"] < st["genes_q05_theoretical_null"]
+    assert abs(st["negative_controls"]["log2_median"]) < 0.05
+    assert 0 < st["concordance"]["spearman"] < 0.3 and abs(st["concordance"]["spearman_shuffled"]) < 0.05
+    assert st["truth_check"]["increased"]["gene_auc"] > 0.8
+    wrn = {r["gene"]: r for r in s["telomere_panel"]}
+    assert wrn["WRN"]["status"] == wrn["DKC1"]["status"] == "single_well"
+    L = s["experiment_l"]
+    assert L["n_wells"] >= 80 and L["nucleus_check"]["n_images"] >= 100
+
+
+# ---- statistics on synthetic tables ------------------------------------------
+
+def _wells(rows):
+    return pd.DataFrame(rows, columns=["gene", "sirna", "z", "cells"])
+
+
+def test_bh_and_auc_basics():
+    q = bh_qvalues([0.01, 0.04, 0.03, 0.5])
+    assert q.tolist() == pytest.approx([0.04, 0.0533333, 0.0533333, 0.5])
+    assert auc([3, 4], [1, 2]) == 1.0 and auc([1, 2], [3, 4]) == 0.0 and auc([1], [1]) == 0.5
+
+
+def test_empirical_null_recovers_shifted_bulk_despite_outliers():
+    rng = np.random.default_rng(1)
+    z = np.concatenate([rng.normal(0.5, 1.6, 5000), np.full(20, -15.0)])
+    mu, sd = empirical_null(z)
+    assert mu == pytest.approx(0.5, abs=0.1) and sd == pytest.approx(1.6, abs=0.1)
+
+
+def test_hit_rule_needs_two_sirnas_and_empirical_q_and_skips_single_wells():
+    rng = np.random.default_rng(2)
+    rows = []
+    for i in range(400):                                   # bulk with inflated spread (sd 1.5 per well)
+        rows += [(f"G{i}", "a", rng.normal(0, 1.5), 100), (f"G{i}", "b", rng.normal(0, 1.5), 100)]
+    rows += [("TWO", "a", -9.0, 100), ("TWO", "b", -8.0, 100)]            # two siRNAs, strong
+    rows += [("ONE", "a", -9.0, 100), ("ONE", "a", -9.5, 100)]            # two wells, same siRNA
+    rows += [("SOLO", "a", -30.0, 100)]                                    # single well, huge z
+    rows += [("UP", "a", 8.0, 50), ("UP", "b", 9.0, 50)]
+    t, info = gene_stats(_wells(rows))
+    assert t.loc["TWO", "status"] == "hit_down" and t.loc["UP", "status"] == "hit_up"
+    assert t.loc["ONE", "status"] == "q_only"                              # extreme but only one siRNA
+    assert t.loc["SOLO", "status"] == "single_well" and np.isnan(t.loc["SOLO", "q"]) and np.isnan(t.loc["SOLO", "rank"])
+    assert t.loc["TWO", "rank"] < t.loc["G0", "rank"] and t.loc["TWO", "rank"] <= 2
+    assert "low_cells" in t.loc["UP", "flags"] and "one_sirna" in t.loc["ONE", "flags"]
+    # the empirical null is wider than N(0,1), so it calls far fewer genes than the theoretical one
+    assert info["n_q05_empirical"] < info["n_q05_theoretical"]
+    assert info["sd"] > 1.2 and info["n_tested"] == 403
+
+
+def test_disagreeing_sirnas_are_flagged():
+    t, _ = gene_stats(_wells([("X", "a", -6.0, 100), ("X", "b", 2.0, 100), ("Y", "a", -6.0, 100), ("Y", "b", -5.0, 100)]))
+    assert "disagree" in t.loc["X", "flags"] and "disagree" not in t.loc["Y", "flags"]
+
+
+def test_well_scores_use_qc_passed_negative_controls():
+    col = "Foci Per Cell (Normalized)"
+    base = dict.fromkeys(["Gene Symbol", "siRNA Identifier", "Cell Count", "Plate_Well"])
+    rows = [dict(base, **{"Control Type": "negative control", col: v}) for v in (0.8, 0.9, 1.0, 1.1, 1.25)]
+    rows += [dict(base, **{"Control Type": None, col: 0.5, "Gene Symbol": "G", "siRNA Identifier": 7, "Cell Count": 90, "Plate_Well": "1_A1"})]
+    s, ctl = well_scores(pd.DataFrame(rows))
+    assert ctl["wells"] == 5 and ctl["log2_median"] == pytest.approx(0.0) and ctl["robust_sd"] > 0
+    assert s["z"].iloc[0] == pytest.approx(-1 / ctl["robust_sd"]) and s["gene"].iloc[0] == "G"
 
 
 # ---- API -------------------------------------------------------------------

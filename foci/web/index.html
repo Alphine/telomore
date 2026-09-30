@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Foci Lab</title>
-<meta name="description" content="Explore a genome-wide RNAi screen of 53BP1 DNA-damage foci (Doil et al. 2009, IDR idr0010): 17,537 genes, real microscopy, and an honest validation of automated foci counting. Companion to Telomere Evolution Lab.">
+<meta name="description" content="Explore a genome-wide RNAi screen of 53BP1 DNA-damage foci (Doil et al. 2009, IDR idr0010): 17,536 genes, real microscopy, and an honest validation of automated foci counting. Companion to Telomere Evolution Lab.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -36,30 +36,35 @@
   <section class="hero wrap">
     <p class="eyebrow">Real microscopy &middot; genome-wide RNAi screen</p>
     <h1>Which genes change DNA-damage foci in human cells?</h1>
-    <p class="lead">An explorer for a published screen that silenced <strong id="t-genes">17,537</strong> human genes one at a time and counted <strong>53BP1 foci</strong>, the bright spots that mark DNA double-strand breaks. All numbers are the authors' own measurements; the images are the original microscopy.</p>
+    <p class="lead">An explorer for a published screen that silenced <strong id="t-genes">17,536</strong> human genes one at a time and counted <strong>53BP1 foci</strong>, the bright spots that mark DNA double-strand breaks. All numbers are the authors' own measurements; the images are the original microscopy.</p>
     <div class="tiles" id="tiles"></div>
     <p class="note">53BP1 foci mark DNA breaks anywhere in the genome, not telomeres specifically. This site is a companion to <a href="/telomore/" rel="noopener">Telomere Evolution Lab</a>; the link between the two is qualitative (see <a href="#bridge">below</a>).</p>
   </section>
 
   <section class="wrap block" id="findings">
     <h2>What the screen found</h2>
-    <p class="sub">Foci per cell relative to the plate (1.0 = typical). The grey band is the middle 80% of negative-control wells. Genes with at least two wells.</p>
+    <p class="sub">Each gene's median score z: how many control-spreads its wells sit from the negative controls (negative = fewer 53BP1 foci). Only genes with at least two wells can be ranked.</p>
+    <p class="note" id="findNote"></p>
     <div class="two">
       <figure class="card">
-        <figcaption><b>Fewer foci</b> &mdash; silencing these stops 53BP1 gathering at breaks</figcaption>
+        <figcaption><b>Fewer foci</b> &mdash; strongest decreases, by combined z</figcaption>
         <div id="lowChart" class="bars"></div>
       </figure>
       <figure class="card">
-        <figcaption><b>More foci</b> &mdash; silencing these leaves more unrepaired breaks</figcaption>
+        <figcaption><b>More foci</b> &mdash; strongest increases, by combined z</figcaption>
         <div id="highChart" class="bars"></div>
       </figure>
     </div>
-    <p class="callout">The three genes whose loss removes foci most strongly, <b>RNF168</b>, <b>MDC1</b> and <b>RNF8</b>, are exactly the recruitment pathway the paper reported. The top of the list is dominated by <b>proteasome</b> subunits (PSMA/PSMB).</p>
+    <p class="callout" id="callout"></p>
+    <details class="how card" id="how" open>
+      <summary>How to read these numbers</summary>
+      <div id="howBody"></div>
+    </details>
   </section>
 
   <section class="wrap block" id="explorer">
     <h2>Gene explorer</h2>
-    <p class="sub">Search any of the screened genes. Values are medians over the gene's quality-controlled wells.</p>
+    <p class="sub">Search any of the screened genes. Values come from the gene's quality-controlled wells; a gene needs two wells and two siRNAs before it can be called a hit.</p>
     <div class="search">
       <label for="geneInput">Gene symbol</label>
       <input id="geneInput" list="geneList" autocomplete="off" spellcheck="false" placeholder="e.g. RNF168, TERF2, PSMA3">
@@ -75,8 +80,10 @@
 
   <section class="wrap block" id="telomere">
     <h2>Telomere and shelterin genes</h2>
-    <p class="sub">The screen also silenced the telomerase and shelterin genes. None of them shifts 53BP1 foci outside the normal range in this short-term screen.</p>
-    <div class="card"><div id="teloChart" class="bars"></div></div>
+    <p class="sub">The screen also silenced telomerase and shelterin genes. None of the rankable ones is a supported hit in this short-term screen.</p>
+    <div class="card"><div id="teloChart" class="bars"></div>
+      <div class="tbl"><table id="teloTable"><caption class="sr">Telomere and shelterin genes in the screen</caption></table></div></div>
+    <p class="note" id="teloNote"></p>
     <p class="note">An honest null: the screen measured foci shortly after siRNA transfection, before telomere erosion could build up. Telomere dysfunction foci typically need longer or targeted assays (for example TRF2 dominant-negative), so a flat result here is expected rather than evidence that these genes do not matter.</p>
   </section>
 
@@ -88,7 +95,7 @@
 
   <section class="wrap block" id="validation">
     <h2>Experiment L: can a simple counter reproduce the authors' numbers?</h2>
-    <p class="sub">Our classical pipeline (background-corrected Otsu nuclei, top-hat local maxima for foci) on one IDR field per well, against the authors' published per-well foci per cell.</p>
+    <p class="sub">Our classical pipeline (background-corrected Otsu nuclei, top-hat local maxima for foci) on the single IDR image of each well, against the authors' published per-well foci per cell. Negative result, kept on purpose.</p>
     <div class="two">
       <figure class="card"><figcaption>Each dot is a well</figcaption><div id="scatter"></div></figure>
       <div class="card verdict" id="verdict"></div>

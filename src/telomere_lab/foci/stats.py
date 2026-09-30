@@ -22,6 +22,12 @@ def r3(x):
     return None if x is None or not np.isfinite(x) else round(float(x), 3)
 
 
+def sirna_ids(df: pd.DataFrame) -> pd.Series:
+    """siRNA identifier as a string; ``well:<Plate_Well>`` when the table has none for that well."""
+    sir = df["siRNA Identifier"].astype("string")
+    return sir.where(sir.notna(), "well:" + df["Plate_Well"].astype(str))
+
+
 def well_scores(ok: pd.DataFrame):
     """Robust per-well score ``z`` for QC-passed sample wells.
 
@@ -39,8 +45,7 @@ def well_scores(ok: pd.DataFrame):
     s["z"] = (np.log2(s[NORM_COL]) - med) / sd
     s["gene"] = s["Gene Symbol"]
     s["cells"] = s["Cell Count"]
-    sir = s["siRNA Identifier"].astype("string")
-    s["sirna"] = sir.where(sir.notna(), "well:" + s["Plate_Well"].astype(str))
+    s["sirna"] = sirna_ids(s)
     return s, {"wells": int(len(neg)), "log2_median": med, "robust_sd": sd}
 
 
@@ -204,3 +209,35 @@ def truth_check(a: pd.DataFrame, t: pd.DataFrame, s: pd.DataFrame) -> dict:
             d["well_n"] = int(m.sum())
         out[key] = d
     return out
+
+
+WELL_TABLE_COLUMNS = ["plate_well", "gene", "ensembl", "sirna", "sense", "antisense", "cells", "fpc", "norm_fpc",
+                      "z", "qc", "imaged"]
+
+
+def sample_well_table(a: pd.DataFrame, s: pd.DataFrame) -> pd.DataFrame:
+    """Every sample (non-control) well that has a gene symbol, QC-passed or removed.
+
+    ``a`` is the annotation table (with an ``image_id`` column, NaN = not imaged); ``s`` the scored
+    wells from :func:`well_scores`. ``z`` comes from ``s`` (so it is identical to the per-well
+    ``z`` in genes.json) and is NaN for QC-removed wells and for QC-passed wells whose normalised
+    foci/cell is missing or <= 0 (log undefined). Row order follows ``a``.
+    """
+    w = a[a["Control Type"].isna() & a["Gene Symbol"].notna()]
+    z = s.set_index("Plate_Well")["z"]
+    out = pd.DataFrame({
+        "plate_well": w["Plate_Well"].astype(str).to_numpy(),
+        "gene": w["Gene Symbol"].astype(str).to_numpy(),
+        "ensembl": w["Gene Identifier"].fillna("").astype(str).to_numpy(),
+        "sirna": sirna_ids(w).astype(str).to_numpy(),
+        "sense": w["Sense Sequence"].fillna("").astype(str).to_numpy(),
+        "antisense": w["Antisense Sequence"].fillna("").astype(str).to_numpy(),
+        "cells": w["Cell Count"].to_numpy(float),
+        "fpc": w["Foci Per Cell"].to_numpy(float),
+        "norm_fpc": w[NORM_COL].to_numpy(float),
+        "qc": np.where(w["Quality Control"].isna(), "pass", "remove"),
+        "imaged": w["image_id"].notna().to_numpy(),
+    })
+    out["z"] = out["plate_well"].map(z).to_numpy(float)
+    out.loc[out["qc"] != "pass", "z"] = np.nan
+    return out[WELL_TABLE_COLUMNS].reset_index(drop=True)

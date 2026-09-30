@@ -1,0 +1,25 @@
+{
+  "title": "Telomere Evolution Lab",
+  "upload_type": "software",
+  "description": "Telomere Evolution Lab is a stochastic, population-level simulator of telomere attrition, maintenance and replicative senescence, coupled to an evolutionary search over virtual experimental conditions. It is a hypothesis-generation and teaching tool, not a predictor: it is not fitted to patient data and is not intended for diagnosis or clinical use. Runs are reproducible from a seed and configuration through a run ledger.",
+  "license": "MIT",
+  "creators": [
+    {
+      "name": "Alphine (TODO(owner): replace with 'Family, Given' real name)",
+      "affiliation": "TODO(owner)",
+      "orcid": "TODO(owner)"
+    }
+  ],
+  "keywords": [
+    "telomere",
+    "replicative senescence",
+    "computational biology",
+    "stochastic simulation",
+    "evolutionary algorithm",
+    "hypothesis generation"
+  ],
+  "related_identifiers": [
+    {"relation": "isSupplementTo", "identifier": "https://github.com/Alphine/telomore", "scheme": "url"},
+    {"relation": "isDocumentedBy", "identifier": "https://studylab.id", "scheme": "url"}
+  ]
+}

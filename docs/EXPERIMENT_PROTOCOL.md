@@ -265,13 +265,20 @@ maintenance against repair**:
   knee) as the cost-efficient choice, not the corner the unconstrained
   search finds.
 
-## 9. Experiment D — Reference-model comparison (SDD §22 Level 3)
+## 9. Experiment D — Structural model-to-model comparison (SDD §22 Level 3)
 
 ### Question
 
-`anais-rat/telomeres` was named in the SDD as a potential validation
-reference. Rather than assert that a comparison is "future work," this
-experiment actually clones it, runs it, and compares it to our model.
+`anais-rat/telomeres` was named in the SDD as a potential reference.
+Rather than assert that a comparison is "future work," this experiment
+actually clones it, runs it, and compares it to our model.
+
+**What kind of comparison this is.** It is a *structural, model-to-model*
+comparison, not a validation against data. The reference model describes
+telomerase-negative **yeast**; its generation counts differ from this
+model's (which uses human-scale defaults) and are not expected to match.
+Only the qualitative shape and spread of the generations-to-senescence
+distribution are compared. Neither model is tested against measurements here.
 
 ### What the reference model actually is
 

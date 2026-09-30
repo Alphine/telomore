@@ -13,6 +13,24 @@ objective. The contribution is the *observable virtual-experimentation
 loop* (hypothesis → parameter genome → simulation → outcome → fitness →
 selection), with every result reproducible from seed + configuration.
 
+## Intended use and non-use
+
+**Intended use:**
+
+* Hypothesis generation: exploring how the model's assumptions (shortening,
+  maintenance, stress, repair, selection) interact, to suggest questions.
+* Teaching and demonstration of telomere-attrition dynamics and of an
+  observable virtual-experimentation loop.
+* Protocol prioritisation: ranking which virtual conditions look worth
+  testing first, before any wet-lab work.
+
+**Not intended for:**
+
+* Diagnosis, or any clinical or health decision.
+* Predicting an individual patient's telomere length, ageing or disease risk.
+* Substituting for wet-lab measurement (TRF, Q-FISH, qPCR, SA-β-gal, growth
+  curves). Model output is a hypothesis to be tested, not a result.
+
 ## What this project is not
 
 * Not a predictor of human lifespan, disease risk or treatment response.
@@ -115,6 +133,12 @@ not evidence about lifespan, disease risk, or any real ageing process. Every
 place this number is rendered in the UI carries the same short caption
 verbatim (see `frontend/src/components/biologicalAgeUtils.ts`'s
 `BIOLOGICAL_AGE_DISCLAIMER`) so the number is never shown unqualified.
+
+**Language-policy note.** The synthetic 0-100 "biological age" score is a **model vitality index**: a
+composite of this simulation's own survival, telomere reserve and senescence
+numbers. It is not an epigenetic-clock-style age and is not comparable to
+one. The field and UI label are kept for continuity; wherever the number is
+discussed, read it as a vitality index.
 
 ## Canalization (stochastic-replicate consistency)
 

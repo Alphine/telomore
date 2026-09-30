@@ -1,0 +1,34 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+title: "Telomere Evolution Lab"
+type: software
+license: MIT
+repository-code: "https://github.com/Alphine/telomore"
+url: "https://studylab.id"
+abstract: >-
+  Telomere Evolution Lab is a stochastic, population-level simulator of
+  telomere attrition, maintenance and replicative senescence, coupled to an
+  evolutionary search over virtual experimental conditions. It is a
+  hypothesis-generation and teaching tool, not a predictor: it is not fitted
+  to patient data and is not intended for diagnosis or clinical use. Runs are
+  reproducible from a seed and configuration through a run ledger.
+keywords:
+  - telomere
+  - replicative senescence
+  - computational biology
+  - stochastic simulation
+  - evolutionary algorithm
+  - hypothesis generation
+authors:
+  # TODO(owner): replace with real given-names / family-names, ORCID and affiliation.
+  # "Alphine" is the only identity known from the repository (GitHub handle).
+  - alias: "Alphine"
+    # given-names: TODO(owner)
+    # family-names: TODO(owner)
+    # orcid: "https://orcid.org/TODO(owner)"
+    # affiliation: TODO(owner)
+# TODO(owner): set at release time, matching the git tag (pyproject.toml currently says 0.1.0).
+# version: TODO(owner)
+# TODO(owner): set to the release date (YYYY-MM-DD) at release time.
+# date-released: TODO(owner)
+# TODO(owner): after Zenodo mints a DOI, add:  doi: 10.5281/zenodo.TODO(owner)

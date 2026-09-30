@@ -462,7 +462,7 @@
         if (url && /^https:\/\/idr\.openmicroscopy\.org\//.test(url)) { a.href = url; a.hidden = false; } else a.hidden = true;
         $("wellMeta").querySelectorAll("[data-px]").forEach(function (n) { n.remove(); });
         if (info && info.pixel_size_um > 0) {
-          $("wellMeta").insertAdjacentHTML("beforeend", '<dt data-px>pixel size</dt><dd data-px>' + esc(fmt(info.pixel_size_um, 3)) + " µm</dd>");
+          $("wellMeta").insertAdjacentHTML("beforeend", '<dt data-px>pixel size</dt><dd data-px title="' + esc(info.pixel_size_source || "") + '">' + esc(fmt(info.pixel_size_um, 3)) + " µm</dd>");
         }
       },
       onTools: function (s) {

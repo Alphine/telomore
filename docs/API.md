@@ -839,13 +839,13 @@ web root** (`../focilab_cache`, written via temp file + `rename`, so concurrent 
 |---|---|
 | `?w=<Plate_Well>` | `image/jpeg`, coloured composite (DNA blue, 53BP1 green) at the curators' display window. `Cache-Control: public, max-age=2592000, immutable` |
 | `?w=..&ch=dna` or `&ch=foci` | `image/png`, that channel only, 8-bit grey rendering (IDR `m=g`, white, same window as the composite). IDR delivers it as an RGB PNG with R=G=B: read any one channel. Same cache header |
-| `?w=..&info=1` | `application/json`, `Cache-Control: public, max-age=86400`: `{"well", "image_id", "size_x", "size_y", "pixel_size_um": number or null, "channels": ["label", ...], "idr_url": "https://idr.openmicroscopy.org/webclient/?show=image-<id>"}` |
+| `?w=..&info=1` | `application/json`, `Cache-Control: public, max-age=86400`: `{"well", "image_id", "size_x", "size_y", "pixel_size_um": number, "pixel_size_source": "...", "channels": ["label", ...], "idr_url": "https://idr.openmicroscopy.org/webclient/?show=image-<id>"}` |
 
 `size_*` come from IDR `imgData.size.width/height`; `channels` from `imgData.channels[].label` (control characters
-stripped, at most 80 characters, treat as untrusted text); `pixel_size_um` from `imgData.pixel_size.x` (micrometres in
-OMERO) and is `null` when absent or not a positive number. Caution: for the one idr0010 image inspected (1922019) IDR
-reports exactly `1.0`, which may be a nominal default rather than a calibrated value; the script passes on what IDR says
-and cannot verify it. Errors are `text/plain` with `Cache-Control: no-store`: 400 (`w` missing/malformed/repeated, `ch`
+stripped, at most 80 characters, treat as untrusted text); `pixel_size_um` is the study's documented optical resolution, **0.465 µm/pixel** (idr0010 protocol: Zeiss Axiovert 200,
+20x/0.8 objective, CoolSNAP HQ). IDR itself reports the OMERO nominal default `1.0` for every idr0010 image, which is not
+the acquisition scale, so a value of exactly `1.0` is ignored; any other calibrated value reported by IDR takes precedence
+(`pixel_size_source` says which was used). Errors are `text/plain` with `Cache-Control: no-store`: 400 (`w` missing/malformed/repeated, `ch`
 not `dna|foci`, `info` not `1`, or both `ch` and `info`), 404 (well not in the index), 405, 500 (index or cache
 unavailable), 502 (IDR unreachable, or it returned something that is not the expected image/JSON; nothing is cached).
 `FOCI_IDR_BASE` overrides the IDR host **only** when `FOCI_ALLOW_TEST_BASE=1` is also set and the value is a loopback

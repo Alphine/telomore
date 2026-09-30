@@ -152,7 +152,8 @@ def test_composite_channels_and_info(site):
     j = json.loads(body)
     assert st == 200 and h["Content-Type"].startswith("application/json")
     assert j == {
-        "well": WELL, "image_id": 1922019, "size_x": 696, "size_y": 520, "pixel_size_um": 1.0,
+        "well": WELL, "image_id": 1922019, "size_x": 696, "size_y": 520, "pixel_size_um": 0.465,
+        "pixel_size_source": "idr0010 study protocol (IDR reports the nominal default 1.0)",
         "channels": ["Hoechst 33258", "Alexa488/53BP1"],
         "idr_url": "https://idr.openmicroscopy.org/webclient/?show=image-1922019",
     }

@@ -19,6 +19,7 @@ set_time_limit(90);
 
 const UA = 'FociLab/1.0 (+https://studylab.id; companion to github.com/Alphine/telomore)';
 const MAX_BYTES = 16 * 1024 * 1024;
+const STUDY_PIXEL_SIZE_UM = 0.465;   // idr0010 protocol: 'optical resolution of 0.465 um/pixel'
 
 // IDR host. Overridable ONLY for local tests: needs FOCI_ALLOW_TEST_BASE=1 and a
 // loopback http(s) base; otherwise the constant is used and the variable ignored.
@@ -109,6 +110,7 @@ function serve_info(string $file): void {
         'size_x' => $rec['size_x'],
         'size_y' => $rec['size_y'],
         'pixel_size_um' => $rec['pixel_size_um'],
+        'pixel_size_source' => $rec['pixel_size_source'] ?? null,
         'channels' => $rec['channels'],
         'idr_url' => 'https://idr.openmicroscopy.org/webclient/?show=image-' . (int) $rec['image_id'],
     ];
@@ -184,11 +186,17 @@ try {
             // at most 80 characters, valid UTF-8 only (no mbstring needed)
             $labels[] = ($lab !== '' && preg_match('/^.{1,80}/us', $lab, $m)) ? $m[0] : 'Channel ' . ($i + 1);
         }
-        // pixel size: IDR's imgData "pixel_size.x" (micrometres); null when absent or not a positive number
+        // Pixel size. IDR reports the OMERO nominal default 1.0 um for every idr0010 image, which is NOT
+        // the acquisition scale; the study protocol states an optical resolution of 0.465 um/pixel (Zeiss
+        // Axiovert 200, 20x/0.8, CoolSNAP HQ). A calibrated value from IDR (anything other than the
+        // default 1.0) still wins; otherwise the documented study value is used and labelled as such.
         $px = $meta['pixel_size']['x'] ?? null;
+        $pxOk = (is_int($px) || is_float($px)) && is_finite((float) $px) && $px > 0;
+        if ($pxOk && abs((float) $px - 1.0) > 1e-9) { $pxUm = (float) $px; $pxSrc = 'idr'; }
+        else { $pxUm = STUDY_PIXEL_SIZE_UM; $pxSrc = 'idr0010 study protocol (IDR reports the nominal default 1.0)'; }
         $rec = [
             'image_id' => $iid, 'size_x' => $sx, 'size_y' => $sy,
-            'pixel_size_um' => (is_int($px) || is_float($px)) && is_finite((float) $px) && $px > 0 ? (float) $px : null,
+            'pixel_size_um' => $pxUm, 'pixel_size_source' => $pxSrc,
             'channels' => $labels, 'windows' => $wins,
         ];
         store($metaFile, (string) json_encode($rec, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));

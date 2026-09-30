@@ -241,10 +241,11 @@ recorded in `experiments/`:
   experimenter cannot remove) — the more realistic case, where the front
   shows a genuine maintenance/repair trade-off and locking recovers 84 % of
   A's improvement using only real interventions.
-- **D.** Reference-model comparison against the published, GPLv3
-  `anais-rat/telomeres` (telomerase-negative yeast senescence model): our
-  model's generations-to-senescence distribution vs. theirs, run in an
-  isolated environment so the two licenses never mix
+- **D.** Structural, model-to-model comparison (not a validation against
+  data) with the published, GPLv3 `anais-rat/telomeres` (telomerase-negative
+  *yeast* senescence model): the shape of our generations-to-senescence
+  distribution vs. theirs. Absolute generation counts differ and are not
+  comparable; run in an isolated environment so the two licenses never mix
   (`scripts/reference_model/`).
 - **E.** Constant interventions vs. a 6-phase scheduled **protocol** with
   stress locked (same GA, same seed): does letting the optimizer time its
@@ -275,14 +276,21 @@ Dockerfile      multi-stage image (node build of frontend/ -> python:3.13-slim r
 
 ## Scientific limitations
 
-* Abstract population model; no telomerase kinetics, checkpoints, ALT,
-  apoptosis of cycling cells, chromosome identity or molecular detail.
+* Abstract population model; no telomerase kinetics, ALT, chromosome
+  identity or molecular detail. The only checkpoint is an optional,
+  scalar apoptosis checkpoint on a mutation-burden abstraction
+  (`docs/MODEL.md` §2.3); it is off by default.
 * "Stress", "repair" and "maintenance" are scalar abstractions.
 * The organ-on-chip mapping is a documented assumption with uncalibrated
   coefficients.
-* No comparison against the open-source reference model
-  (`anais-rat/telomeres`) has been performed yet; the adapter is an
-  explicit extension point.
+* The only reference-model comparison is Experiment D: a structural
+  model-to-model comparison with the yeast model `anais-rat/telomeres`
+  (SDD §22 Level 3). It is not a validation against data, and the
+  in-process adapter remains a stub by design.
+* The companion Foci Lab's automated foci counter is unvalidated: it does
+  not reproduce the published counts (Experiment L).
+* No bring-your-own-data import or parameter fitting yet (planned,
+  `docs/ROADMAP.md`).
 * The optimiser optimises the chosen objective, nothing else.
 
 Full statement: [`docs/SCIENTIFIC_SCOPE.md`](docs/SCIENTIFIC_SCOPE.md).

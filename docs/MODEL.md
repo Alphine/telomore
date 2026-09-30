@@ -319,8 +319,8 @@ simulator.
   actual off switch) is the per-cycle removal probability for a flagged cell;
   `mutation_threshold` (a `1.0e9` sentinel by default) is the burden level
   that flags a cell. All four are in `PARAMETER_BOUNDS` and
-  `EVOLVABLE_PARAMETERS`; none are schedulable or sub-clone-overridable in
-  this version (see "Composition" below).
+  `EVOLVABLE_PARAMETERS`; none are schedulable, but all four are
+  sub-clone-overridable since 2026-09-14 (see "Composition" below).
 * **Accumulation.** Each cell tracks `mutation_burden`, initialised to `0.0`
   at cycle 0. On every division, a dividing cell's (and its daughter's)
   burden increases by
@@ -343,10 +343,12 @@ simulator.
   unconditional no-op that consumes no RNG draw — bit-identical to the
   pre-genome-stability model (`tests/test_genome_stability.py` checks this
   against the same golden fixture `tests/test_schedule.py` uses).
-* **Composition with schedules/subclones.** Not schedulable and not
-  sub-clone-overridable in this version — explicitly deferred (see
-  `docs/ROADMAP.md`'s "Explicitly deferred" section). All four fields are
-  plain config-level scalars regardless of any schedule or sub-clone setup.
+* **Composition with schedules/subclones.** Not schedulable (explicitly
+  deferred, see `docs/ROADMAP.md`'s "Explicitly deferred" section), but
+  sub-clone-overridable since 2026-09-14: all four are in
+  `SUBCLONE_OVERRIDABLE_PARAMETERS` (§2.2), so a clone may carry its own
+  value of each. Without a sub-clone override, each is a plain config-level
+  scalar.
 * **Output.** `SimulationResult.mean_mutation_burden` / `apoptotic_fraction`
   are genome-wide per-cycle series on the same `(T+1,)` axis as `time`
   (all-zero, never absent, when the feature is unused).
@@ -437,16 +439,23 @@ current default already falls inside, or close to, the ranges below.
 
 | Parameter | Default | Literature anchor | Verdict |
 |---|---|---|---|
-| `initial_length` | 7500 bp | Adult blood ~6900 bp (Zheng et al., 2024, single-telomere array-FISH); fibroblast TRF (old donors) ~7000 bp (Allsopp et al., 1992) | Consistent |
-| `initial_length_sd` | 800 bp | Inter-individual leukocyte TL SD ~0.8 kb (Sabharwal et al., 2018) | Consistent |
-| `shortening_rate` | 55 bp/cycle | Fibroblasts in vitro: ~48±21 bp/division (Allsopp et al., 1992), ~50 bp (Levy et al., 1992); commonly cited range 50–100 bp, up to ~200 bp depending on cell type/method; newer in vivo estimate ~28 bp (Harris et al., 2025) | Consistent (mid-range of the in vitro fibroblast literature, the most relevant comparator for this model) |
-| `stress_sensitivity` | 100 bp/cycle (0–300) | Saretzki et al. (1995): telomere loss rate rises from 90 bp/PD (normoxia) to >500 bp/PD under 40% O₂ hyperoxia — a ~410 bp/PD *excess* under an extreme stress condition; Tchirkov & Lansdorp (2003): 1.5–3.2× increase in oxidatively-stressed (ataxia-telangiectasia) fibroblasts | Directionally consistent; the single most extreme literature datapoint (severe hyperoxia) exceeds this parameter's 300 bp/cycle upper bound — noted as a scope limit, not corrected, since 40% O₂ is a specific extreme experimental condition rather than the chronic/moderate stress this abstract knob is meant to represent |
-| `maintenance_max_gain` | 120 bp/cycle (0–300) | Cristofari & Lingner (2006): telomeres elongate up to 0.8 kb (800 bp) per population doubling under hTERT/hTR **overexpression** — an experimental extreme, not physiological telomerase activity (which the retrieved literature does not quantify as a clean bp/division rate) | Default and range are well below the overexpression extreme, consistent with representing moderate/physiological maintenance rather than engineered telomerase overexpression |
-| `senescence_threshold` | 3000 bp | Not a fixed universal value in the literature: the *shortest* telomere in a cell, not the mean, triggers senescence (Allsopp et al., 1995; Xu et al., 2013); short telomeres accumulate at ~1–2 kb before senescence, individual telomeres as low as 0.5–1 kb (Martens et al., 2000); TRF2 overexpression can shift the senescence setpoint from ~7 kb down to ~4 kb without accelerating senescence (Karlseder et al., 2002), showing telomere *protection state*, not length alone, governs the trigger | Plausible single-threshold approximation of a "shortest-telomere-driven, protection-state-dependent" mechanism the model deliberately simplifies — documented here as a known simplification, not silently assumed |
+| `initial_length` | 7500 bp | Adult blood ~6900 bp (Zheng et al., 2024, single-telomere array-FISH); fibroblast TRF (old donors) ~7000 bp (Allsopp et al., 1992) | Within the range reported in the literature; not fitted to data |
+| `initial_length_sd` | 800 bp | Inter-individual leukocyte TL SD ~0.8 kb (Sabharwal et al., 2018) | Within the range reported in the literature; not fitted to data |
+| `shortening_rate` | 55 bp/cycle | Fibroblasts in vitro: ~48±21 bp/division (Allsopp et al., 1992), ~50 bp (Levy et al., 1992); commonly cited range 50–100 bp, up to ~200 bp depending on cell type/method; newer in vivo estimate ~28 bp (Harris et al., 2025) | Within the range reported in the literature (mid-range of the in vitro fibroblast literature, the most relevant comparator for this model); not fitted to data |
+| `stress_sensitivity` | 100 bp/cycle (0–300) | Saretzki et al. (1995): telomere loss rate rises from 90 bp/PD (normoxia) to >500 bp/PD under 40% O₂ hyperoxia — a ~410 bp/PD *excess* under an extreme stress condition; Tchirkov & Lansdorp (2003): 1.5–3.2× increase in oxidatively-stressed (ataxia-telangiectasia) fibroblasts | Directionally in line with the literature; not fitted to data. The single most extreme literature datapoint (severe hyperoxia) exceeds this parameter's 300 bp/cycle upper bound — noted as a scope limit, not corrected, since 40% O₂ is a specific extreme experimental condition rather than the chronic/moderate stress this abstract knob is meant to represent |
+| `maintenance_max_gain` | 120 bp/cycle (0–300) | Cristofari & Lingner (2006): telomeres elongate up to 0.8 kb (800 bp) per population doubling under hTERT/hTR **overexpression** — an experimental extreme, not physiological telomerase activity (which the retrieved literature does not quantify as a clean bp/division rate) | Default and range are well below the overexpression extreme, i.e. meant to represent moderate/physiological maintenance rather than engineered telomerase overexpression |
+| `senescence_threshold` | 3000 bp | Not a fixed universal value in the literature: the *shortest* telomere in a cell, not the mean, triggers senescence (Allsopp et al., 1995; Xu et al., 2013); short telomeres accumulate at ~1–2 kb before senescence, individual telomeres as low as 0.5–1 kb (Martens et al., 2000); TRF2 overexpression can shift the senescence setpoint from ~7 kb down to ~4 kb without accelerating senescence (Karlseder et al., 2002), showing telomere *protection state*, not length alone, governs the trigger | A single-threshold approximation (not fitted to data) of a "shortest-telomere-driven, protection-state-dependent" mechanism the model deliberately simplifies — documented here as a known simplification, not silently assumed |
 | `repair_rate` | 0.20 (0–1, a.u.) | No direct bp/cycle repair-rate analog found; conceptually maps to shelterin-mediated protection and DNA-damage-response suppression at telomeres (de Lange, 2018; Denchi & de Lange, 2007) rather than a literature-quantified "repair rate" | Qualitative abstraction only — flagged as not literature-calibrated in the same numeric sense as the others |
 
 Full citations for every source named above: **§9 References**, "Telomere
 biology (§3.1 parameter calibration)".
+
+Every "within the range reported in the literature" verdict above means only
+that the default lies inside, or near, the cited ranges; none of these
+parameters was fitted to data. Note also that `senescence_threshold` is a
+*shortest-telomere* length on the model's own scale: it is not comparable to
+a TRF (terminal restriction fragment) mean, because TRF includes subtelomeric
+DNA and reports a population mean rather than the shortest telomere.
 
 This is a calibration *check* against literature-reported ranges, not a
 parameter re-fit — the model remains a deliberately abstract, coarse-grained
@@ -465,7 +474,7 @@ biophysics: `initial_length_sd` (§2's founder-population spread) and
 
 | Parameter | Default | GWAS/heritability anchor | Verdict |
 |---|---|---|---|
-| `initial_length_sd` | 800 bp | Broad-sense heritability of leukocyte telomere length (LTL) ≈ 0.70 (Broer et al., 2013, meta-analysis of 19,713 subjects, 95% CI 0.64–0.76). Decomposing the existing 800 bp total-phenotypic-variance anchor (Sabharwal et al., 2018, §3.1) by this heritability implies a genetic-component SD of √0.70 × 800 ≈ **669 bp** and an environmental/residual SD of √0.30 × 800 ≈ **438 bp** | Consistent order of magnitude — 800 bp sits between the pure-genetic and pure-phenotypic estimates, as it should if it is meant to represent total founder-population spread. The model does not decompose `initial_length_sd` into a genetic vs. environmental source (there is no cross-generation inheritance model, §7) — documented as a simplification, not corrected as an error |
+| `initial_length_sd` | 800 bp | Broad-sense heritability of leukocyte telomere length (LTL) ≈ 0.70 (Broer et al., 2013, meta-analysis of 19,713 subjects, 95% CI 0.64–0.76). Decomposing the existing 800 bp total-phenotypic-variance anchor (Sabharwal et al., 2018, §3.1) by this heritability implies a genetic-component SD of √0.70 × 800 ≈ **669 bp** and an environmental/residual SD of √0.30 × 800 ≈ **438 bp** | Same order of magnitude as the reported range, not fitted to data — 800 bp sits between the pure-genetic and pure-phenotypic estimates, as it should if it is meant to represent total founder-population spread. The model does not decompose `initial_length_sd` into a genetic vs. environmental source (there is no cross-generation inheritance model, §7) — documented as a simplification, not corrected as an error |
 | `initial_length_sd` (missing-heritability context) | — | The largest telomere-length GWAS to date (Codd et al., 2021, *Nature Genetics*, UK Biobank, n = 472,174) found 197 independent variants across 138 loci (108 novel) but a common-SNP heritability of only **8.1%**, with the resulting polygenic score explaining **~5.6%** of variance — versus the ~70% twin-based estimate above (Codd et al., 2013, *Nature Genetics*'s original 7-loci discovery explained only ~1%) | Informational only, no verdict on a specific parameter: this "missing heritability" gap means telomere length genetics is highly polygenic with no single dominant locus, so there is no candidate "one gene = one model parameter" mapping even if a per-locus genetic term were ever added |
 | `repair_rate` | 0.20 (0–1, a.u.) | DNA-repair/telomere-maintenance loci with GWAS hits (`RTEL1`, `PARP1`) report effect sizes as disease-risk odds ratios or telomere/single-copy (T/S) ratio shifts (e.g. `TERT` rs2736100: +0.026 T/S per C allele, ≈ 3 years' attrition-equivalent) — never a repair-*rate* quantity in units comparable to this model's unitless 0–1 knob | Reconfirms §3.1's existing verdict rather than adding a new one: qualitative conceptual mapping only, no literature-calibrated numeric target exists for this parameter |
 | `repair_rate_mutation_sigma` | 0.0 (0–0.1, a.u./cycle) | Not applicable in principle, not just data-limited: GWAS effect sizes and heritability estimates quantify **germline, inter-individual** variation (fixed for an organism's lifetime), while this parameter is a **somatic, per-division drift** step within one simulated lineage — a different biological process. No GWAS study measures a per-mitosis mutation step size for a repair-related phenotype | Out of scope for this calibration exercise by construction; noted in §7 as a known simplification rather than left unaddressed |
@@ -780,7 +789,8 @@ Sources: **§9 References**, "Organ-on-a-chip calibration (§6.1)".
 ## 7. Known simplifications
 
 * No cell-cycle arrest heterogeneity, no DNA-damage checkpoints beyond
-  the single length threshold, no apoptosis of proliferative cells, no
+  the single length threshold, no apoptosis of proliferative cells (except
+  the optional §2.3 checkpoint, off by default), no
   crisis/ALT escape, no chromosome-specific telomere lengths, no
   asymmetric inheritance of sister-chromatid ends. The literature (§3.1)
   says the *shortest* telomere's protection state, not a fixed length

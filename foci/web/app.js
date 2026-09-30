@@ -8,7 +8,7 @@
   var L = window.FociLib;
   var RAILWAY = "https://telomore-production.up.railway.app/api/foci";
   var NS = "http://www.w3.org/2000/svg";
-  var S = null, GENES = null, BYNAME = {}, C = {};
+  var S = null, GENES = null, BYNAME = Object.create(null), C = {};
   var resolver = null, symbols = null, annotations = undefined, manifest = null, sirnaData = undefined, sirnaPromise = null;
   var esc = L.escHtml, fmt = L.fmt, fz = L.fz, fq = L.fq;
   var readyState = false, readyQ = [];
@@ -36,11 +36,10 @@
   function $(id) { return document.getElementById(id); }
   function reduced() { return matchMedia("(prefers-reduced-motion: reduce)").matches; }
   function scrollTo(node, block) { node.scrollIntoView({ behavior: reduced() ? "auto" : "smooth", block: block || "nearest" }); }
-  function optional(url) { // JSON or null; never throws
-    return fetch(url).then(function (r) {
-      if (!r.ok || !/json/i.test(r.headers.get("content-type") || "")) return null;
-      return r.json();
-    }).catch(function () { return null; });
+  function optional(url) { // parsed JSON or null; never throws (404, HTML fallback pages, bad JSON, offline)
+    return fetch(url).then(function (r) { return r.ok ? r.text() : null; })
+      .then(function (body) { if (body == null) return null; try { return JSON.parse(body); } catch (e) { return null; } })
+      .catch(function () { return null; });
   }
 
   // ---------------------------------------------- support labels and formats

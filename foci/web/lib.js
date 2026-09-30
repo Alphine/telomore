@@ -336,8 +336,8 @@
   function parseListHash(hash) {
     var m = /^#list=(.*)$/.exec(String(hash || ""));
     if (!m) return null;
-    var toks = m[1].split(",").map(function (t) { try { return decodeURIComponent(t); } catch (e) { return ""; } }).filter(Boolean);
-    return toks.slice(0, 2000);
+    var toks = m[1].slice(0, 300000).split(",").slice(0, 2000).map(function (t) { try { return decodeURIComponent(t); } catch (e) { return ""; } }).filter(Boolean);
+    return toks;
   }
   function buildListHash(tokens, cap) {
     cap = cap || LIST_CAP;

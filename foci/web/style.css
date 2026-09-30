@@ -244,3 +244,4 @@ img, svg, canvas { max-width: 100%; }
 .card, .card > * { min-width: 0; }
 .pill.down, .badge { color: color-mix(in srgb, var(--accent) 65%, var(--ink)); }
 .pill.up { color: color-mix(in srgb, var(--up) 80%, var(--ink)); }
+.wells button { min-height: 44px; }

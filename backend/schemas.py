@@ -35,10 +35,31 @@ from telomere_lab.schemas import MAX_PHASES
 # --------------------------------------------------------------------------- #
 # auth
 # --------------------------------------------------------------------------- #
+MIN_PASSWORD_LENGTH = 8
+MAX_PASSWORD_BYTES = 72  # bcrypt >= 5 raises ValueError beyond 72 bytes
+MIN_USERNAME_LENGTH = 3
+MAX_USERNAME_LENGTH = 150
+
+
+def _check_new_password(value: str) -> str:
+    """Registration / reset only -- login keeps accepting legacy shorter passwords."""
+    if len(value) < MIN_PASSWORD_LENGTH:
+        raise ValueError(f"Password must be at least {MIN_PASSWORD_LENGTH} characters.")
+    if len(value.encode("utf-8")) > MAX_PASSWORD_BYTES:
+        raise ValueError(f"Password must be at most {MAX_PASSWORD_BYTES} bytes in UTF-8 "
+                         "(non-ASCII characters take 2-4 bytes each).")
+    return value
+
+
 class RegisterRequest(BaseModel):
-    username: str = Field(min_length=1)
-    email: str = Field(min_length=3)
-    password: str = Field(min_length=1)
+    username: str = Field(min_length=MIN_USERNAME_LENGTH, max_length=MAX_USERNAME_LENGTH)
+    email: str = Field(min_length=3, max_length=254)
+    password: str
+
+    @field_validator("password")
+    @classmethod
+    def _password_ok(cls, v: str) -> str:
+        return _check_new_password(v)
 
 
 class RegisterResponse(BaseModel):
@@ -52,8 +73,8 @@ class VerifyResponse(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    username: str
-    password: str
+    username: str = Field(max_length=1024)
+    password: str = Field(max_length=1024)  # sanity bound only; never rejects legacy passwords
 
 
 class TokenResponse(BaseModel):
@@ -72,7 +93,12 @@ class ForgotPasswordResponse(BaseModel):
 
 class ResetPasswordRequest(BaseModel):
     token: str
-    new_password: str = Field(min_length=1)
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def _password_ok(cls, v: str) -> str:
+        return _check_new_password(v)
 
 
 class MessageResponse(BaseModel):

@@ -81,6 +81,7 @@ def list_experiments(
 
 @router.get("/{run_id}", response_model=api_schemas.ExperimentDetail)
 def get_experiment(run_id: str, user: _db.User = Depends(get_current_user)) -> api_schemas.ExperimentDetail:
+    _safe_segment(run_id, "run id")
     registry = ExperimentRegistry()
     try:
         record = registry.load(run_id)

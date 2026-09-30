@@ -211,7 +211,10 @@ def reset_engine() -> None:
 
 # --------------------------------------------------------------- passwords
 def _hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    raw = password.encode("utf-8")
+    if len(raw) > 72:  # bcrypt >= 5 raises on longer input; fail with a clear, catchable message
+        raise ValueError("password must be at most 72 bytes in UTF-8")
+    return bcrypt.hashpw(raw, bcrypt.gensalt()).decode("utf-8")
 
 
 def _verify_password(password: str, password_hash: str) -> bool:

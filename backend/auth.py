@@ -29,6 +29,10 @@ JWT_ALGORITHM = "HS256"
 JWT_EXPIRES_IN = _dt.timedelta(days=7)
 
 _SECRET_KEY = os.environ.get("SECRET_KEY")
+if not _SECRET_KEY and os.environ.get("RAILWAY_ENVIRONMENT"):
+    # A per-process random key would silently log everyone out on every
+    # restart/redeploy and break multi-replica setups: refuse to start.
+    raise RuntimeError("SECRET_KEY must be set when running on Railway (RAILWAY_ENVIRONMENT is set).")
 if not _SECRET_KEY:
     _SECRET_KEY = secrets.token_urlsafe(48)
     logger.warning(

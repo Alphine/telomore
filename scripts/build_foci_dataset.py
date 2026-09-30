@@ -36,6 +36,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from telomere_lab.foci import ATTRIBUTION, FociParams, IdrClient, count_foci, fetch_image_channels, overlay_rgb  # noqa: E402
+from telomere_lab.foci.stats import (LOW_CELLS, NORM_COL as NORM, Q_HIT, Z_SIRNA, gene_stats, r3,  # noqa: E402
+                                     sirna_concordance, truth_check, well_scores)
 
 META_URL = ("https://raw.githubusercontent.com/IDR/idr-metadata/master/"
             "idr0010-doil-dnadamage/screenA/idr0010-screenA-annotation.csv")
@@ -98,23 +100,56 @@ def build_index(out: Path) -> dict:
     return idx
 
 
-def r3(x):
-    return None if x is None or not np.isfinite(x) else round(float(x), 3)
+GENE_COLUMNS = ["gene", "wells", "sirnas", "med_norm", "fpc", "cells", "ensembl", "rank", "med_z", "stouffer",
+                "emp_z", "p", "q", "status", "flags", "well_list"]
+WELL_COLUMNS = ["plate_well", "norm_fpc", "imaged", "z", "cells", "sirna"]
+LIST_KEYS = ["gene", "wells", "sirnas", "med_z", "stouffer", "emp_z", "q", "status", "med_norm", "cells", "flags"]
 
 
-def gene_table(ok: pd.DataFrame) -> list:
-    g = ok[ok["Control Type"].isna() & ok["Gene Symbol"].notna()].groupby("Gene Symbol")
-    t = g.agg(n=("Foci Per Cell (Normalized)", "size"), norm=("Foci Per Cell (Normalized)", "median"),
-              fpc=("Foci Per Cell", "median"), cells=("Cell Count", "median"),
-              ens=("Gene Identifier", "first")).reset_index()
-    wells = g.apply(lambda d: [[w, r3(v), bool(i == i)] for w, v, i in
-                               zip(d["Plate_Well"], d["Foci Per Cell (Normalized)"], d["image_id"])],
-                    include_groups=False)
-    t["wells"] = t["Gene Symbol"].map(wells)
-    t = t.sort_values("norm")
-    t["rank"] = np.arange(1, len(t) + 1)
-    return [[r["Gene Symbol"], int(r["n"]), r3(r["norm"]), r3(r["fpc"]), r3(r["cells"]),
-             r["ens"] if isinstance(r["ens"], str) else "", int(r["rank"]), r["wells"]] for _, r in t.iterrows()]
+def g3(x):
+    return None if x is None or not np.isfinite(x) else float(f"{x:.3g}")
+
+
+def gene_table(t: pd.DataFrame, s: pd.DataFrame) -> list:
+    """genes.json rows, ordered by rank (single-well genes, which are not ranked, last)."""
+    agg = s.groupby("gene").agg(med_norm=(NORM, "median"), fpc=("Foci Per Cell", "median"),
+                                ens=("Gene Identifier", "first"))
+    wells = {g: [[w, r3(v), bool(i == i), r3(z), int(c), str(sr)] for w, v, i, z, c, sr in
+                 zip(d["Plate_Well"], d[NORM], d["image_id"], d["z"], d["cells"], d["sirna"])]
+             for g, d in s.groupby("gene")}
+    rows = []
+    for g, r in t.assign(_r=t["rank"].fillna(1e9)).sort_values("_r", kind="mergesort").iterrows():
+        e = agg.loc[g]
+        rows.append([g, int(r["wells"]), int(r["sirnas"]), r3(e["med_norm"]), r3(e["fpc"]), r3(r["cells"]),
+                     e["ens"] if isinstance(e["ens"], str) else "", None if np.isnan(r["rank"]) else int(r["rank"]),
+                     r3(r["med_z"]), r3(r["stouffer"]), r3(r["emp_z"]), g3(r["p"]), g3(r["q"]),
+                     r["status"], r["flags"], wells[g]])
+    return rows
+
+
+def brief(by_gene: dict, names) -> list:
+    """Compact per-gene dicts (no well list) for the summary lists and panels."""
+    return [dict(zip(LIST_KEYS, [by_gene[n][GENE_COLUMNS.index(k)] for k in LIST_KEYS])) for n in names if n in by_gene]
+
+
+def nucleus_check(a: pd.DataFrame) -> dict:
+    """Our nucleus count vs the authors' Cell Count on every cached image (offline)."""
+    rows = a[a["image_id"].notna() & a["Cell Count"].notna() & (a["Cell Count"] > 0)]
+    by_img = {int(i): c for i, c in zip(rows["image_id"], rows["Cell Count"])}
+    ours, theirs = [], []
+    for f in sorted((CACHE / "img").glob("*.npz")):
+        iid = int(f.stem)
+        if iid not in by_img:
+            continue
+        d = np.load(f)
+        ours.append(count_foci(d["dna"].astype(np.float32), d["foci"].astype(np.float32)).n_nuclei)
+        theirs.append(by_img[iid])
+    ours, theirs = np.array(ours, float), np.array(theirs, float)
+    ratio = ours[ours > 0] / theirs[ours > 0]
+    return {"n_images": int(len(ours)), "median_ours": r3(np.median(ours)), "median_authors": r3(np.median(theirs)),
+            "median_ratio_of_medians": r3(np.median(ours) / np.median(theirs)),
+            "ratio_p10": r3(np.quantile(ratio, .1)), "ratio_median": r3(np.median(ratio)),
+            "ratio_p90": r3(np.quantile(ratio, .9))}
 
 
 def fetch_cached(iid: int):
@@ -224,25 +259,45 @@ def main(argv=None) -> int:
     ok = a[a["Quality Control"].isna()].copy()
     print(f"{len(a)} wells, {len(ok)} pass QC, {len(idx)} imaged")
 
-    genes = gene_table(ok)
+    s, ctl = well_scores(ok)
+    t, null = gene_stats(s)
+    genes = gene_table(t, s)
+    by_gene = {g[0]: g for g in genes}
     (out / "genes.json").write_text(json.dumps({
-        "columns": ["gene", "wells", "norm_fpc", "fpc", "cells", "ensembl", "rank", "well_list"],
-        "well_list_columns": ["plate_well", "norm_fpc", "imaged"], "rows": genes},
-        separators=(",", ":")))
+        "columns": GENE_COLUMNS, "well_list_columns": WELL_COLUMNS, "rows": genes},
+        separators=(",", ":"), allow_nan=False))
 
     samples = ok[ok["Control Type"].isna()]
-    norm = samples["Foci Per Cell (Normalized)"].dropna()
+    norm = samples[NORM].dropna()
     edges = np.round(np.linspace(0, 4, 41), 2)
     hist, _ = np.histogram(norm.clip(upper=4), bins=edges)
     ctrl = {}
     for name, rows in ok[ok["Control Type"].notna()].groupby("Control Type"):
-        v = rows["Foci Per Cell (Normalized)"].dropna()
+        v = rows[NORM].dropna()
         ctrl[name] = {"wells": int(len(v)), "median": r3(v.median()), "p10": r3(v.quantile(.1)), "p90": r3(v.quantile(.9))}
-    gmap = {g[0]: g[:7] for g in genes}
-    well_n = [g[:7] for g in genes if g[1] >= 2]
+    rankable = [g for g in genes if g[7] is not None]        # already ordered: most foci lost first
+    from scipy.stats import spearmanr
+    cc = s[["z", "cells"]].dropna()
+    conc = sirna_concordance(s)
+    truth = truth_check(a, t, s)
+    n_two = int((t["sirnas"] >= 2).sum())
+    stats = {
+        "z_definition": "log2(plate-normalised foci/cell) minus the negative-control median, divided by 1.4826 x MAD of the negative controls",
+        "negative_controls": {"wells": ctl["wells"], "log2_median": r3(ctl["log2_median"]), "robust_sd": r3(ctl["robust_sd"])},
+        "empirical_null": {"median": r3(null["mu"]), "robust_sd": r3(null["sd"]), "genes_tested": null["n_tested"]},
+        "genes_q05_empirical_null": null["n_q05_empirical"], "genes_q05_theoretical_null": null["n_q05_theoretical"],
+        "supported_hits_down": null["hits_down"], "supported_hits_up": null["hits_up"],
+        "q_only_not_supported": null["q_only"], "single_well_genes": null["single_well"],
+        "genes_with_two_sirnas": n_two, "genes_rankable": len(rankable),
+        "rules": {"sirna_abs_z": Z_SIRNA, "q": Q_HIT, "min_sirnas": 2, "low_cells": LOW_CELLS},
+        "low_cell_wells_pct": r3(100 * float((s["cells"] < LOW_CELLS).mean())),
+        "cells_vs_z_spearman": r3(spearmanr(cc["z"], cc["cells"])[0]),
+        "concordance": conc, "truth_check": truth,
+    }
+    print("stats:", json.dumps({k: v for k, v in stats.items() if k not in ("z_definition", "rules")}, default=float))
 
     def pick(names):
-        return [gmap[n] for n in names if n in gmap]
+        return brief(by_gene, names)
 
     summary = {
         "attribution": ATTRIBUTION,
@@ -256,18 +311,28 @@ def main(argv=None) -> int:
         "sample_median_norm": r3(norm.median()),
         "histogram": {"edges": edges.tolist(), "counts": hist.tolist(), "clipped_at": 4},
         "controls": ctrl,
-        "lowest": well_n[:15],
-        "highest": well_n[::-1][:15],
+        "stats": stats,
+        "lowest": brief(by_gene, [g[0] for g in rankable[:15]]),
+        "highest": brief(by_gene, [g[0] for g in rankable[::-1][:15]]),
         "telomere_panel": pick(TELOMERE_GENES),
+        "telomere_absent": {g: ("no quality-controlled well" if (a["Gene Symbol"] == g).any() else "not in the screen table")
+                            for g in TELOMERE_GENES if g not in by_gene},
         "repair_panel": pick(REPAIR_GENES),
-        "columns": ["gene", "wells", "norm_fpc", "fpc", "cells", "ensembl", "rank"],
     }
+    old = out / "summary.json"
+    prev = json.loads(old.read_text()) if old.exists() else {}
     if not args.no_images:
         print("gallery:")
         summary["gallery"] = build_gallery(ok, out)
         print("experiment L:")
         summary["experiment_l"] = experiment_l(ok)
-    (out / "summary.json").write_text(json.dumps(summary, indent=1, default=float))
+        summary["experiment_l"]["nucleus_check"] = nucleus_check(a)
+        print("  nucleus check:", summary["experiment_l"]["nucleus_check"])
+    else:                                    # keep the image-derived parts from the last full build
+        for k in ("gallery", "experiment_l"):
+            if k in prev:
+                summary[k] = prev[k]
+    old.write_text(json.dumps(summary, indent=1, default=float, allow_nan=False))
     print("wrote", out)
     return 0
 

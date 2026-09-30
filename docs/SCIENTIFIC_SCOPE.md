@@ -106,15 +106,6 @@ objective within the simulation", "model output", "simulation parameter",
 this configuration is X, computed from this simulation's own survival,
 telomere-reserve and senescence numbers".
 
-### Note on the "biological age" score
-
-The synthetic 0-100 "biological age" score is a **model vitality index**: a
-composite of this simulation's own survival, telomere reserve and senescence
-numbers. It is not an epigenetic-clock-style age and is not comparable to
-one. The field and UI label are kept for continuity; wherever the number is
-discussed, read it as a vitality index (see also the section on the synthetic
-score below).
-
 ## Organ-on-a-chip bridge
 
 The mapping from chip conditions (flow, oxygen, nutrients, exogenous
@@ -142,6 +133,12 @@ not evidence about lifespan, disease risk, or any real ageing process. Every
 place this number is rendered in the UI carries the same short caption
 verbatim (see `frontend/src/components/biologicalAgeUtils.ts`'s
 `BIOLOGICAL_AGE_DISCLAIMER`) so the number is never shown unqualified.
+
+**Language-policy note.** The synthetic 0-100 "biological age" score is a **model vitality index**: a
+composite of this simulation's own survival, telomere reserve and senescence
+numbers. It is not an epigenetic-clock-style age and is not comparable to
+one. The field and UI label are kept for continuity; wherever the number is
+discussed, read it as a vitality index.
 
 ## Canalization (stochastic-replicate consistency)
 

@@ -414,7 +414,7 @@ class ModelConfig:
     #: bit-identical to today's model.
     repair_rate_mutation_sigma: float = 0.0
 
-    # --- optional science-upgrade mechanisms (docs/MODEL.md §2.4-§2.7) -------------
+    # --- optional science-upgrade mechanisms (docs/MODEL.md §2.5-§2.8) -------------
     #: Every one is default-off (0.0), draws no RNG and alters no arithmetic
     #: when unused; none is fitted to data, none is in EVOLVABLE_PARAMETERS.
     #: Cycle -> hours mapping for the ``time_hours`` output / ``total_days``.
@@ -611,7 +611,7 @@ class SimulationResult:
     #: ``(T+1,)`` axis as ``time``. Equal to the constant scalar/schedule value
     #: when ``repair_rate_mutation_sigma == 0.0`` (the feature's off switch).
     mean_repair_rate: np.ndarray = field(default_factory=lambda: np.array([]))
-    #: Cumulative population doublings on the ``time`` axis (docs/MODEL.md §2.4):
+    #: Cumulative population doublings on the ``time`` axis (docs/MODEL.md §2.5):
     #: sum over cycles of log2(N_after_division / N_before_division), counted
     #: before culling / passage so dilution and death never subtract.
     population_doublings: np.ndarray = field(default_factory=lambda: np.array([]))

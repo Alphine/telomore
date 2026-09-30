@@ -226,7 +226,7 @@ class SimpleTelomereModel:
         snapshots: Dict[int, np.ndarray] = {0: lengths.ravel().copy()}
         clone_fraction_rows: List[np.ndarray] = [_clone_fractions(clone_id, n_clones)]
         failure = None
-        # Cumulative population doublings (docs/MODEL.md section 2.4): growth from
+        # Cumulative population doublings (docs/MODEL.md section 2.5): growth from
         # division only, log2(N_after / N_before) per cycle, before any culling.
         pd_total = 0.0
         pd_rows: List[float] = [0.0]
@@ -462,7 +462,7 @@ def _assemble(config, rows, snapshots, lengths, mutation_burden, repair_rate_cel
         float(repair_rate_cells.std()) if repair_rate_cells.size else 0.0
     )
     # Cumulative population doublings and (optional) wall-clock mapping
-    # (docs/MODEL.md sections 2.4-2.5): deterministic, no RNG.
+    # (docs/MODEL.md section 2.5): deterministic, no RNG.
     result.terminal_metrics["total_pd"] = float(population_doublings[-1])
     if config.hours_per_cycle > 0.0:
         result.terminal_metrics["total_days"] = float(time[-1] * config.hours_per_cycle / 24.0)

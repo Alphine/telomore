@@ -129,6 +129,16 @@ environmental or structural one. With a single eval seed it is trivially
 1.0 for every genome and carries no information.
 
 
+## Structural realism upgrades (not calibration)
+
+The optional mechanisms population doublings / wall-clock time (MODEL.md §2.5),
+two-level initial spread (§2.6), stochastic senescence (§2.7) and heterogeneous
+shortening rate (§2.8) make the model *able to express* features the
+literature reports (cell-to-cell variation in lifespan, PD as the natural clock,
+a bench timeline). They are qualitative structural improvements: all default
+off, none is fitted to any dataset, and Experiment M only shows what the model
+can produce, not what a real culture does.
+
 ## Toy sequence layer
 
 The Genome Explorer (docs/MODEL.md §2.4) is a teaching aid. Its genes are

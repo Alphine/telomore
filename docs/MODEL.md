@@ -387,6 +387,83 @@ human genes.
 No default simulator path changes; the layer is separate. Not calibrated
 against any dataset.
 
+### 2.5 Population doublings and wall-clock time
+
+**Population doublings (PD).** The per-cycle output `population_doublings`
+is cumulative, starts at 0 and grows by `log2(N_after_division /
+N_before_division)` each cycle, where `N_before_division` is the culture size
+entering the cycle and `N_after_division` its size right after step 1
+(division), *before* senescence loss, apoptosis, senescent death and passaging.
+Consequences: passaging dilution and death never subtract (PD is a growth
+counter, not a census), a fully proliferative culture gains exactly 1 PD per
+cycle, and a culture with senescent cells gains `log2(1 + f_prolif) < 1`.
+**A cycle is therefore not a PD**: once cells arrest or the culture is dilute,
+cycles overcount doublings. An extinct culture keeps its final PD. The
+terminal metric `total_pd` is the last value. PD is deterministic, spends no
+RNG, and is always present (NaN in a failed run).
+
+**Wall-clock time.** `hours_per_cycle` (default 0.0 = unused, bounds 0-240)
+maps cycles to hours: when > 0 the output `time_hours` equals `cycle *
+hours_per_cycle` and `total_days = cycles * hours_per_cycle / 24` is added to
+the terminal metrics; when unused `time_hours` is all-NaN and `total_days` is
+absent. A doubling time of about 24 h therefore gives roughly one PD per day
+for a fully proliferative culture. This is a bench-timeline *assumption*, not a
+fit; it changes no dynamics and spends no RNG.
+
+### 2.6 Within-cell vs between-cell initial length spread
+
+Legacy behaviour (`initial_within_cell_sd = 0`): every telomere of every cell
+is an independent draw N(`initial_length`, `initial_length_sd`), i.e. the 800 bp
+SD, which is an inter-individual leukocyte figure (§3.2), is used as the spread
+*between telomeres of one cell*. When `initial_within_cell_sd = w > 0`, the
+model uses two levels: each cell draws one offset N(0, `initial_length_sd`)
+(now the **between-cell** SD) and each telomere adds an independent N(0, w).
+Per-telomere total variance is `initial_length_sd^2 + w^2`, and the SD of a
+cell's mean over `k` telomeres is `sqrt(initial_length_sd^2 + w^2/k)`. Lengths
+are floored at 200 bp as before. Bounds 0-3000 bp. Validation rejects a
+configuration whose typical cell would start at or below the threshold, using
+`initial_length - w*sqrt(2 ln k) <= senescence_threshold` (`k` telomeres per
+cell). Unset, the RNG stream and arithmetic are exactly the legacy ones. It
+does not claim any particular real within-cell SD.
+
+### 2.7 Stochastic senescence (hazard)
+
+Default rule: a cell arrests when its shortest telomere is below the threshold
+(`update_senescence`). Two optional parameters make arrest probabilistic. Each
+cycle, after division and shortening, every *proliferating* cell arrests with
+
+    p_len = sigmoid((threshold - shortest) / senescence_softness_bp)   (softness > 0)
+    p_len = 1[shortest < threshold]                                     (softness = 0)
+    p     = 1 - (1 - p_len) * (1 - random_arrest_rate)
+
+`p_len` is 0.5 exactly at the threshold, tends to 1 far below it (such cells
+arrest essentially at once) and to 0 far above it. With softness > 0 the sigmoid
+*replaces* the hard rule for proliferating cells (it is not applied on top of
+it); `random_arrest_rate` is an independent length-independent per-cycle
+probability. Senescence stays irreversible. The founding culture (cycle 0) uses
+the hard rule. One uniform per cell is drawn per cycle only when
+`senescence_softness_bp > 0` or `random_arrest_rate > 0`; with both 0 the
+original code path runs and no RNG is drawn. Bounds: softness 0-2000 bp,
+random rate 0-0.5 per cycle. Motivation: heterogeneous arrest timing (for
+example the yeast type A/type B picture) cannot be expressed by a hard
+threshold. Nothing here is calibrated (Experiment M, docs/EXPERIMENT_PROTOCOL.md).
+
+### 2.8 Heterogeneous per-cell shortening rate
+
+`shortening_rate_cv` (default 0.0 = unused, bounds 0-1): each founder cell
+draws a multiplier `m ~ lognormal` with mean exactly 1 and coefficient of
+variation `cv` (`sigma^2 = ln(1 + cv^2)`, `mu = -sigma^2/2`), applied to the
+division-driven loss `shortening_rate` only (not to stress loss or noise). It
+is heritable: daughters copy the parent's `m`, threaded through
+`divide` / `remove_dead` / `remove_apoptotic` / `passage` exactly like the
+per-cell `repair_rate`. It composes with sub-clones by multiplying the clone's
+own `shortening_rate`. The array always exists (all ones) but is drawn and used
+only when `cv > 0`; the draws come after the initial lengths, so unset configs
+keep their RNG stream. Motivation: the literature attributes the heterogeneous
+replicative lifespans of clonal fibroblasts to stochastic variation in the
+shortening rate. The default `cv` is not a fitted value; no value of `cv` is
+calibrated to data.
+
 ## 3. Parameters
 
 | Name | Default | Range | Unit | Kind |
@@ -410,6 +487,11 @@ against any dataset.
 | `checkpoint_strength` | 0.0 | 0–1 | a.u. | model (evolvable, genome stability §2.3) |
 | `mutation_threshold` | 1.0e9 | 0–1.0e9 | a.u. | model (evolvable, genome stability §2.3) |
 | `repair_rate_mutation_sigma` | 0.0 | 0–0.1 | a.u./cycle | model (per-cell heritable repair_rate §2.2.1) |
+| `hours_per_cycle` | 0.0 | 0-240 | h/cycle | optional wall-clock mapping (§2.5) |
+| `initial_within_cell_sd` | 0.0 | 0-3000 | bp | optional two-level initial spread (§2.6) |
+| `shortening_rate_cv` | 0.0 | 0-1 | fraction | optional per-cell shortening heterogeneity (§2.8) |
+| `senescence_softness_bp` | 0.0 | 0-2000 | bp | optional senescence hazard scale (§2.7) |
+| `random_arrest_rate` | 0.0 | 0-0.5 | 1/cycle | optional length-independent arrest (§2.7) |
 | `cycles` | 120 | ≥1 | cycles | run control |
 | `seed` | 42 | – | – | randomness |
 | `schedule` | none | 1–8 phases | – | optional protocol (§2.1) |

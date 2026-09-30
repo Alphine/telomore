@@ -250,6 +250,23 @@ endpoint, exactly like the genome-stability fields above.
 
 Tests: `tests/test_repair_rate_drift.py`.
 
+### Science-upgrade fields (docs/MODEL.md §2.5-§2.8)
+
+Five new optional `model` fields, all default `0.0` (= unused), bounds-checked
+like any `PARAMETER_BOUNDS` entry (visible in `GET /api/meta/bounds`; not
+evolvable): `hours_per_cycle` (0-240), `initial_within_cell_sd` (0-3000),
+`shortening_rate_cv` (0-1), `senescence_softness_bp` (0-2000),
+`random_arrest_rate` (0-0.5). A too-large `initial_within_cell_sd` raises
+`ConfigError` -> **`400`**.
+
+* `run.timeseries` gains **`population_doublings`** (cumulative PD, always
+  present, `cycles + 1` entries) and **`time_hours`** (`cycle * hours_per_cycle`,
+  all `NaN`/`null` when `hours_per_cycle` is 0).
+* `run.terminal_metrics` gains **`total_pd`** (always) and **`total_days`**
+  (only when `hours_per_cycle > 0`).
+
+Tests: `tests/test_science_upgrades.py`.
+
 ### Genotype x Environment (G×E) study (docs/ROADMAP.md 2026-09-13 follow-up)
 
 `POST /api/gxe` starts a background job (see "Long-running jobs" below) that

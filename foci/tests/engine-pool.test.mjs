@@ -99,7 +99,7 @@ test("worker script is well-formed: only same-directory importScripts, posts rea
   const path = await import("node:path");
   const f = path.join(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")), "..", "web", "engine", "worker.js");
   const src = fs.readFileSync(f, "utf8");
-  assert.match(src, /importScripts\('engine\.js'\)/);
+  assert.match(src, /importScripts\('engine\.js' \+ /);
   assert.match(src, /type: 'ready'/);
   assert.match(src, /postMessage\(\{ id: m\.id, ok: true/);
   assert.match(src, /postMessage\(\{ id: m\.id, ok: false/);

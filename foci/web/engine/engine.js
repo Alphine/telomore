@@ -247,6 +247,7 @@
     if (ch.bitDepth === 32) q = percentilesF32(src, [0.1, 99.99]);
     else q = percentilesInt(src, 65535, [0.1, 99.99]);
     var lo = q[0], hi = q[1];
+    if (!isFinite(lo) || !isFinite(hi)) throw fail('bad_input', 'the intensity range of the image is too large to stretch (float32 overflow)');
     info.lo = lo; info.hi = hi;
     if (!(hi > lo)) {
       info.method = 'flat';
@@ -632,6 +633,7 @@
 
     // ---- nuclei
     var flat = await backend.nucleiFlat(nd.data, w, h, p, ctx);
+    nd = { info: nd.info };                      // nd.data was consumed (it is `flat` on the CPU path): let it be collected
     if (ctx.dbg) ctx.dbg.flat = flat.slice();
     var scratch = new Float32Array(N);
     var ot = logOtsu(flat, scratch);
@@ -857,7 +859,10 @@
         var device = await adapter.requestDevice();
         gpuState.device = device;
         device.lost.then(function (l) { gpuState.lost = { reason: l && l.reason || 'unknown', message: l && l.message || '' }; gpuState.device = null; });
+        device.pushErrorScope('validation');
         buildPipelines(device);
+        var buildErr = await device.popErrorScope();
+        if (buildErr) throw new Error('shader/pipeline: ' + buildErr.message);
         var ok = await gpuSelfTest();
         gpuState.selfTest = ok ? 'passed' : 'failed';
         return ok ? device : null;
@@ -903,7 +908,10 @@
     this.d = device; this.w = w; this.h = h; this.N = w * h;
     this.bufs = [];
     this.uniforms = [];
-    this.dummy = this.make(16, BU.STORAGE | BU.COPY_DST);
+    // A buffer may not be bound both read-only and read-write in one dispatch, so each role has its own placeholder.
+    this.dummyR = this.make(16, BU.STORAGE | BU.COPY_DST);
+    this.dummyW = this.make(16, BU.STORAGE | BU.COPY_DST);
+    this.dummyF = this.make(16, BU.STORAGE | BU.COPY_DST);
     this.A = this.make(this.N * 4, BU.STORAGE | BU.COPY_DST | BU.COPY_SRC);
     this.B = this.make(this.N * 4, BU.STORAGE | BU.COPY_DST | BU.COPY_SRC);
     this.C = this.make(this.N * 4, BU.STORAGE | BU.COPY_DST | BU.COPY_SRC);
@@ -933,11 +941,11 @@
       layout: gpuState.layout,
       entries: [
         { binding: 0, resource: { buffer: ub } },
-        { binding: 1, resource: { buffer: o.src || this.dummy } },
-        { binding: 2, resource: { buffer: o.dst || this.dummy } },
-        { binding: 3, resource: { buffer: o.wts || this.dummy } },
-        { binding: 4, resource: { buffer: o.src2 || this.dummy } },
-        { binding: 5, resource: { buffer: o.flags || this.dummy } },
+        { binding: 1, resource: { buffer: o.src || this.dummyR } },
+        { binding: 2, resource: { buffer: o.dst || this.dummyW } },
+        { binding: 3, resource: { buffer: o.wts || this.dummyR } },
+        { binding: 4, resource: { buffer: o.src2 || this.dummyR } },
+        { binding: 5, resource: { buffer: o.flags || this.dummyF } },
       ],
     });
     var pass = this.enc.beginComputePass();
@@ -1012,7 +1020,7 @@
           s.minmax(s.C, s.B, s.C, p.background_size, 1);
           s.pass('sub', { src: s.A, src2: s.C, dst: s.B });
           return await s.read(s.B, Float32Array, s.N);
-        });
+        }).then(async function (flat) { await ctx.step('gpu dna filters'); return flat; });
       } catch (e) { throw gpuWrap(e); } finally { s.destroy(); }
     },
 
@@ -1039,7 +1047,7 @@
           for (var i = 0; i < s.N; i++) peak[i] = fl[i] ? 1 : 0;
           if (ctx.dbg) ctx.dbg.th = th.slice();
           return { th: th, peak: peak };
-        });
+        }).then(async function (r) { await ctx.step('gpu foci filters'); return r; });
       } catch (e) { throw gpuWrap(e); } finally { s.destroy(); }
     },
   };
@@ -1157,6 +1165,7 @@
       } catch (e) {
         if (!(e && e.code === 'gpu_lost') || o.mode === 'gpu') throw e;
         warnings.push('GPU failed (' + e.message + '); recomputed on the CPU reference path.');
+        if (!gpuState.lost) gpuState.lost = { reason: 'error', message: e.message };   // no more GPU attempts this session
         res = null;
       }
     }
@@ -1210,7 +1219,14 @@
   // -------------------------------------------------------------------- worker pool
 
   function scriptBase() {
-    return SCRIPT_URL ? SCRIPT_URL.replace(/[^/]*$/, '') : '';
+    return SCRIPT_URL ? SCRIPT_URL.replace(/[?#].*$/, '').replace(/[^/]*$/, '') : '';
+  }
+
+  // The deploy step stamps <script src="engine.js?v=HASH">; the worker (and the engine it imports) must use the same
+  // cache-busting token, otherwise a cached worker.js / engine.js could outlive a release.
+  function versionToken() {
+    var m = SCRIPT_URL ? /[?&]v=([\w.\-]{1,64})/.exec(SCRIPT_URL) : null;
+    return m ? m[1] : VERSION;
   }
 
   function publicError(e) {
@@ -1224,8 +1240,8 @@
   function createPool(n, popts) {
     popts = popts || {};
     var size = (typeof n === 'number' && n >= 1) ? Math.floor(n) : Math.max(1, Math.min(hardwareConcurrency() - 1, 4));
-    var inline = !!popts.inline || IS_NODE || typeof Worker === 'undefined';
-    var workerUrl = popts.workerUrl || (scriptBase() + 'worker.js');
+    var inline = popts.inline === true || (popts.inline !== false && (IS_NODE || typeof Worker === 'undefined'));
+    var workerUrl = popts.workerUrl || (scriptBase() + 'worker.js?v=' + versionToken());
     var timeoutMs = popts.timeoutMs === undefined ? 300000 : popts.timeoutMs;
     var dead = false, nextId = 1, queue = [], slots = [], chain = Promise.resolve();
     var i;
@@ -1244,7 +1260,7 @@
 
     function killSlot(slot) {
       if (slot.worker) { try { slot.worker.terminate(); } catch (e) { /* ignore */ } }
-      slot.worker = null; slot.ready = false;
+      slot.worker = null; slot.ready = false; slot.waiting = null;
     }
 
     function runInline(task) {
@@ -1259,7 +1275,7 @@
       slot.worker = w; slot.ready = false;
       w.onmessage = function (ev) {
         var m = ev.data || {};
-        if (m.type === 'ready') { slot.ready = true; return; }
+        if (m.type === 'ready') { slot.ready = true; if (slot.waiting) slot.waiting(); return; }
         var task = slot.task;
         if (!task || m.id !== task.id) return;
         if (m.ok) finish(task, null, m.result); else finish(task, publicError(m.error));
@@ -1309,13 +1325,19 @@
           pump();
         }, timeoutMs);
       }
-      try {
-        w.postMessage({ type: 'analyze', id: task.id, input: input, opts: task.opts }, transfer);
-      } catch (e) {
-        killSlot(slot);
-        finish(task, fail('bad_input', 'could not send the images to the worker: ' + (e && e.message)));
-        pump();
+      // Post only once the worker has said 'ready': if it cannot start at all, the images have not been transferred
+      // away yet and the task can still run on the calling thread.
+      function post() {
+        slot.waiting = null;
+        try {
+          w.postMessage({ type: 'analyze', id: task.id, input: input, opts: task.opts }, transfer);
+        } catch (e) {
+          killSlot(slot);
+          finish(task, fail('bad_input', 'could not send the images to the worker: ' + (e && e.message)));
+          pump();
+        }
       }
+      if (slot.ready) post(); else slot.waiting = post;
     }
 
     function pump() {
@@ -1398,7 +1420,7 @@
       normalise: normalise, logOtsu: logOtsu, rint: rint, estimateNuclei: estimateNuclei, percentilesF32: percentilesF32,
       percentilesInt: percentilesInt, quantileLinear: quantileLinear, binaryOpening2: binaryOpening2, fillHoles: fillHoles,
       labelAndFilter: labelAndFilter, memoryEstimate: memoryEstimate, resolveParams: resolveParams, cpuBackend: cpuBackend,
-      WGSL: WGSL, selfTestImages: selfTestImages, gpuState: gpuState, SPECS: SPECS,
+      WGSL: WGSL, selfTestImages: selfTestImages, gpuState: gpuState, gpuBackend: gpuBackend, GpuSession: GpuSession, SPECS: SPECS,
       constants: { DEFAULT_MAX_PIXELS: DEFAULT_MAX_PIXELS, AUTO_GPU_MIN_PIXELS: AUTO_GPU_MIN_PIXELS, AUTO_GPU_MIN_BATCH_PIXELS: AUTO_GPU_MIN_BATCH_PIXELS, AUTO_GPU_BATCH: AUTO_GPU_BATCH },
     },
   };

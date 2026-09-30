@@ -73,6 +73,12 @@ test("float32 (32-bit) input is percentile-stretched too", () => {
   assert.ok(r.data[0] === 0 && r.data[4999] === 255);
 });
 
+test("float32 data whose range overflows float32 is rejected instead of producing NaN images", () => {
+  const f = new Float32Array(10000).fill(3e38);
+  for (let i = 0; i < 10; i++) f[i] = -3e38;   // the 0.1 percentile interpolates across a 6e38 gap (> float32 max)
+  assert.throws(() => normalise(ch(f, 100, 100, 32)), (e) => e.code === "bad_input");
+});
+
 test("quantile arithmetic matches numpy's linear interpolation on known cases", () => {
   const { percentilesF32, percentilesInt } = Engine._internals;
   // np.percentile([1,2,3,4,5], [0.1, 99.99]) -> [1.004, 4.9996] (float64)

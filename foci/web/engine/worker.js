@@ -1,7 +1,8 @@
 /* Foci Lab engine worker: runs FociEngine.analyze() off the main thread.
  * Loaded by FociEngine.createPool(). Same-origin importScripts only; no network access. */
 'use strict';
-importScripts('engine.js');
+// The pool starts this worker as worker.js?v=TOKEN; engine.js is loaded with the same token so both always match.
+importScripts('engine.js' + (/^\?v=[\w.\-]{1,64}$/.test(self.location.search) ? self.location.search : ''));
 
 self.onmessage = function (ev) {
   var m = ev.data || {};

@@ -222,6 +222,6 @@ test("the engine source contains no network access and no dynamic code", async (
       assert.ok(!re.test(src), `${f} matches ${re}`);
     }
     // importScripts is allowed only for the engine itself, same directory
-    for (const m of src.matchAll(/importScripts\(([^)]*)\)/g)) assert.equal(m[1].trim(), "'engine.js'");
+    for (const m of src.matchAll(/importScripts\(([^)]*)\)/g)) assert.match(m[1].trim(), /^'engine\.js' \+ \(/);
   }
 });

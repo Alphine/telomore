@@ -125,499 +125,777 @@
    "p90": 1.106
   }
  },
+ "stats": {
+  "z_definition": "log2(plate-normalised foci/cell) minus the negative-control median, divided by 1.4826 x MAD of the negative controls",
+  "negative_controls": {
+   "wells": 838,
+   "log2_median": -0.002,
+   "robust_sd": 0.223
+  },
+  "empirical_null": {
+   "median": 0.56,
+   "robust_sd": 1.605,
+   "genes_tested": 13330
+  },
+  "genes_q05_empirical_null": 39,
+  "genes_q05_theoretical_null": 1438,
+  "supported_hits_down": 4,
+  "supported_hits_up": 25,
+  "q_only_not_supported": 10,
+  "single_well_genes": 4206,
+  "genes_with_two_sirnas": 13298,
+  "genes_rankable": 13330,
+  "rules": {
+   "sirna_abs_z": 2.0,
+   "q": 0.05,
+   "min_sirnas": 2,
+   "low_cells": 60
+  },
+  "low_cell_wells_pct": 3.598,
+  "cells_vs_z_spearman": -0.278,
+  "concordance": {
+   "n_pairs": 13298,
+   "spearman": 0.111,
+   "spearman_shuffled": -0.014,
+   "spearman_bulk": 0.067,
+   "tail_n": 732,
+   "tail_agree": 0.19,
+   "tail_agree_shuffled": 0.105
+  },
+  "truth_check": {
+   "increased": {
+    "label": "increased DNA damage",
+    "wells": 57,
+    "wells_qc_pass": 50,
+    "genes": 18,
+    "genes_rankable": 18,
+    "gene_auc": 0.999,
+    "top50": 17,
+    "top100": 18,
+    "well_auc": 0.925,
+    "well_n": 50
+   },
+   "defective": {
+    "label": "defective DNA damage response",
+    "wells": 6,
+    "wells_qc_pass": 6,
+    "genes": 3,
+    "genes_rankable": 3,
+    "gene_auc": 1.0,
+    "top50": 3,
+    "top100": 3,
+    "well_auc": 1.0,
+    "well_n": 6
+   }
+  }
+ },
  "lowest": [
-  [
-   "RNF168",
-   2,
-   0.142,
-   0.228,
-   156.5,
-   "ENSG00000163961",
-   1
-  ],
-  [
-   "MDC1",
-   3,
-   0.203,
-   0.268,
-   165.0,
-   "ENSG00000137337",
-   2
-  ],
-  [
-   "RNF8",
-   2,
-   0.298,
-   0.751,
-   110.5,
-   "ENSG00000112130",
-   3
-  ],
-  [
-   "C9orf150",
-   2,
-   0.558,
-   0.971,
-   222.5,
-   "ENSG00000153714",
-   38
-  ],
-  [
-   "WDR65",
-   2,
-   0.561,
-   1.115,
-   80.0,
-   "ENSG00000164012",
-   40
-  ],
-  [
-   "ATP6V0E2",
-   2,
-   0.588,
-   1.405,
-   171.5,
-   "ENSG00000171130",
-   50
-  ],
-  [
-   "AL390728.37",
-   2,
-   0.591,
-   1.094,
-   154.0,
-   "ENSG00000221953",
-   52
-  ],
-  [
-   "Q9BSZ0_HUMAN",
-   2,
-   0.594,
-   0.793,
-   86.0,
-   "ENSG00000196378",
-   56
-  ],
-  [
-   "ZER1",
-   2,
-   0.599,
-   1.365,
-   80.5,
-   "ENSG00000160445",
-   60
-  ],
-  [
-   "HIST2H2AC",
-   2,
-   0.603,
-   0.893,
-   172.0,
-   "ENSG00000184260",
-   62
-  ],
-  [
-   "HIGD2BP",
-   2,
-   0.608,
-   0.745,
-   188.5,
-   "ENSG00000175202",
-   67
-  ],
-  [
-   "RNF17",
-   2,
-   0.618,
-   0.902,
-   181.5,
-   "ENSG00000132972",
-   75
-  ],
-  [
-   "PRR8",
-   4,
-   0.619,
-   0.787,
-   163.5,
-   "ENSG00000184863",
-   77
-  ],
-  [
-   "HLA-DRB1",
-   4,
-   0.633,
-   1.266,
-   116.0,
-   "ENSG00000196126",
-   91
-  ],
-  [
-   "C9orf5",
-   2,
-   0.634,
-   0.989,
-   180.0,
-   "ENSG00000106771",
-   95
-  ]
+  {
+   "gene": "RNF168",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": -13.332,
+   "stouffer": -18.854,
+   "emp_z": -12.099,
+   "q": 7.12e-30,
+   "status": "hit_down",
+   "med_norm": 0.142,
+   "cells": 156.5,
+   "flags": []
+  },
+  {
+   "gene": "MDC1",
+   "wells": 3,
+   "sirnas": 2,
+   "med_z": -10.289,
+   "stouffer": -12.799,
+   "emp_z": -8.326,
+   "q": 1.86e-13,
+   "status": "hit_down",
+   "med_norm": 0.203,
+   "cells": 165.0,
+   "flags": []
+  },
+  {
+   "gene": "RNF8",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": -7.824,
+   "stouffer": -11.064,
+   "emp_z": -7.245,
+   "q": 6.43e-10,
+   "status": "hit_down",
+   "med_norm": 0.298,
+   "cells": 110.5,
+   "flags": []
+  },
+  {
+   "gene": "WDR65",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": -3.965,
+   "stouffer": -5.608,
+   "emp_z": -3.844,
+   "q": 0.0436,
+   "status": "hit_down",
+   "med_norm": 0.561,
+   "cells": 80.0,
+   "flags": []
+  },
+  {
+   "gene": "C9orf150",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": -3.851,
+   "stouffer": -5.447,
+   "emp_z": -3.744,
+   "q": 0.0537,
+   "status": "none",
+   "med_norm": 0.558,
+   "cells": 222.5,
+   "flags": []
+  },
+  {
+   "gene": "Q9BSZ0_HUMAN",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": -3.684,
+   "stouffer": -5.21,
+   "emp_z": -3.596,
+   "q": 0.0813,
+   "status": "none",
+   "med_norm": 0.594,
+   "cells": 86.0,
+   "flags": []
+  },
+  {
+   "gene": "VAV1",
+   "wells": 3,
+   "sirnas": 3,
+   "med_z": -2.652,
+   "stouffer": -5.11,
+   "emp_z": -3.534,
+   "q": 0.0895,
+   "status": "none",
+   "med_norm": 0.663,
+   "cells": 155.0,
+   "flags": []
+  },
+  {
+   "gene": "HIGD2BP",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": -3.466,
+   "stouffer": -4.902,
+   "emp_z": -3.404,
+   "q": 0.128,
+   "status": "none",
+   "med_norm": 0.608,
+   "cells": 188.5,
+   "flags": []
+  },
+  {
+   "gene": "AL390728.37",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": -3.427,
+   "stouffer": -4.846,
+   "emp_z": -3.369,
+   "q": 0.139,
+   "status": "none",
+   "med_norm": 0.591,
+   "cells": 154.0,
+   "flags": []
+  },
+  {
+   "gene": "ATP6V0E2",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": -3.425,
+   "stouffer": -4.843,
+   "emp_z": -3.368,
+   "q": 0.139,
+   "status": "none",
+   "med_norm": 0.588,
+   "cells": 171.5,
+   "flags": []
+  },
+  {
+   "gene": "HIST2H2AC",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": -3.393,
+   "stouffer": -4.798,
+   "emp_z": -3.339,
+   "q": 0.144,
+   "status": "none",
+   "med_norm": 0.603,
+   "cells": 172.0,
+   "flags": []
+  },
+  {
+   "gene": "ZER1",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": -3.31,
+   "stouffer": -4.682,
+   "emp_z": -3.267,
+   "q": 0.169,
+   "status": "none",
+   "med_norm": 0.599,
+   "cells": 80.5,
+   "flags": []
+  },
+  {
+   "gene": "RNF17",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": -3.126,
+   "stouffer": -4.421,
+   "emp_z": -3.104,
+   "q": 0.24,
+   "status": "none",
+   "med_norm": 0.618,
+   "cells": 181.5,
+   "flags": []
+  },
+  {
+   "gene": "LHFP",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": -3.089,
+   "stouffer": -4.369,
+   "emp_z": -3.072,
+   "q": 0.26,
+   "status": "none",
+   "med_norm": 0.655,
+   "cells": 173.5,
+   "flags": []
+  },
+  {
+   "gene": "NRP1",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": -3.044,
+   "stouffer": -4.305,
+   "emp_z": -3.032,
+   "q": 0.289,
+   "status": "none",
+   "med_norm": 0.657,
+   "cells": 88.0,
+   "flags": []
+  }
  ],
  "highest": [
-  [
-   "PSMA3",
-   2,
-   7.246,
-   13.453,
-   86.5,
-   "ENSG00000100567",
-   17536
-  ],
-  [
-   "PSMB2",
-   3,
-   5.824,
-   12.688,
-   65.0,
-   "ENSG00000126067",
-   17535
-  ],
-  [
-   "MAPK10",
-   2,
-   4.295,
-   8.718,
-   118.5,
-   "ENSG00000109339",
-   17532
-  ],
-  [
-   "PSMA7",
-   3,
-   3.868,
-   6.847,
-   111.0,
-   "ENSG00000101182",
-   17531
-  ],
-  [
-   "PSMA1",
-   2,
-   3.792,
-   6.914,
-   105.5,
-   "ENSG00000129084",
-   17530
-  ],
-  [
-   "ST3GAL2",
-   2,
-   3.69,
-   5.813,
-   149.0,
-   "ENSG00000157350",
-   17529
-  ],
-  [
-   "PSMB7",
-   3,
-   3.614,
-   7.773,
-   77.0,
-   "ENSG00000136930",
-   17528
-  ],
-  [
-   "PSMA2",
-   2,
-   3.568,
-   6.316,
-   65.5,
-   "ENSG00000106588",
-   17526
-  ],
-  [
-   "TMEM16F",
-   2,
-   3.467,
-   4.248,
-   82.0,
-   "ENSG00000177119",
-   17525
-  ],
-  [
-   "HS3ST3B1",
-   2,
-   3.213,
-   4.69,
-   109.0,
-   "ENSG00000125430",
-   17524
-  ],
-  [
-   "SF3B2",
-   2,
-   3.184,
-   3.878,
-   93.0,
-   "ENSG00000087365",
-   17523
-  ],
-  [
-   "KIAA0391",
-   5,
-   3.182,
-   5.632,
-   112.0,
-   "ENSG00000100890",
-   17522
-  ],
-  [
-   "PSMB5",
-   4,
-   3.176,
-   6.862,
-   99.5,
-   "ENSG00000100804",
-   17521
-  ],
-  [
-   "SLC35D3",
-   2,
-   3.109,
-   5.736,
-   69.0,
-   "ENSG00000182747",
-   17520
-  ],
-  [
-   "PSMB6",
-   3,
-   2.825,
-   5.0,
-   96.0,
-   "ENSG00000142507",
-   17517
-  ]
+  {
+   "gene": "PSMB2",
+   "wells": 3,
+   "sirnas": 3,
+   "med_z": 11.4,
+   "stouffer": 20.181,
+   "emp_z": 12.228,
+   "q": 2.93e-30,
+   "status": "hit_up",
+   "med_norm": 5.824,
+   "cells": 65.0,
+   "flags": []
+  },
+  {
+   "gene": "PSMA3",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": 12.788,
+   "stouffer": 18.086,
+   "emp_z": 10.922,
+   "q": 4.02e-24,
+   "status": "hit_up",
+   "med_norm": 7.246,
+   "cells": 86.5,
+   "flags": []
+  },
+  {
+   "gene": "PSMB7",
+   "wells": 3,
+   "sirnas": 3,
+   "med_z": 8.316,
+   "stouffer": 15.068,
+   "emp_z": 9.041,
+   "q": 5.16e-16,
+   "status": "hit_up",
+   "med_norm": 3.614,
+   "cells": 77.0,
+   "flags": []
+  },
+  {
+   "gene": "PSMB5",
+   "wells": 4,
+   "sirnas": 3,
+   "med_z": 7.244,
+   "stouffer": 15.009,
+   "emp_z": 9.004,
+   "q": 5.78e-16,
+   "status": "hit_up",
+   "med_norm": 3.176,
+   "cells": 99.5,
+   "flags": []
+  },
+  {
+   "gene": "PSMA7",
+   "wells": 3,
+   "sirnas": 3,
+   "med_z": 8.755,
+   "stouffer": 13.63,
+   "emp_z": 8.145,
+   "q": 7.2e-13,
+   "status": "hit_up",
+   "med_norm": 3.868,
+   "cells": 111.0,
+   "flags": []
+  },
+  {
+   "gene": "KIAA0391",
+   "wells": 5,
+   "sirnas": 5,
+   "med_z": 7.492,
+   "stouffer": 12.533,
+   "emp_z": 7.461,
+   "q": 1.43e-10,
+   "status": "hit_up",
+   "med_norm": 3.182,
+   "cells": 112.0,
+   "flags": []
+  },
+  {
+   "gene": "PSMA2",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": 8.232,
+   "stouffer": 11.642,
+   "emp_z": 6.906,
+   "q": 6.64e-09,
+   "status": "hit_up",
+   "med_norm": 3.568,
+   "cells": 65.5,
+   "flags": []
+  },
+  {
+   "gene": "PSMA1",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": 7.931,
+   "stouffer": 11.216,
+   "emp_z": 6.641,
+   "q": 3.78e-08,
+   "status": "hit_up",
+   "med_norm": 3.792,
+   "cells": 105.5,
+   "flags": []
+  },
+  {
+   "gene": "PSMB6",
+   "wells": 3,
+   "sirnas": 3,
+   "med_z": 6.723,
+   "stouffer": 10.844,
+   "emp_z": 6.409,
+   "q": 1.63e-07,
+   "status": "hit_up",
+   "med_norm": 2.825,
+   "cells": 96.0,
+   "flags": []
+  },
+  {
+   "gene": "PSMB3",
+   "wells": 3,
+   "sirnas": 3,
+   "med_z": 4.832,
+   "stouffer": 10.344,
+   "emp_z": 6.098,
+   "q": 1.1e-06,
+   "status": "hit_up",
+   "med_norm": 2.108,
+   "cells": 98.0,
+   "flags": []
+  },
+  {
+   "gene": "SF3B2",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": 6.792,
+   "stouffer": 9.605,
+   "emp_z": 5.637,
+   "q": 1.65e-05,
+   "status": "hit_up",
+   "med_norm": 3.184,
+   "cells": 93.0,
+   "flags": []
+  },
+  {
+   "gene": "PSMA4",
+   "wells": 3,
+   "sirnas": 3,
+   "med_z": 6.229,
+   "stouffer": 9.55,
+   "emp_z": 5.602,
+   "q": 1.88e-05,
+   "status": "hit_up",
+   "med_norm": 2.617,
+   "cells": 87.0,
+   "flags": []
+  },
+  {
+   "gene": "MAPK10",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": 6.541,
+   "stouffer": 9.251,
+   "emp_z": 5.416,
+   "q": 5.07e-05,
+   "status": "q_only",
+   "med_norm": 4.295,
+   "cells": 118.5,
+   "flags": []
+  },
+  {
+   "gene": "TMEM16F",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": 6.489,
+   "stouffer": 9.176,
+   "emp_z": 5.37,
+   "q": 6.18e-05,
+   "status": "q_only",
+   "med_norm": 3.467,
+   "cells": 82.0,
+   "flags": []
+  },
+  {
+   "gene": "SLC35D3",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": 6.109,
+   "stouffer": 8.64,
+   "emp_z": 5.035,
+   "q": 0.000347,
+   "status": "q_only",
+   "med_norm": 3.109,
+   "cells": 69.0,
+   "flags": []
+  }
  ],
  "telomere_panel": [
-  [
-   "TERT",
-   2,
-   1.204,
-   2.165,
-   140.0,
-   "ENSG00000164362",
-   13508
-  ],
-  [
-   "TERF1",
-   2,
-   1.152,
-   2.212,
-   170.0,
-   "ENSG00000147601",
-   12114
-  ],
-  [
-   "TERF2",
-   2,
-   0.97,
-   1.601,
-   114.5,
-   "ENSG00000132604",
-   5602
-  ],
-  [
-   "POT1",
-   2,
-   1.171,
-   2.997,
-   89.0,
-   "ENSG00000128513",
-   12644
-  ],
-  [
-   "TINF2",
-   2,
-   1.399,
-   2.63,
-   67.0,
-   "ENSG00000092330",
-   16339
-  ],
-  [
-   "ACD",
-   2,
-   0.937,
-   1.999,
-   156.5,
-   "ENSG00000102977",
-   4410
-  ],
-  [
-   "DKC1",
-   1,
-   1.267,
-   3.243,
-   74.0,
-   "ENSG00000130826",
-   14812
-  ],
-  [
-   "WRN",
-   1,
-   1.47,
-   3.088,
-   114.0,
-   "ENSG00000165392",
-   16750
-  ],
-  [
-   "BLM",
-   2,
-   1.027,
-   1.824,
-   165.5,
-   "ENSG00000197299",
-   7773
-  ]
+  {
+   "gene": "TERT",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": 0.966,
+   "stouffer": 1.366,
+   "emp_z": 0.502,
+   "q": 0.993,
+   "status": "none",
+   "med_norm": 1.204,
+   "cells": 140.0,
+   "flags": []
+  },
+  {
+   "gene": "TERF1",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": 0.921,
+   "stouffer": 1.303,
+   "emp_z": 0.463,
+   "q": 0.993,
+   "status": "none",
+   "med_norm": 1.152,
+   "cells": 170.0,
+   "flags": []
+  },
+  {
+   "gene": "TERF2",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": -0.222,
+   "stouffer": -0.314,
+   "emp_z": -0.545,
+   "q": 0.993,
+   "status": "none",
+   "med_norm": 0.97,
+   "cells": 114.5,
+   "flags": []
+  },
+  {
+   "gene": "POT1",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": 0.925,
+   "stouffer": 1.308,
+   "emp_z": 0.466,
+   "q": 0.993,
+   "status": "none",
+   "med_norm": 1.171,
+   "cells": 89.0,
+   "flags": []
+  },
+  {
+   "gene": "TINF2",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": 2.038,
+   "stouffer": 2.882,
+   "emp_z": 1.447,
+   "q": 0.98,
+   "status": "none",
+   "med_norm": 1.399,
+   "cells": 67.0,
+   "flags": []
+  },
+  {
+   "gene": "ACD",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": -0.465,
+   "stouffer": -0.658,
+   "emp_z": -0.759,
+   "q": 0.993,
+   "status": "none",
+   "med_norm": 0.937,
+   "cells": 156.5,
+   "flags": []
+  },
+  {
+   "gene": "DKC1",
+   "wells": 1,
+   "sirnas": 1,
+   "med_z": 1.538,
+   "stouffer": null,
+   "emp_z": null,
+   "q": null,
+   "status": "single_well",
+   "med_norm": 1.267,
+   "cells": 74.0,
+   "flags": []
+  },
+  {
+   "gene": "WRN",
+   "wells": 1,
+   "sirnas": 1,
+   "med_z": 2.501,
+   "stouffer": null,
+   "emp_z": null,
+   "q": null,
+   "status": "single_well",
+   "med_norm": 1.47,
+   "cells": 114.0,
+   "flags": []
+  },
+  {
+   "gene": "BLM",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": -0.209,
+   "stouffer": -0.296,
+   "emp_z": -0.533,
+   "q": 0.993,
+   "status": "none",
+   "med_norm": 1.027,
+   "cells": 165.5,
+   "flags": [
+    "disagree"
+   ]
+  }
  ],
+ "telomere_absent": {
+  "TERC": "not in the screen table",
+  "TERF2IP": "no quality-controlled well",
+  "RTEL1": "not in the screen table"
+ },
  "repair_panel": [
-  [
-   "RNF168",
-   2,
-   0.142,
-   0.228,
-   156.5,
-   "ENSG00000163961",
-   1
-  ],
-  [
-   "RNF8",
-   2,
-   0.298,
-   0.751,
-   110.5,
-   "ENSG00000112130",
-   3
-  ],
-  [
-   "MDC1",
-   3,
-   0.203,
-   0.268,
-   165.0,
-   "ENSG00000137337",
-   2
-  ],
-  [
-   "ATM",
-   2,
-   0.827,
-   1.631,
-   118.5,
-   "ENSG00000149311",
-   1541
-  ],
-  [
-   "H2AFX",
-   2,
-   0.718,
-   1.33,
-   119.5,
-   "ENSG00000188486",
-   383
-  ],
-  [
-   "UBE2N",
-   3,
-   1.056,
-   2.218,
-   170.0,
-   "ENSG00000177889",
-   8859
-  ],
-  [
-   "BRCA1",
-   3,
-   1.026,
-   1.919,
-   124.0,
-   "ENSG00000012048",
-   7727
-  ],
-  [
-   "ATR",
-   3,
-   1.261,
-   2.347,
-   167.0,
-   "ENSG00000175054",
-   14732
-  ],
-  [
-   "CHEK1",
-   3,
-   1.276,
-   1.865,
-   155.0,
-   "ENSG00000149554",
-   14973
-  ],
-  [
-   "CHEK2",
-   2,
-   0.986,
-   1.43,
-   186.5,
-   "ENSG00000183765",
-   6163
-  ],
-  [
-   "TP53",
-   2,
-   0.838,
-   1.284,
-   196.0,
-   "ENSG00000141510",
-   1757
-  ],
-  [
-   "NBN",
-   2,
-   0.839,
-   1.576,
-   145.5,
-   "ENSG00000104320",
-   1768
-  ],
-  [
-   "MRE11A",
-   3,
-   0.999,
-   1.279,
-   122.0,
-   "ENSG00000020922",
-   6668
-  ],
-  [
-   "RAD50",
-   3,
-   1.451,
-   2.567,
-   178.0,
-   "ENSG00000113522",
-   16646
-  ]
- ],
- "columns": [
-  "gene",
-  "wells",
-  "norm_fpc",
-  "fpc",
-  "cells",
-  "ensembl",
-  "rank"
+  {
+   "gene": "RNF168",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": -13.332,
+   "stouffer": -18.854,
+   "emp_z": -12.099,
+   "q": 7.12e-30,
+   "status": "hit_down",
+   "med_norm": 0.142,
+   "cells": 156.5,
+   "flags": []
+  },
+  {
+   "gene": "RNF8",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": -7.824,
+   "stouffer": -11.064,
+   "emp_z": -7.245,
+   "q": 6.43e-10,
+   "status": "hit_down",
+   "med_norm": 0.298,
+   "cells": 110.5,
+   "flags": []
+  },
+  {
+   "gene": "MDC1",
+   "wells": 3,
+   "sirnas": 2,
+   "med_z": -10.289,
+   "stouffer": -12.799,
+   "emp_z": -8.326,
+   "q": 1.86e-13,
+   "status": "hit_down",
+   "med_norm": 0.203,
+   "cells": 165.0,
+   "flags": []
+  },
+  {
+   "gene": "ATM",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": -1.225,
+   "stouffer": -1.733,
+   "emp_z": -1.429,
+   "q": 0.98,
+   "status": "none",
+   "med_norm": 0.827,
+   "cells": 118.5,
+   "flags": []
+  },
+  {
+   "gene": "H2AFX",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": -2.494,
+   "stouffer": -3.527,
+   "emp_z": -2.547,
+   "q": 0.606,
+   "status": "none",
+   "med_norm": 0.718,
+   "cells": 119.5,
+   "flags": []
+  },
+  {
+   "gene": "UBE2N",
+   "wells": 3,
+   "sirnas": 3,
+   "med_z": 0.361,
+   "stouffer": 0.918,
+   "emp_z": 0.223,
+   "q": 0.995,
+   "status": "none",
+   "med_norm": 1.056,
+   "cells": 170.0,
+   "flags": []
+  },
+  {
+   "gene": "BRCA1",
+   "wells": 3,
+   "sirnas": 3,
+   "med_z": 0.177,
+   "stouffer": 0.921,
+   "emp_z": 0.225,
+   "q": 0.995,
+   "status": "none",
+   "med_norm": 1.026,
+   "cells": 124.0,
+   "flags": [
+    "disagree"
+   ]
+  },
+  {
+   "gene": "ATR",
+   "wells": 3,
+   "sirnas": 3,
+   "med_z": 1.51,
+   "stouffer": 2.607,
+   "emp_z": 1.276,
+   "q": 0.983,
+   "status": "none",
+   "med_norm": 1.261,
+   "cells": 167.0,
+   "flags": []
+  },
+  {
+   "gene": "CHEK1",
+   "wells": 3,
+   "sirnas": 3,
+   "med_z": 1.586,
+   "stouffer": 3.746,
+   "emp_z": 1.985,
+   "q": 0.849,
+   "status": "none",
+   "med_norm": 1.276,
+   "cells": 155.0,
+   "flags": [
+    "disagree"
+   ]
+  },
+  {
+   "gene": "CHEK2",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": -0.111,
+   "stouffer": -0.157,
+   "emp_z": -0.447,
+   "q": 0.993,
+   "status": "none",
+   "med_norm": 0.986,
+   "cells": 186.5,
+   "flags": []
+  },
+  {
+   "gene": "TP53",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": -1.166,
+   "stouffer": -1.648,
+   "emp_z": -1.376,
+   "q": 0.98,
+   "status": "none",
+   "med_norm": 0.838,
+   "cells": 196.0,
+   "flags": []
+  },
+  {
+   "gene": "NBN",
+   "wells": 2,
+   "sirnas": 2,
+   "med_z": -1.164,
+   "stouffer": -1.647,
+   "emp_z": -1.375,
+   "q": 0.98,
+   "status": "none",
+   "med_norm": 0.839,
+   "cells": 145.5,
+   "flags": []
+  },
+  {
+   "gene": "MRE11A",
+   "wells": 3,
+   "sirnas": 3,
+   "med_z": 0.002,
+   "stouffer": 0.703,
+   "emp_z": 0.089,
+   "q": 0.996,
+   "status": "none",
+   "med_norm": 0.999,
+   "cells": 122.0,
+   "flags": []
+  },
+  {
+   "gene": "RAD50",
+   "wells": 3,
+   "sirnas": 3,
+   "med_z": 2.413,
+   "stouffer": 3.047,
+   "emp_z": 1.55,
+   "q": 0.976,
+   "status": "none",
+   "med_norm": 1.451,
+   "cells": 178.0,
+   "flags": []
+  }
  ],
  "gallery": [
   {
@@ -1357,6 +1635,15 @@
     0.156,
     "RNF168"
    ]
-  ]
+  ],
+  "nucleus_check": {
+   "n_images": 106,
+   "median_ours": 135.0,
+   "median_authors": 126.0,
+   "median_ratio_of_medians": 1.071,
+   "ratio_p10": 0.511,
+   "ratio_median": 1.034,
+   "ratio_p90": 1.746
+  }
  }
 }

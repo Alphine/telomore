@@ -1227,8 +1227,8 @@ separate them (AUC 0.44), so the control check cannot validate a counter; ours r
 
 **Interpretation.** (1) **Bit depth is not supported** as the cause: the data are 12-bit, and the same detector on the
 raw values and on the 8-bit render agrees equally well with the authors (differences within +-0.04, two CIs include 0).
-(2) The dominant cause of Experiment L's failure was **the image-to-annotation pairing**, a third explanation that
-neither §15.2 hypothesis covered. With the pairing that matches the authors' cell counts, an unmodified 8-bit counter
+(2) A third explanation fits this plate better than either §15.2 hypothesis: **the image-to-annotation pairing**
+(unresolved, see Limits). With the pairing that matches the authors' cell counts, an unmodified 8-bit counter
 already reaches Spearman 0.30 at its default threshold and 0.47 once its one threshold is fitted on other wells, and ranks
 the "increased DNA damage" wells above the rest (AUC 0.68-0.75 vs 0.93 for the authors' own numbers). (3) **The
 undefined-focus-definition hypothesis is neither confirmed nor excluded:** the remaining gap (Spearman about 0.4-0.5
@@ -1241,9 +1241,18 @@ resource holds the mislabel; nucleus counts of touching nuclei come from an area
 use single-nucleus objects only; detector choice by training-fold Spearman still saw all wells once across folds;
 no per-well quality re-check of authors' QC beyond their flags; the 8-bit emulation is verified on 8 images.
 
+**Independent check (owner's assistant, at merge).** Lethal-control test on 12 plates: for the KIF11 positive-control rows
+(CSV median 64.5 cells per spot against 135 for the whole screen), the image at the same-named IDR well has a median of
+162 detected nuclei and the image at the column-major-numbered well a median of 125. Neither pairing shows the expected
+drop, so this test does NOT discriminate between them. Re-running the cell-count comparison on the 87 cached wells that have
+both rows gave Spearman 0.21 (name) against 0.38 (column-major) for nuclei vs authors' cells, and 0.15 against 0.24 for
+foci/cell: the same direction as plate 7-14, but weak.
+
 **Consequence for Foci Lab.** Any place that shows the image of a well next to that well's annotation row (gallery,
 overlay endpoint, `well_index.json`) may show the image of a different well; the authors' table numbers themselves are
-unaffected. §15.2's "no agreement" was a pairing artefact, and its bit-depth explanation should not be repeated.
+unaffected. §15.2's "no agreement" may be partly a pairing artefact (not proven), and its bit-depth explanation should
+not be repeated. Resolving it needs the curators (IDR) or the authors: only they can say how the array position, the
+annotation `Well Number` and the image well were linked.
 
 **Full-screen analysis would need** all 147 zips (65.5 GiB; about 470 MB each, about 25 min per plate to download here) with a
 fixed pairing rule verified per plate, plate-wise normalisation as the authors did (to non-targeting controls),

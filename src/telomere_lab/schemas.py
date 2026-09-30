@@ -68,6 +68,16 @@ PARAMETER_BOUNDS: Dict[str, tuple] = {
                            "Burden level above which the apoptosis checkpoint can trigger (only relevant when checkpoint_strength > 0)."),
     "repair_rate_mutation_sigma": (0.0, 0.1, "a.u./cycle", "Repair-rate mutation step (SD)",
                                    "Per-division Gaussian step size applied to each cell's own heritable repair_rate; 0 = feature unused."),
+    "hours_per_cycle": (0.0, 240.0, "h/cycle", "Hours per cycle",
+                        "Wall-clock hours one cycle represents (bench-timeline mapping, an assumption not a fit); 0 = unused."),
+    "initial_within_cell_sd": (0.0, 3000.0, "bp", "Within-cell initial length SD",
+                               "If > 0, initial_length_sd becomes the between-cell SD and this the extra within-cell SD; 0 = unused."),
+    "shortening_rate_cv": (0.0, 1.0, "fraction", "Shortening-rate CV across cells",
+                           "If > 0, each founder cell draws a heritable lognormal multiplier (mean 1, this CV) on replication shortening; 0 = unused."),
+    "senescence_softness_bp": (0.0, 2000.0, "bp", "Senescence softness",
+                               "If > 0, senescence is a logistic hazard in (threshold - shortest telomere) with this scale instead of a hard threshold; 0 = hard."),
+    "random_arrest_rate": (0.0, 0.5, "1/cycle", "Random arrest rate",
+                           "Length-independent per-cycle arrest probability of proliferating cells; 0 = unused."),
 }
 
 #: The genes the evolutionary optimizer is allowed to touch (SDD §12).
@@ -404,6 +414,20 @@ class ModelConfig:
     #: bit-identical to today's model.
     repair_rate_mutation_sigma: float = 0.0
 
+    # --- optional science-upgrade mechanisms (docs/MODEL.md §2.4-§2.7) -------------
+    #: Every one is default-off (0.0), draws no RNG and alters no arithmetic
+    #: when unused; none is fitted to data, none is in EVOLVABLE_PARAMETERS.
+    #: Cycle -> hours mapping for the ``time_hours`` output / ``total_days``.
+    hours_per_cycle: float = 0.0
+    #: > 0: ``initial_length_sd`` is the BETWEEN-cell SD and this the WITHIN-cell SD.
+    initial_within_cell_sd: float = 0.0
+    #: > 0: heritable per-cell lognormal multiplier (mean 1) on replication loss.
+    shortening_rate_cv: float = 0.0
+    #: > 0: logistic senescence hazard scale (bp) replacing the hard threshold.
+    senescence_softness_bp: float = 0.0
+    #: Length-independent per-cycle arrest probability of proliferating cells.
+    random_arrest_rate: float = 0.0
+
     # --- run control -------------------------------------------------------
     cycles: int = 120
     seed: int = 42
@@ -447,6 +471,16 @@ class ModelConfig:
             raise ConfigError("cycles must be >= 1")
         if self.senescence_threshold >= self.initial_length:
             raise ConfigError("senescence_threshold must be below initial_length")
+        if self.initial_within_cell_sd > 0.0 and self.telomeres_per_cell > 1:
+            # Guard against a founding culture that starts mostly senescent: the
+            # expected shortest of n Gaussian telomeres of a mean-offset cell is
+            # about mean - sd*sqrt(2 ln n); that must stay above the threshold.
+            expected_min = self.initial_length - self.initial_within_cell_sd * math.sqrt(
+                2.0 * math.log(self.telomeres_per_cell))
+            if expected_min <= self.senescence_threshold:
+                raise ConfigError(
+                    "initial_within_cell_sd is so large that a typical founding cell's shortest telomere "
+                    f"(~{expected_min:.0f} bp) would already be at or below senescence_threshold")
         return self
 
     # --- schedule lookups ----------------------------------------------------
@@ -577,6 +611,13 @@ class SimulationResult:
     #: ``(T+1,)`` axis as ``time``. Equal to the constant scalar/schedule value
     #: when ``repair_rate_mutation_sigma == 0.0`` (the feature's off switch).
     mean_repair_rate: np.ndarray = field(default_factory=lambda: np.array([]))
+    #: Cumulative population doublings on the ``time`` axis (docs/MODEL.md §2.4):
+    #: sum over cycles of log2(N_after_division / N_before_division), counted
+    #: before culling / passage so dilution and death never subtract.
+    population_doublings: np.ndarray = field(default_factory=lambda: np.array([]))
+    #: ``time * hours_per_cycle`` when ``hours_per_cycle > 0``, else all-NaN
+    #: (docs/MODEL.md §2.5).
+    time_hours: np.ndarray = field(default_factory=lambda: np.array([]))
     terminal_metrics: Dict[str, float] = field(default_factory=dict)
     #: Synthetic "biological age" biomarker score (ROADMAP.md candidate
     #: feature #5, docs/MODEL.md §4.1) -- a derived, documented composite of
@@ -610,6 +651,8 @@ class SimulationResult:
                 "mean_mutation_burden": self.mean_mutation_burden,
                 "apoptotic_fraction": self.apoptotic_fraction,
                 "mean_repair_rate": self.mean_repair_rate,
+                "population_doublings": self.population_doublings,
+                "time_hours": self.time_hours,
             }
         )
 

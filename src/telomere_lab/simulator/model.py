@@ -50,8 +50,10 @@ import numpy as np
 from ..schemas import MODEL_VERSION, PARAMETER_BOUNDS, ConfigError, ModelConfig, SimulationResult, SubcloneSpec
 from . import metrics as M
 from .biomarker import biological_age_score
-from .population import allocate_clone_ids, divide, passage, remove_apoptotic, remove_dead, update_senescence
-from .stochastic import division_noise, initial_lengths, make_rng
+from .population import (allocate_clone_ids, divide, passage, remove_apoptotic, remove_dead, stochastic_arrest,
+                         update_senescence)
+from .stochastic import (division_noise, initial_lengths, initial_lengths_hierarchical, make_rng,
+                         shortening_multipliers)
 
 #: Single implicit clone used when ``config.subclones`` is unset -- an empty
 #: overrides dict means every per-cell lookup falls back to the config's own
@@ -99,10 +101,27 @@ class SimpleTelomereModel:
             return _failed_result(config, f"invalid configuration: {exc}", t0)
 
         rng = make_rng(config.seed)
-        lengths = initial_lengths(
-            rng, config.population_size, config.telomeres_per_cell,
-            config.initial_length, config.initial_length_sd,
-        )
+        if config.initial_within_cell_sd > 0.0:
+            # Two-level founding spread (docs/MODEL.md section 2.6); unused =>
+            # the single-level draw below, identical RNG stream to before.
+            lengths = initial_lengths_hierarchical(
+                rng, config.population_size, config.telomeres_per_cell,
+                config.initial_length, config.initial_length_sd, config.initial_within_cell_sd,
+            )
+        else:
+            lengths = initial_lengths(
+                rng, config.population_size, config.telomeres_per_cell,
+                config.initial_length, config.initial_length_sd,
+            )
+        # Per-cell heritable shortening-rate multiplier (docs/MODEL.md section 2.8).
+        # Always present; drawn (and used) only when shortening_rate_cv > 0 --
+        # otherwise all ones and no RNG draw is spent.
+        use_shortening_cv = config.shortening_rate_cv > 0.0
+        if use_shortening_cv:
+            shortening_mult_cells = shortening_multipliers(rng, config.population_size, config.shortening_rate_cv)
+        else:
+            shortening_mult_cells = np.ones(config.population_size, dtype=float)
+        use_hazard = config.senescence_softness_bp > 0.0 or config.random_arrest_rate > 0.0
         senescent = np.zeros(config.population_size, dtype=bool)
         senescent = update_senescence(lengths, senescent, config.senescence_threshold)
 
@@ -207,6 +226,10 @@ class SimpleTelomereModel:
         snapshots: Dict[int, np.ndarray] = {0: lengths.ravel().copy()}
         clone_fraction_rows: List[np.ndarray] = [_clone_fractions(clone_id, n_clones)]
         failure = None
+        # Cumulative population doublings (docs/MODEL.md section 2.4): growth from
+        # division only, log2(N_after / N_before) per cycle, before any culling.
+        pd_total = 0.0
+        pd_rows: List[float] = [0.0]
 
         for cycle in range(1, config.cycles + 1):
             if lengths.shape[0] == 0:
@@ -214,12 +237,17 @@ class SimpleTelomereModel:
                 rows.append(M.summarise_state(lengths, senescent, config.senescence_threshold, mutation_burden,
                                                apoptotic, repair_rate_cells))
                 clone_fraction_rows.append(_clone_fractions(clone_id, n_clones))
+                pd_rows.append(pd_total)
                 continue
 
             # 1. division of proliferative cells
-            lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells, divided = divide(
-                lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells
+            n_before_division = lengths.shape[0]
+            (lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells, divided,
+             shortening_mult_cells) = divide(
+                lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells, shortening_mult_cells
             )
+            pd_total += float(np.log2(lengths.shape[0] / n_before_division))
+            pd_rows.append(pd_total)
 
             # 2-3. shortening + maintenance on every replicated copy, with the
             # parameter values scheduled for this step (index cycle - 1) and,
@@ -245,8 +273,12 @@ class SimpleTelomereModel:
                     effective_repair = repair_rate_cells[divided]
                 else:
                     effective_repair = repair_lookup[clones_sub]
+                if use_shortening_cv:
+                    base_shortening = shortening_rate_c[clones_sub] * shortening_mult_cells[divided]
+                else:
+                    base_shortening = shortening_rate_c[clones_sub]
                 deterministic_loss = (
-                    shortening_rate_c[clones_sub]
+                    base_shortening
                     + stress_val * stress_sensitivity_c[clones_sub] * (1.0 - effective_repair)
                 )
                 max_gain_arr = maintenance_lookup[clones_sub] * config.maintenance_max_gain
@@ -283,7 +315,12 @@ class SimpleTelomereModel:
 
             # 4. senescence check on shortest telomere
             was_senescent = senescent
-            senescent = update_senescence(lengths, senescent, config.senescence_threshold)
+            if use_hazard:
+                # Optional stochastic arrest (docs/MODEL.md section 2.7).
+                senescent = stochastic_arrest(rng, lengths, senescent, config.senescence_threshold,
+                                              config.senescence_softness_bp, config.random_arrest_rate)
+            else:
+                senescent = update_senescence(lengths, senescent, config.senescence_threshold)
             newly = np.flatnonzero(senescent & ~was_senescent)
             if newly.size:
                 fids = founder_id[newly]
@@ -300,21 +337,24 @@ class SimpleTelomereModel:
             # these two apply to every living cell each cycle, not only
             # cells that just divided.
             apoptotic = mutation_burden > mutation_threshold_c[clone_id]
-            lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells, apoptotic = remove_apoptotic(
+            (lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells, apoptotic,
+             shortening_mult_cells) = remove_apoptotic(
                 rng, lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells, apoptotic,
-                checkpoint_strength_c[clone_id]
+                checkpoint_strength_c[clone_id], shortening_mult_cells
             )
 
             # 5. loss of senescent cells
-            lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells = remove_dead(
+            (lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells,
+             shortening_mult_cells) = remove_dead(
                 rng, lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells,
-                config.senescent_death_rate
+                config.senescent_death_rate, shortening_mult_cells
             )
 
             # 6. passaging back to capacity
-            lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells = passage(
+            (lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells,
+             shortening_mult_cells) = passage(
                 rng, lengths, senescent, founder_id, clone_id, mutation_burden, repair_rate_cells,
-                config.carrying_capacity
+                config.carrying_capacity, shortening_mult_cells
             )
 
             # 7. bookkeeping
@@ -334,7 +374,8 @@ class SimpleTelomereModel:
             if config.subclones is not None else {}
         )
         return _assemble(config, rows, snapshots, lengths, mutation_burden, repair_rate_cells, founder_senescence_cycle,
-                         applied_schedule, clone_fraction, t0, clone_id=clone_id, mutation_threshold_c=mutation_threshold_c)
+                         applied_schedule, clone_fraction, t0, clone_id=clone_id, mutation_threshold_c=mutation_threshold_c,
+                         population_doublings=np.asarray(pd_rows, dtype=float))
 
 
 def _stack(rows: List[Dict[str, float]], key: str, dtype=float) -> np.ndarray:
@@ -355,7 +396,8 @@ def _clone_fractions(clone_id: np.ndarray, n_clones: int) -> np.ndarray:
 
 
 def _assemble(config, rows, snapshots, lengths, mutation_burden, repair_rate_cells, founder_senescence_cycle,
-              applied_schedule, clone_fraction, t0, clone_id, mutation_threshold_c) -> SimulationResult:
+              applied_schedule, clone_fraction, t0, clone_id, mutation_threshold_c,
+              population_doublings) -> SimulationResult:
     time = np.arange(len(rows), dtype=float)
     result = SimulationResult(
         seed=config.seed,
@@ -375,6 +417,9 @@ def _assemble(config, rows, snapshots, lengths, mutation_burden, repair_rate_cel
         mean_mutation_burden=_stack(rows, "mean_mutation_burden"),
         apoptotic_fraction=_stack(rows, "apoptotic_fraction"),
         mean_repair_rate=_stack(rows, "mean_repair_rate"),
+        population_doublings=population_doublings,
+        time_hours=(time * config.hours_per_cycle if config.hours_per_cycle > 0.0
+                    else np.full(time.shape, np.nan)),
         final_lengths=lengths.ravel().copy(),
         distribution_snapshots=snapshots,
         founder_senescence_cycle=founder_senescence_cycle.copy(),
@@ -416,6 +461,11 @@ def _assemble(config, rows, snapshots, lengths, mutation_burden, repair_rate_cel
     result.terminal_metrics["final_repair_rate_std"] = (
         float(repair_rate_cells.std()) if repair_rate_cells.size else 0.0
     )
+    # Cumulative population doublings and (optional) wall-clock mapping
+    # (docs/MODEL.md sections 2.4-2.5): deterministic, no RNG.
+    result.terminal_metrics["total_pd"] = float(population_doublings[-1])
+    if config.hours_per_cycle > 0.0:
+        result.terminal_metrics["total_days"] = float(time[-1] * config.hours_per_cycle / 24.0)
     result.runtime_seconds = _time.perf_counter() - t0
     # Synthetic "biological age" biomarker (ROADMAP.md candidate feature #5):
     # a pure, post-hoc derived-metric pass over the already-completed result,
@@ -439,6 +489,7 @@ def _failed_result(config: ModelConfig, reason: str, t0: float) -> SimulationRes
         population_size=zeros, proliferative_count=zeros,
         fraction_below_threshold=nan, length_cv=nan,
         mean_mutation_burden=nan, apoptotic_fraction=nan, mean_repair_rate=nan,
+        population_doublings=nan, time_hours=nan,
         final_lengths=np.array([]),
         terminal_metrics={},
         valid=False,

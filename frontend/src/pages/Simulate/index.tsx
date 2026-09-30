@@ -28,6 +28,7 @@ import {
   fitnessBreakdownBar,
   lengthDistribution,
   lengthTrajectory,
+  pdCurve,
   populationCurve,
   senescenceCurve,
 } from '../../components/charts/simulationCharts'
@@ -196,6 +197,7 @@ export function Simulate() {
       dist: lengthDistribution(run, dark),
       sen: senescenceCurve(run, dark, cursor),
       pop: populationCurve(run, dark, cursor),
+      pd: pdCurve(run, dark, cursor),
       age: biologicalAgeChart(run, dark, cursor),
     }
   }, [run, dark, cursor])
@@ -481,6 +483,7 @@ export function Simulate() {
                 <Plot figure={figures.dist} />
                 <Plot figure={figures.sen} />
                 <Plot figure={figures.pop} />
+                {figures.pd && <Plot figure={figures.pd} />}
                 {figures.age && <Plot figure={figures.age} />}
               </div>
 

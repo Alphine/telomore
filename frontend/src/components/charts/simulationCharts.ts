@@ -91,6 +91,29 @@ export function senescenceCurve(run: SimulationRun, dark: boolean, cursor?: numb
   return { data, layout: withCursor(layout, cursor) }
 }
 
+/**
+ * Cumulative population doublings (docs/MODEL.md §2.5). Plotted against days when the
+ * run set hours_per_cycle (a timeline assumption), otherwise against the model cycle --
+ * cycle is NOT a doubling count, which is why this curve exists.
+ */
+export function pdCurve(run: SimulationRun, dark: boolean, cursor?: number | null): Figure | null {
+  const ts = run.timeseries
+  const pd = ts.population_doublings
+  if (!pd || pd.every((v) => v === null)) return null
+  const hours = ts.time_hours
+  const days = hours && hours.some((h) => h !== null) ? hours.map((h) => (h === null ? null : h / 24)) : null
+  const data: Data[] = [
+    { type: 'scatter', mode: 'lines', x: days ?? ts.cycle, y: pd, name: 'population doublings', line: { color: PALETTE[4], width: 2 } },
+  ]
+  const layout: Partial<Layout> = baseLayout({
+    dark,
+    title: 'Cumulative population doublings',
+    xTitle: days ? 'days (assumed hours per cycle)' : 'cell cycle',
+    yTitle: 'PD',
+  })
+  return { data, layout: days ? layout : withCursor(layout, cursor) }
+}
+
 export function populationCurve(run: SimulationRun, dark: boolean, cursor?: number | null): Figure {
   const ts = run.timeseries
   const cap = hline(run.config.carrying_capacity, 'carrying capacity')

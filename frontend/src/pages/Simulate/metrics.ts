@@ -13,6 +13,7 @@ export function terminalMetrics(run: SimulationRun): Metric[] {
     // inf ("never reached") arrives as null from the API.
     { label: 'Cycles to 50 % senescent', value: t50 === null || t50 === undefined ? 'not reached' : String(Math.trunc(t50)) },
     { label: 'Final living cells', value: String(tm.final_population_size ?? 0) },
+    ...(tm.total_pd === undefined ? [] : [{ label: 'Population doublings', value: tm.total_pd.toFixed(1) }]),
     { label: 'Fitness (objective)', value: `${run.fitness.total >= 0 ? '+' : ''}${run.fitness.total.toFixed(3)}` },
   ]
 }

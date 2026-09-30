@@ -266,6 +266,21 @@ export function ModelConfigForm({
       </details>
 
       <details className="group">
+        <summary className="cursor-pointer select-none text-sm font-semibold">Culture realism (optional)</summary>
+        <p className="prose-muted mt-2 text-xs">
+          Qualitative, default-off additions (docs/MODEL.md §2.6–2.9). None is fitted to data. Leave at 0 to reproduce
+          earlier results exactly.
+        </p>
+        <div className="mt-3 space-y-3">
+          {bounded('hours_per_cycle')}
+          {bounded('initial_within_cell_sd')}
+          {bounded('shortening_rate_cv')}
+          {bounded('senescence_softness_bp')}
+          {bounded('random_arrest_rate')}
+        </div>
+      </details>
+
+      <details className="group">
         <summary className="cursor-pointer select-none text-sm font-semibold">Genome stability (optional)</summary>
         <div className="mt-3 space-y-3">
           {bounded('replication_error_rate')}

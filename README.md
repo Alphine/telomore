@@ -225,8 +225,8 @@ Mapping model outputs to lab measurements:
 |---|---|---|
 | Mean telomere length (bp) | TRF mean | Not directly comparable: TRF includes subtelomeric DNA. Compare trends, not absolute values. |
 | Shortest telomere length | Q-FISH / STELA lower tail | Closest to what triggers senescence in the model; there is no assay layer yet. |
-| Senescent fraction | SA-β-gal positive % | Model senescence is a deterministic length threshold; the stain is a marker with its own false positives and negatives. |
-| Cycle (simulation step) | Population doublings | **Not** a population-doubling count: a cycle is one division round of the model, and cells that stop dividing or are removed change the culture's doublings. There is **no wall-clock time** yet. A doubling count and a time axis are being added (planned). |
+| Senescent fraction | SA-β-gal positive % | By default model senescence is a deterministic length threshold; the optional `senescence_softness_bp` / `random_arrest_rate` make it stochastic (`docs/MODEL.md` §2.9, Experiment M). The stain is a marker with its own false positives and negatives. |
+| Cycle (simulation step) | Population doublings, days in culture | A cycle is **not** a doubling count. Use the cumulative `population_doublings` output / `total_pd` (`docs/MODEL.md` §2.5). Wall-clock time exists only if you set `hours_per_cycle` (§2.6), which is an assumption, not a fit. |
 | Fitness, "biological age" score | none | Model-internal objective and vitality index, not measurable. |
 | `repair_rate`, `stress_level`, `maintenance_rate` | none directly | Abstract scalar knobs, not assayed quantities. |
 

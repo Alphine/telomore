@@ -105,6 +105,16 @@ export interface ModelConfig {
   mutation_threshold: number
   /** Per-division Gaussian step (SD) on each cell's own heritable repair_rate, clipped and inherited by daughters; 0 = feature unused. */
   repair_rate_mutation_sigma: number
+  /** Bench-timeline assumption (docs/MODEL.md §2.6): hours per cycle; 0 = unused (no time axis). */
+  hours_per_cycle: number
+  /** Within-cell SD of initial telomere length (§2.7); 0 = unused (initial_length_sd applies within each cell). */
+  initial_within_cell_sd: number
+  /** CV of a heritable per-cell multiplier on division-driven shortening (§2.8); 0 = unused. */
+  shortening_rate_cv: number
+  /** Logistic width (bp) of a stochastic arrest around senescence_threshold (§2.9); 0 = hard threshold. */
+  senescence_softness_bp: number
+  /** Length-independent arrest probability per cycle for proliferating cells (§2.9); 0 = unused. */
+  random_arrest_rate: number
   cycles: number
   seed: number
   record_distribution_every: number
@@ -327,6 +337,10 @@ export interface TerminalMetrics {
   /** Genome stability (docs/MODEL.md §2.3); absent on runs recorded before this feature existed. */
   final_mutation_burden?: number
   genomic_instability_index?: number
+  /** Cumulative population doublings from division (docs/MODEL.md §2.5); absent on older runs. */
+  total_pd?: number
+  /** Only when hours_per_cycle > 0. */
+  total_days?: number
 }
 
 // SimulationResult.timeseries_frame() columns. Length statistics are NaN
@@ -346,6 +360,10 @@ export interface SimulationTimeseries {
   /** Genome stability (docs/MODEL.md §2.3): all-zero when the feature is unused. */
   mean_mutation_burden: Array<number | null>
   apoptotic_fraction: Array<number | null>
+  /** Cumulative population doublings (docs/MODEL.md §2.5); absent on runs recorded before it existed. */
+  population_doublings?: Array<number | null>
+  /** Hours since start (hours_per_cycle x cycle); null when hours_per_cycle = 0. */
+  time_hours?: Array<number | null>
 }
 
 // simulator/biomarker.py::BiologicalAgeScore.to_json_dict() (ROADMAP.md

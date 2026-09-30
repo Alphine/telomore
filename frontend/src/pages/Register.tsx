@@ -8,6 +8,7 @@ import type { RegisterResponse } from '../api/types'
 import { AuthCard } from '../components/AuthCard'
 import { Callout } from '../components/Callout'
 import { DevLink } from '../components/DevLink'
+import { passwordProblem } from '../auth/passwordRules'
 
 export function Register() {
   const [username, setUsername] = useState('')
@@ -23,6 +24,11 @@ export function Register() {
     setError(null)
     if (!username || !email || !password) {
       setError('Fill in username, email and password.')
+      return
+    }
+    const problem = passwordProblem(password)
+    if (problem) {
+      setError(problem)
       return
     }
     if (password !== confirm) {
@@ -107,7 +113,11 @@ export function Register() {
             autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            aria-describedby="reg-password-hint"
           />
+          <p id="reg-password-hint" className="prose-muted mt-1 text-xs">
+            8 to 72 characters.
+          </p>
         </div>
         <div>
           <label className="label" htmlFor="reg-confirm">

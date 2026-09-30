@@ -6,6 +6,7 @@ import { ApiError } from '../api/client'
 import { resetPassword } from '../api/endpoints'
 import { AuthCard } from '../components/AuthCard'
 import { Callout } from '../components/Callout'
+import { passwordProblem } from '../auth/passwordRules'
 
 export function ResetPassword() {
   const [params] = useSearchParams()
@@ -22,6 +23,11 @@ export function ResetPassword() {
     setError(null)
     if (!password) {
       setError('Enter a new password.')
+      return
+    }
+    const problem = passwordProblem(password)
+    if (problem) {
+      setError(problem)
       return
     }
     if (password !== confirm) {
@@ -79,7 +85,11 @@ export function ResetPassword() {
               autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              aria-describedby="reset-password-hint"
             />
+            <p id="reset-password-hint" className="prose-muted mt-1 text-xs">
+              8 to 72 characters.
+            </p>
           </div>
           <div>
             <label className="label" htmlFor="reset-confirm">

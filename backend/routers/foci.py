@@ -18,8 +18,10 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Dict
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from PIL import Image
+
+from ..ratelimit import rate_limit
 
 from telomere_lab.foci import ATTRIBUTION, IdrClient, count_foci, fetch_image_channels, overlay_rgb
 
@@ -57,7 +59,7 @@ def _analyse(image_id: int) -> Dict:
     }
 
 
-@router.get("/overlay")
+@router.get("/overlay", dependencies=[Depends(rate_limit("foci_overlay", 60))])
 def overlay(well: str = Query(..., max_length=16)) -> Dict:
     if not WELL_RE.match(well):
         raise HTTPException(status_code=400, detail="bad well id")

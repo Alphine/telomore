@@ -106,7 +106,8 @@ def site(tmp_path_factory):
     pub = root / "public_html"
     (pub / "api").mkdir(parents=True)
     (pub / "data").mkdir()
-    shutil.copy(WEB / "api" / "well.php", pub / "api" / "well.php")
+    for f in (WEB / "api").glob("*.php"):   # well.php now requires _lib.php
+        shutil.copy(f, pub / "api" / f.name)
     shutil.copy(WEB / "data" / "well_index.json", pub / "data" / "well_index.json")
     sp, pp = free_port(), free_port()
     srv = HTTPServer(("127.0.0.1", sp), Stub)

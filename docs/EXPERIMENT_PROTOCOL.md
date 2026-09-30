@@ -1151,6 +1151,110 @@ culture counts as fully senescent. Raw per-seed values are in
 
 **Reproduce.** `PYTHONPATH=src python scripts/run_stochastic_senescence.py`
 
+## 15.4 Experiment L2 — Experiment L repeated on raw 12-bit data, and what actually broke it (Foci Lab)
+
+**Question.** §15.2 could not reproduce the authors' per-well foci/cell (Spearman -0.01, n = 93) and named two untested
+causes: (a) bit depth (8-bit windowed render instead of raw 16-bit) and (b) the authors' unpublished focus definition.
+Does the same test on raw data agree with the authors, and which cause do the data support?
+
+**Setup and data provenance.** BioImage Archive **S-BIAD885** (idr0010 converted to OME-Zarr; licence CC BY 4.0,
+Doil et al., *Cell* 2009). The file list (`.../Files/idr0010_files.json`, 147 zips, 65.5 GiB in total) names each zip
+`<Plate>.ome.zarr.zip`, and these names equal the annotation's `Plate` values (147 of the annotation's 149 plates;
+`5-12` and `153-29` have no zip). One plate was downloaded (owner-approved, cap 1 GB):
+`https://ftp.ebi.ac.uk/biostudies/fire/S-BIAD/885/S-BIAD885/Files/idr0010/7-14.ome.zarr.zip`, **475,572,589 bytes**
+(453.5 MiB, equal to the published size; the archive publishes no checksum, so the SHA-256 computed after download,
+`9eb1e22e...0c624`, is stored in the report). **Why plate 7-14:** it has 21 of the 57 "increased DNA damage" wells
+(19 pass QC; the next best plate has 6), 304 QC-passed non-control wells, the largest spread of authors' foci/cell,
+and 7 negative + 9 positive control wells. It has no "defective DNA damage response" well (those 6 wells sit 2 each on
+plates 153-29, 107 and 90-27), so that AUC could not be computed. Layout: OME-Zarr v0.4 (zarr v2, bioformats2raw),
+one image per well, axes t,c,z,y,x, shape (1,2,1,520,696), big-endian uint16, pyramid levels 0-2 (level 0 used).
+Channels are identified by the OME labels ("Dapi" = DNA, "Channel 1" = 53BP1).
+
+**Finding 1: the data are 12-bit, not 16-bit.** The pixel values on the plate span 38-4095 (a 12-bit camera stored in
+16-bit containers); the 53BP1 channel is at 4095 in a median of 78 pixels per well, so the camera itself saturates. The
+stored per-image display window equals each image's own min/max, and the 8-bit render is therefore a linear
+requantisation with about 15.8 raw units per grey level (53BP1) and 5.7 (DNA). Our emulation of that render reproduces
+the cached IDR web-API PNGs of the 8 images that belong to this plate to a mean absolute difference below 0.002 grey
+levels. The premise of hypothesis (a) ("range 0-65535, bright foci clipped") does not hold.
+
+**Finding 2: Experiment L joined images to the wrong annotation rows.** Joining the image of well `A2` to the annotation
+row whose `Well` is `A2` gives no agreement even for nucleus count (Spearman of our nucleus count vs the authors' Cell
+Count 0.07, n = 304 wells here; 0.16, n = 106 cached images over many plates). Matching instead by the annotation's
+`Well Number` with the image grid numbered **column-major** (A1, B1, ... L1, A2, ...) while the `Well` name is
+row-major (A1, A2, ... A32, B1, ...) gives 0.48 (Pearson 0.50) on this plate and **0.71 (Pearson 0.69) on the 106
+cached PNGs of Experiment L**. Tested and rejected: row-major (also shifted by up to +-40 wells), flips, 180-degree rotation and reversal;
+shifting the column-major order by +-1 to +-3 wells lowers the agreement from 0.48 to 0.14-0.37. IDR and zarr agree on well addresses (8 of 8 cached
+images sit in the same-named zarr well), so the problem lies in the pairing of image address and annotation row. Which
+side is mislabelled cannot be decided from image data; the pairing that agrees with the authors' own cell counts is
+used below as the primary analysis, and the by-name pairing is reported alongside as "as Experiment L did it".
+
+**Method (16-bit-aware, `telomere_lab.foci.raw16`).** Nuclei: the unchanged `segment_nuclei` on the raw DNA intensities
+(float32; no uint16 arithmetic). Three foci detectors on the smoothed 53BP1 channel, thresholds in noise units instead of
+grey levels: (1) `tophat_mad` white top-hat maxima scored by height / 1.4826 MAD of the top-hat inside nuclei;
+(2) `dog_mad` difference-of-Gaussians (sigma 1 vs 3) maxima scored by height / MAD of the DoG in nuclei;
+(3) `nuc_ratio` top-hat height relative to the nucleus's own diffuse level. One threshold per detector, chosen on a
+**training half only** by maximum Spearman with the authors' foci/cell (grid of 28 values, seed 0, **2-fold
+cross-fit**: every reported prediction comes from the threshold fitted on the other half; the choice of the headline
+detector uses training-fold Spearman only). Paired baselines on the same wells: the actual Experiment L pipeline on the
+8-bit render (default `min_height` 12, verified to reproduce `count_foci` on every well) and with its one threshold
+cross-fitted the same way, and the **same three detectors run on the 8-bit render mapped back to raw units**, which
+isolates bit depth from everything else. The authors' focus definition remains unknown; none of these claims to be it.
+Bootstrap CIs (2000 resamples over wells, seed 0).
+
+**Results** (primary pairing, n = 304 QC-passed non-control wells, 19 "increased DNA damage" wells; held-out predictions):
+
+| Arm | Spearman (95% CI) | Pearson | AUC increased damage (95% CI) |
+|---|---|---|---|
+| authors' own foci/cell (ceiling) | 1 | 1 | 0.93 (0.83-1.00) |
+| Exp. L pipeline, 8-bit, default | 0.30 (0.19-0.41) | 0.45 | 0.68 (0.52-0.83) |
+| Exp. L pipeline, 8-bit, threshold cross-fitted | 0.47 (0.37-0.56) | 0.56 | 0.75 (0.62-0.86) |
+| `tophat_mad` raw / 8-bit render | 0.40 (0.29-0.51) / 0.41 (0.30-0.51) | 0.25 / 0.25 | 0.75 / 0.73 |
+| `dog_mad` raw / 8-bit render | 0.39 (0.29-0.49) / 0.42 (0.32-0.53) | 0.43 / 0.55 | 0.73 (0.60-0.84) / 0.79 (0.67-0.89) |
+| `nuc_ratio` raw / 8-bit render | 0.34 (0.23-0.44) / 0.33 (0.22-0.43) | 0.43 / 0.43 | 0.69 / 0.69 |
+
+*Bit depth, isolated (same detector, raw minus 8-bit render, paired bootstrap):* `tophat_mad` -0.004 (-0.028 to 0.020),
+`dog_mad` -0.034 (-0.071 to 0.002), `nuc_ratio` +0.008 (0.002 to 0.015): no benefit from the raw data. The raw headline
+detector (`dog_mad`, chosen by training Spearman) minus the cross-fitted 8-bit Experiment L pipeline is -0.075
+(-0.135 to -0.022): the simple 8-bit counter is as good or better.
+*As Experiment L paired them (by name):* every arm gives Spearman between -0.005 and 0.049 (CIs include 0), both raw and 8-bit,
+consistent with the -0.011 of §15.2.
+*Distribution metric:* per-nucleus foci counts pooled over the 19 annotated wells vs the other wells (single-nucleus
+objects; well-level bootstrap) separate weakly, AUC 0.54-0.58 (lower CI bounds 0.50-0.52). Per-well AUCs above are
+the more informative readout.
+*Controls* (7 negative, 9 positive = INCENP/KIF11 knockdowns, not in calibration): the authors' own foci/cell does not
+separate them (AUC 0.44), so the control check cannot validate a counter; ours range 0.46-0.86 on 16 wells (uninformative).
+*Absolute level:* our calibrated counters give a median 0.75-0.95 foci/cell, the authors' 2.0; only rank agreement is tested.
+
+**Interpretation.** (1) **Bit depth is not supported** as the cause: the data are 12-bit, and the same detector on the
+raw values and on the 8-bit render agrees equally well with the authors (differences within +-0.04, two CIs include 0).
+(2) The dominant cause of Experiment L's failure was **the image-to-annotation pairing**, a third explanation that
+neither §15.2 hypothesis covered. With the pairing that matches the authors' cell counts, an unmodified 8-bit counter
+already reaches Spearman 0.30 at its default threshold and 0.47 once its one threshold is fitted on other wells, and ranks
+the "increased DNA damage" wells above the rest (AUC 0.68-0.75 vs 0.93 for the authors' own numbers). (3) **The
+undefined-focus-definition hypothesis is neither confirmed nor excluded:** the remaining gap (Spearman about 0.4-0.5
+against a ceiling of 1, absolute counts 2-3 times lower) is what one expects from a different definition, from
+between-replicate noise, or from residual pairing errors, and this experiment cannot tell them apart.
+
+**Limits.** One plate (7-14; 304 wells, 19 phenotype wells, wide CIs); no "defective response" well; the pairing
+finding is empirical (cell-count agreement), not confirmed from the curators' files, and I did not identify which
+resource holds the mislabel; nucleus counts of touching nuclei come from an area heuristic; per-nucleus statistics
+use single-nucleus objects only; detector choice by training-fold Spearman still saw all wells once across folds;
+no per-well quality re-check of authors' QC beyond their flags; the 8-bit emulation is verified on 8 images.
+
+**Consequence for Foci Lab.** Any place that shows the image of a well next to that well's annotation row (gallery,
+overlay endpoint, `well_index.json`) may show the image of a different well; the authors' table numbers themselves are
+unaffected. §15.2's "no agreement" was a pairing artefact, and its bit-depth explanation should not be repeated.
+
+**Full-screen analysis would need** all 147 zips (65.5 GiB; about 470 MB each, about 25 min per plate to download here) with a
+fixed pairing rule verified per plate, plate-wise normalisation as the authors did (to non-targeting controls),
+per-plate calibration or one global threshold in noise units, and a check on the two plates without zips.
+
+**Reproduce.** `pip install zarr` (optional, not a project dependency; a separate virtualenv is advised), download the
+zip outside the repo, then
+`PYTHONPATH=src python scripts/redo_experiment_l_raw16.py PATH/7-14.ome.zarr.zip` (about 5 minutes; writes
+`experiments/reports/foci_raw16.json`); tests: `tests/test_foci_raw16.py` (the OME-Zarr reader test needs zarr and is
+skipped without it).
+
 ## 16. Performance (scripts/benchmark.py, same machine)
 
 | Measurement | Value |

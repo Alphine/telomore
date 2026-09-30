@@ -21,3 +21,11 @@ RewriteRule \.(py|sh|md|log|txt|tmp)$ - [F,L]
   Header set Referrer-Policy "strict-origin-when-cross-origin"
   Header set X-Frame-Options "SAMEORIGIN"
 </IfModule>
+
+# The upload analyser page posts files only to the Telomere Lab API on Railway:
+# lock down what it may load and where it may send data.
+<IfModule mod_headers.c>
+  <FilesMatch "^analyze\.html$">
+    Header set Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src https://telomore-production.up.railway.app; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
+  </FilesMatch>
+</IfModule>

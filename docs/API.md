@@ -765,6 +765,92 @@ All require authentication and are synchronous. Synthetic genes only
   unavailable). Returns `{well, image_id, nuclei, foci, foci_per_cell, jpeg (base64 overlay),
   validated: false, note, attribution}`; memoised per image. CORS allows https://studylab.id.
 
+### `POST /api/foci/analyze` — analyse your own image (Foci Lab upload analyser)
+
+Public, no auth, `multipart/form-data`. Everything is processed **in memory**: the body is streamed into
+byte buffers (never Starlette's disk-spooled temp files), decoded, analysed and dropped. Nothing is stored,
+cached or logged (only the exception class on an unexpected failure), file names are ignored and never
+echoed, and the overlay is a fresh JPEG so no input metadata can survive. Requires `python-multipart`.
+
+Fields:
+
+| Field | Type | Notes |
+|---|---|---|
+| `dna` | file | nuclear stain (PNG, TIFF or JPEG; 8-bit, 16-bit, 32-bit/float; greyscale preferred). Required. |
+| `foci` | file | punctate marker (53BP1, gamma-H2AX, ...), same size as `dna`. Optional **only if** `dna` is a TIFF with exactly two pages (page 1 = DNA, page 2 = foci). |
+| `min_nucleus_px` | int 20–100000, default 150 | smallest object kept as a nucleus (px) |
+| `background_size` | odd int 11–301, default 41 | grey-opening size for uneven illumination; larger than a nucleus |
+| `min_height` | float 0.5–255, default 12 | minimum focus height over local background, in **8-bit grey levels** |
+| `tophat_size` | odd int 3–51, default 7 | white top-hat size; spots smaller than this are foci |
+| `peak_window` | odd int 3–31, default 5 | one focus per window of this size |
+
+Blank parameters mean the default; out-of-range, non-numeric, non-finite values, or even values where odd is
+required, are **422** (never silently clamped). They map onto `FociParams`; the defaults are those of the
+IDR pipeline, so results for 8-bit input equal `telomere_lab.foci.count_foci` exactly.
+
+Pixel values: 8-bit is used as is. 16-bit / 32-bit / float input is stretched linearly from its 0.1th to its
+99.99th percentile onto 0–255 (robust to hot pixels; the response reports `raw_lo`, `raw_hi` and
+`clipped_high_fraction`, so clipping is never silent). Non-finite float pixels are set to 0 (reported).
+Colour files use the brightest channel per pixel (warned).
+
+Response `200` (`Cache-Control: no-store`):
+`{validated: false, nuclei, objects, foci, foci_per_cell (null if no nuclei), table: [{id, area_px,
+centroid_x, centroid_y, nuclei_in_object, foci}], table_truncated, image: {width, height, dna: {...}, foci: {...}},
+parameters, jpeg (base64 overlay, long side <= 2048), overlay_scale, warnings[], limits[] (plain-language caveats), note}`.
+Table rows are nuclear *objects*; touching nuclei are not split (`nuclei_in_object` = round(area / median object
+area)) and `nuclei` is their sum. Centroids are in original pixel coordinates. At most 20000 table rows are
+returned (`table_truncated`); the counts are always complete.
+
+Errors (`{"detail": ...}`): 400 malformed multipart · 408 upload too slow · 413 body / image / pixel count / edge over the
+limit (decided from the image header alone, before decoding) · 415 not multipart, or not PNG/TIFF/JPEG (magic bytes, not the
+extension; animated GIF/WebP are rejected) · 422 missing image, unknown or duplicate field, bad parameter, images of different
+size, image under 32×32, more than one frame (except the 2-page TIFF), corrupt file · 429 rate limit (`Retry-After`) ·
+503 busy (all compute slots or upload buffers in use; `Retry-After`) or out of memory · 504 analysis over its time budget
+(the compute slot is released only when the worker really finishes). CORS: `https://studylab.id` (and the other origins in
+`backend/main.py`), including the preflight.
+
+Environment variables (read per request; `off`/`0` disables one limit; `TELOMERE_DISABLE_LIMITS=1` disables all):
+
+| Env var | Default | Effect |
+|---|---|---|
+| `TELOMERE_FOCI_MAX_UPLOAD_BYTES` | 26214400 (25 MB) | whole request body, enforced while streaming (and from `Content-Length`) |
+| `TELOMERE_FOCI_MAX_PIXELS` | 12000000 | pixels per image (also sets Pillow's `MAX_IMAGE_PIXELS`; `DecompressionBombError` → 413) |
+| `TELOMERE_FOCI_MAX_SIDE` | 8192 | longest edge per image |
+| `TELOMERE_FOCI_CONCURRENCY` | 1 | analyses running at once |
+| `TELOMERE_FOCI_QUEUE_WAIT_SECONDS` | 10 | wait for a free slot, then 503 |
+| `TELOMERE_FOCI_TIMEOUT_SECONDS` | 120 | analysis budget, then 504 |
+| `TELOMERE_FOCI_UPLOAD_TIMEOUT_SECONDS` | 60 | time to receive the body, then 408 |
+| `TELOMERE_FOCI_MAX_UPLOADS` | 4 | request bodies buffered at once (memory bound ≈ this × the upload cap), else 503 |
+| `TELOMERE_RATE_LIMIT_FOCI_ANALYZE` | 20 | requests per IP per window |
+
+Measured on a laptop CPU, in process, two images each: 2048×2048 → about 1.9 s and +210 MB peak memory; 3464×3464
+(12 Mpx, the default cap) → about 4.4 s and +370 MB. Plan for roughly 30 bytes of RAM per pixel of an image pair and lower
+`TELOMERE_FOCI_MAX_PIXELS` on a small container. Images whose long side exceeds 2048 px are block-reduced before the
+overlay is drawn (`overlay_scale` = 1/k); counts and the table always come from the full-resolution image.
+
+### `well.php` — cached IDR images for the static site
+
+`GET|HEAD /api/well.php` on the Hostinger site (`foci/web/api/well.php`; other methods → 405). Only wells in
+`foci/web/data/well_index.json` are served; the IDR host and URL templates are fixed and the only variable is the
+integer image id from that index, so it is not an open proxy. Files are fetched from IDR once and cached **outside the
+web root** (`../focilab_cache`, written via temp file + `rename`, so concurrent requests are safe).
+
+| Request | Response |
+|---|---|
+| `?w=<Plate_Well>` | `image/jpeg`, coloured composite (DNA blue, 53BP1 green) at the curators' display window. `Cache-Control: public, max-age=2592000, immutable` |
+| `?w=..&ch=dna` or `&ch=foci` | `image/png`, that channel only, 8-bit grey rendering (IDR `m=g`, white, same window as the composite). IDR delivers it as an RGB PNG with R=G=B: read any one channel. Same cache header |
+| `?w=..&info=1` | `application/json`, `Cache-Control: public, max-age=86400`: `{"well", "image_id", "size_x", "size_y", "pixel_size_um": number or null, "channels": ["label", ...], "idr_url": "https://idr.openmicroscopy.org/webclient/?show=image-<id>"}` |
+
+`size_*` come from IDR `imgData.size.width/height`; `channels` from `imgData.channels[].label` (control characters
+stripped, at most 80 characters, treat as untrusted text); `pixel_size_um` from `imgData.pixel_size.x` (micrometres in
+OMERO) and is `null` when absent or not a positive number. Caution: for the one idr0010 image inspected (1922019) IDR
+reports exactly `1.0`, which may be a nominal default rather than a calibrated value; the script passes on what IDR says
+and cannot verify it. Errors are `text/plain` with `Cache-Control: no-store`: 400 (`w` missing/malformed/repeated, `ch`
+not `dna|foci`, `info` not `1`, or both `ch` and `info`), 404 (well not in the index), 405, 500 (index or cache
+unavailable), 502 (IDR unreachable, or it returned something that is not the expected image/JSON; nothing is cached).
+`FOCI_IDR_BASE` overrides the IDR host **only** when `FOCI_ALLOW_TEST_BASE=1` is also set and the value is a loopback
+`http(s)` URL (used by `tests/test_foci_well_php.py`, which runs `php -S` against a local stub).
+
 ## Limits and security notes
 
 All limits below live in the **backend request layer** (`backend/limits.py`,
@@ -820,9 +906,9 @@ bounded by the cost caps above but not by the job queue.
 
 A dependency-free in-memory sliding window per client IP, applied to
 `POST /api/auth/login` (30), `/register` (10), `/forgot-password` (10) and
-`GET /api/foci/overlay` (60), per `TELOMERE_RATE_LIMIT_WINDOW` seconds
+`GET /api/foci/overlay` (60) and `POST /api/foci/analyze` (20), per `TELOMERE_RATE_LIMIT_WINDOW` seconds
 (default 60). Override a bucket with `TELOMERE_RATE_LIMIT_LOGIN`,
-`_REGISTER`, `_FORGOT_PASSWORD`, `_FOCI_OVERLAY`; disable everything with
+`_REGISTER`, `_FORGOT_PASSWORD`, `_FOCI_OVERLAY`, `_FOCI_ANALYZE`; disable everything with
 `TELOMERE_RATE_LIMIT=off` (the test suite does this in `tests/conftest.py`).
 The client IP is the **first hop of `X-Forwarded-For`** (Railway sits behind a
 proxy). That header is client-controlled: if the app is ever exposed without a

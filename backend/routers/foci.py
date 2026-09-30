@@ -23,6 +23,7 @@ from typing import Dict
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
+import numpy as np
 from PIL import Image
 
 from .. import foci_upload as up
@@ -32,6 +33,7 @@ from telomere_lab.foci import (
     ATTRIBUTION,
     FociParams,
     IdrClient,
+    SegmentationResult,
     count_foci,
     fetch_image_channels,
     nucleus_table,
@@ -104,6 +106,31 @@ LIMIT_NOTES = [
 _executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="foci-analyze")
 
 
+def _block(a: np.ndarray, k: int, how: str) -> np.ndarray:
+    h, w = (a.shape[0] // k) * k, (a.shape[1] // k) * k
+    v = a[:h, :w].reshape(h // k, k, w // k, k)
+    return v.mean(axis=(1, 3)) if how == "mean" else v.max(axis=(1, 3))
+
+
+def _overlay_image(dna: np.ndarray, foc: np.ndarray, res) -> tuple:
+    """Overlay JPEG image, at most OVERLAY_MAX_SIDE px on the long side.
+
+    Large images are block-reduced BEFORE drawing (mean for the intensity
+    channels, max for the nucleus / focus masks so no focus disappears), which keeps
+    the float RGB canvas small; images within the limit are drawn at full size.
+    """
+    k = -(-max(dna.shape) // up.OVERLAY_MAX_SIDE)  # ceil
+    if k <= 1:
+        return Image.fromarray(overlay_rgb(dna, foc, res)), 1.0
+    small = SegmentationResult(
+        (_block(res.nuclei > 0, k, "max")).astype(np.int32),
+        (_block(res.foci > 0, k, "max")).astype(np.int32),
+        res.n_nuclei, res.n_foci, res.foci_per_nucleus,
+    )
+    rgb = overlay_rgb(_block(dna, k, "mean"), _block(foc, k, "mean"), small)
+    return Image.fromarray(rgb), 1.0 / k
+
+
 def _run_analysis(files, params: Dict[str, float], c) -> Dict:
     """CPU-bound part; runs in a worker thread while holding the compute slot."""
     dna, foc, info, warnings = up.load_pair(files, c)
@@ -116,12 +143,7 @@ def _run_analysis(files, params: Dict[str, float], c) -> Dict:
     )
     res = count_foci(dna, foc, p)
     table = nucleus_table(res)
-    rgb = overlay_rgb(dna, foc, res)
-    im = Image.fromarray(rgb)
-    scale = 1.0
-    if max(im.size) > up.OVERLAY_MAX_SIDE:
-        scale = up.OVERLAY_MAX_SIDE / max(im.size)
-        im = im.resize((max(1, round(im.size[0] * scale)), max(1, round(im.size[1] * scale))), Image.BOX)
+    im, scale = _overlay_image(dna, foc, res)
     buf = io.BytesIO()
     im.save(buf, format="JPEG", quality=85)  # fresh encode: no input metadata can survive
     if res.n_nuclei == 0:
@@ -152,6 +174,7 @@ async def analyze(request: Request) -> JSONResponse:
 
     # 1. bounded number of request bodies buffered at once (memory guard)
     ups = up.upload_semaphore()
+    handed_off = False  # once a worker owns the buffers it releases this slot when it finishes
     if not ups.acquire(blocking=False):
         raise HTTPException(503, "Server is busy receiving other uploads. Try again shortly.", headers={"Retry-After": "10"})
     try:
@@ -175,7 +198,8 @@ async def analyze(request: Request) -> JSONResponse:
             sem.release()
             raise
         # the slot is released when the worker actually finishes (even after a timeout)
-        fut.add_done_callback(lambda _f: sem.release())
+        handed_off = True
+        fut.add_done_callback(lambda _f: (sem.release(), ups.release()))
         try:
             out = await asyncio.wait_for(asyncio.wrap_future(fut), c["timeout"])
         except asyncio.TimeoutError:
@@ -192,4 +216,5 @@ async def analyze(request: Request) -> JSONResponse:
         return JSONResponse(out, headers=headers)
     finally:
         files = None  # drop the buffers promptly
-        ups.release()
+        if not handed_off:
+            ups.release()

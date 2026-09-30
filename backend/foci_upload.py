@@ -178,7 +178,7 @@ async def read_multipart(request: Request, max_bytes: Optional[float]) -> Tuple[
         if not name:
             raise HTTPException(422, "form field without a name")
         if name in texts or name in files:
-            raise HTTPException(422, f"duplicate field '{name[:32]}'")
+            raise HTTPException(422, "duplicate form field")
         if name in ALLOWED_FILES:
             st["buf"] = bytearray()
             files[name] = st["buf"]

@@ -453,3 +453,15 @@ def test_filenames_and_content_never_reflected(client, img):
 def test_existing_overlay_route_untouched():
     paths = set(create_app().openapi()["paths"])
     assert "/api/foci/overlay" in paths and URL in paths
+
+
+def test_wide_image_overlay_is_block_reduced_but_counts_are_full_resolution(client, img):
+    dna, foc, expected = img
+    wide_d, wide_f = np.tile(dna, (1, 7)), np.tile(foc, (1, 7))   # 300 x 2100 px: long side over the 2048 overlay cap
+    r = post(client, png(wide_d.astype(np.uint8)), png(wide_f.astype(np.uint8)))
+    assert r.status_code == 200, r.text
+    j = r.json()
+    assert j["nuclei"] == 63 and j["foci"] == 7 * sum(expected)
+    assert j["overlay_scale"] == 0.5
+    assert Image.open(io.BytesIO(__import__("base64").b64decode(j["jpeg"]))).size == (1050, 150)
+    assert max(t["centroid_x"] for t in j["table"]) > 2000     # centroids stay in original pixels

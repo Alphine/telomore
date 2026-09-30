@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Analyse your image &middot; Foci Lab</title>
+<meta name="description" content="Count nuclei and DNA-damage foci (53BP1, gamma-H2AX) in your own two-channel microscopy image. Exploratory classical counter; images are processed in memory and not stored.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500&display=swap">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="analyze.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap top-row">
+    <a class="brand" href="index.html" aria-label="Foci Lab home">
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="9" cy="10" r="2.2" fill="var(--accent)"/><circle cx="16" cy="9" r="1.6" fill="var(--accent)"/><circle cx="14" cy="16" r="2.4" fill="var(--accent)"/></svg>
+      <span>Foci Lab</span>
+    </a>
+    <nav aria-label="Sections">
+      <a href="index.html">Screen explorer</a>
+      <a href="analyze.html" aria-current="page">Analyse your image</a>
+      <a href="/telomore/" rel="noopener">Telomere Lab</a>
+    </nav>
+    <button class="theme" id="themeBtn" type="button" aria-label="Toggle dark mode">
+      <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3a7 7 0 1 0 7 7 5.5 5.5 0 0 1-7-7z" fill="currentColor"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero wrap">
+    <p class="eyebrow">Your own microscopy &middot; exploratory</p>
+    <h1>Count foci in your own image</h1>
+    <p class="lead">Upload a nuclear stain and a punctate marker (for example 53BP1 or gamma-H2AX) from the same field. The Foci Lab classical counter finds the nuclei, counts the bright spots inside each one, and shows you exactly what it counted.</p>
+    <div class="banner" role="note">
+      <b>Read this first.</b>
+      <ul>
+        <li>Exploratory only: this counter is <b>not validated against manual counts</b>. Tune the parameters on your own positive and negative controls before trusting a number.</li>
+        <li>53BP1 and gamma-H2AX foci mark DNA double-strand breaks anywhere in the genome; they are <b>not telomere-specific</b>.</li>
+        <li>Your images are processed in memory on the Telomere Lab server and are <b>not stored</b>. Nothing is sent until you press Analyse.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="wrap block" id="tool">
+    <form id="form" class="card" novalidate autocomplete="off">
+      <div class="files">
+        <div class="field">
+          <label for="dnaFile">DNA / nuclei image <span class="req">required</span></label>
+          <input type="file" id="dnaFile" accept=".png,.tif,.tiff,.jpg,.jpeg,image/png,image/tiff,image/jpeg">
+          <p class="note" id="dnaInfo">PNG, TIFF or JPEG; 8- or 16-bit.</p>
+        </div>
+        <div class="field">
+          <label for="fociFile">Foci image (53BP1, gamma-H2AX, ...)</label>
+          <input type="file" id="fociFile" accept=".png,.tif,.tiff,.jpg,.jpeg,image/png,image/tiff,image/jpeg">
+          <p class="note" id="fociInfo">Same size as the DNA image. Leave empty if the DNA file is a TIFF with exactly two pages (page 1 = DNA, page 2 = foci).</p>
+        </div>
+      </div>
+      <p class="note">Limits: <span id="limitText">25 MB in total, at most 12 megapixels per image</span>. 16-bit images are stretched to 0&ndash;255 (0.1&ndash;99.99 percentile) before the thresholds below apply, and the stretch used is reported.</p>
+
+      <details class="params" id="paramBox">
+        <summary>Parameters (defaults work for ~20&times; widefield nuclei of 150+ pixels)</summary>
+        <div class="pgrid" id="paramGrid"></div>
+        <button type="button" class="btn ghost" id="resetParams">Reset to defaults</button>
+      </details>
+
+      <div class="actions">
+        <button type="submit" class="btn" id="goBtn">Analyse</button>
+        <button type="button" class="btn ghost" id="cancelBtn" hidden>Cancel</button>
+        <span id="progress" class="progress" hidden><progress aria-label="Analysing"></progress> <span id="elapsed">0 s</span></span>
+      </div>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </form>
+
+    <div id="results" hidden>
+      <h2>Result</h2>
+      <p class="callout caveat" id="resNote"></p>
+      <div class="tiles" id="tiles"></div>
+      <ul class="flags" id="warnings"></ul>
+      <div class="two">
+        <figure class="card">
+          <figcaption><b>Overlay</b> &mdash; nuclei outlined in white, counted foci ringed in amber (DNA blue, marker green)</figcaption>
+          <img id="overlay" alt="Overlay of detected nuclei and foci on your image" class="ov">
+          <p class="note" id="ovNote"></p>
+        </figure>
+        <figure class="card">
+          <figcaption><b>Foci per nuclear object</b></figcaption>
+          <div id="hist" class="histbox"></div>
+          <p class="note">Objects are nuclei or touching clusters; touching nuclei are not split (a cluster counts as its area divided by the median object area).</p>
+        </figure>
+      </div>
+      <div class="card">
+        <div class="tbl-head">
+          <h3>Per-nucleus table</h3>
+          <button type="button" class="btn" id="csvBtn">Download CSV</button>
+        </div>
+        <div class="tbl"><table id="tbl"></table></div>
+        <p class="note" id="tblNote"></p>
+      </div>
+      <details class="how card" open>
+        <summary>Parameters used and what this cannot tell you</summary>
+        <dl class="used" id="used"></dl>
+        <ul id="limits"></ul>
+      </details>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap foot">
+  <p>Method: Telomere Lab classical counter (Gaussian smoothing, background opening, Otsu on log intensity, white top-hat, local maxima). The Foci Lab screen explorer shows images from IDR idr0010: Doil C, et al. Cell 2009;136:435-446, via the <a href="https://idr.openmicroscopy.org/webclient/?show=screen-1351" rel="noopener">Image Data Resource</a>, licensed <a href="https://creativecommons.org/licenses/by/4.0/" rel="noopener">CC BY 4.0</a>. Research prototype, not a diagnostic or clinical tool. Code: <a href="https://github.com/Alphine/telomore" rel="noopener">github.com/Alphine/telomore</a> &middot; <a href="https://basyid.dev" rel="noopener">basyid.dev</a></p>
+</footer>
+
+<script src="analyze.js"></script>
+</body>
+</html>

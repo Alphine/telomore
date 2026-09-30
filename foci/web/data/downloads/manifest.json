@@ -1,0 +1,31 @@
+{
+ "built_utc": "2026-09-30T13:25:08Z",
+ "git_commit": "84a125f573b4b666c08d147d3d4396906682a95f",
+ "code_version": "foci-data-1",
+ "licence": "CC BY 4.0",
+ "attribution": "Screen data: Doil C, et al. RNF168 binds and amplifies ubiquitin conjugates on damaged chromosomes to allow accumulation of repair proteins. Cell 2009;136:435-446 (doi:10.1016/j.cell.2008.12.041), via the Image Data Resource, study idr0010 (https://idr.openmicroscopy.org), CC BY 4.0. Derived tables: Foci Lab (https://studylab.id/foci/), which re-scored the authors' per-well numbers; changes were made. Current gene symbols: HGNC (https://www.genenames.org, CC0).",
+ "source_metadata_url": "https://raw.githubusercontent.com/IDR/idr-metadata/master/idr0010-doil-dnadamage/screenA/idr0010-screenA-annotation.csv",
+ "files": [
+  {
+   "name": "foci_genes.csv",
+   "bytes": 1566074,
+   "sha256": "8370d5600cbb38fcde9ba717f7ab5385a83e5d06c84e125a6c6841ff6a102dd6",
+   "rows": 17536,
+   "description": "One row per gene: the genes.json columns (no well list) plus hgnc_symbol."
+  },
+  {
+   "name": "foci_wells.csv",
+   "bytes": 5674700,
+   "sha256": "f063f95fdb8ccf9912f8a0ddae1f2e5a8323dba7d5865be65a975a059a45e157",
+   "rows": 46972,
+   "description": "One row per sample well with a gene symbol, QC-removed wells included."
+  },
+  {
+   "name": "README_DATA.txt",
+   "bytes": 5250,
+   "sha256": "34ee00ff0e176dee9674bb2f1644088fad27e6654da6e2dd8fd1a45c37f42753",
+   "rows": null,
+   "description": "Column dictionary, definitions, attribution, licence and caveats."
+  }
+ ]
+}

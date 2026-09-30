@@ -249,9 +249,11 @@
     out.mw = mannWhitney(x, y);
     return out;
   }
+  var PHRASE = { hit_down: "supported hits with fewer foci", hit_up: "supported hits with more foci", any: "supported hits (either direction)" };
   function interpretHyper(h) {
     if (!h.n) return "No rankable genes in the list, so nothing to test.";
-    var s = h.k + " of the " + h.n + " rankable genes in your list are " + h.label.replace("supported hits, ", "supported hits (") + (h.key === "any" ? "" : ")") + "; about " +
+    var what = PHRASE[h.key] || h.label;
+    var s = h.k + " of the " + h.n + " rankable genes in your list " + (h.k === 1 ? "is" : "are") + " " + what + "; about " +
       (h.expected < 0.1 ? h.expected.toFixed(3) : h.expected.toFixed(1)) + " would be expected if the list were a random draw from the " + h.N.toLocaleString("en-US") + " rankable genes. ";
     if (h.k === 0) return s + "None found, so there is nothing to test for over-representation.";
     if (h.p < 0.05) return s + "That is more than chance alone usually gives (one-sided p = " + fp(h.p) + ").";

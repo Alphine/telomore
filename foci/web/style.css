@@ -131,3 +131,111 @@ dialog::backdrop { background: rgba(5, 10, 20, .55); }
 .tbl thead th { color: var(--muted); font-weight: 600; }
 .tbl tbody th { font-family: "IBM Plex Mono", monospace; font-weight: 500; }
 .pill.mid { color: var(--ink); }
+
+/* ---- Foci Lab v2 additions (additive: gene list, viewer, export, annotations, accessibility) ---- */
+:root { --ring: #0b7a75; --warn-ink: #8a4b00; }
+:root[data-theme="dark"] { --ring: #2fc4b8; --warn-ink: #f0b866; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --ring: #2fc4b8; --warn-ink: #f0b866; } }
+:root { --faint: #5d6b7e; }
+:root[data-theme="dark"] { --faint: #98a7bb; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --faint: #98a7bb; } }
+:focus-visible, .how summary:focus-visible, .bars .gene:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; border-radius: 4px; }
+.plot .gene:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { animation-duration: .001ms !important; transition-duration: .001ms !important; } }
+a { text-underline-offset: 2px; }
+nav a { display: inline-flex; align-items: center; min-height: 44px; }
+.theme, .x { min-width: 44px; min-height: 44px; }
+.top-row { min-width: 0; }
+nav { min-width: 0; }
+@media (max-width: 860px) { nav { display: flex; gap: 14px; } .top-row { gap: 12px; } .brand span { display: none; } }
+
+.lbl, .search label, label.lbl { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+textarea { width: 100%; min-height: 110px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font: 14px/1.5 "IBM Plex Mono", ui-monospace, monospace; resize: vertical; }
+textarea.cite { font-size: 12.5px; }
+select, .cmp input { min-height: 44px; padding: 0 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font: 14px "IBM Plex Sans", sans-serif; max-width: 100%; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 12px 0 4px; }
+.row.spread { justify-content: space-between; margin-top: 0; }
+.resolve-note { min-height: 20px; margin: 0 0 10px; }
+h4 { margin: 18px 0 6px; font-size: 14px; }
+.btn.ghost:hover { border-color: var(--accent); }
+.warn { color: var(--warn-ink); }
+.num { text-align: right; font-family: "IBM Plex Mono", monospace; }
+.wrap-cell, td.wrap { white-space: normal !important; }
+.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+.lnk { background: none; border: 0; padding: 4px 2px; min-height: 32px; color: var(--accent); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.sortbtn { background: none; border: 0; padding: 6px 2px; min-height: 40px; color: var(--muted); font: 600 13px "IBM Plex Sans", sans-serif; cursor: pointer; white-space: nowrap; }
+.sortbtn:hover { color: var(--ink); }
+.from { font-weight: 400; }
+
+.annot-box { min-height: 30px; margin: 8px 0 4px; font-size: 13px; }
+.annot-box[hidden] { display: none; }
+.annot-lbl { color: var(--muted); }
+.badge { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 9px; margin: 2px 0; border-radius: 999px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); text-decoration: none; }
+a.badge:hover { background: color-mix(in srgb, var(--accent) 24%, transparent); }
+.annot-src { margin-top: 6px; }
+.annot-src summary, .seqs summary, .problems summary, .bib summary { cursor: pointer; min-height: 32px; font-weight: 600; }
+.annot-src ul { margin: 6px 0 0; padding-left: 18px; }
+.annot-src li { margin-bottom: 6px; }
+.caveat-inline { color: var(--muted); }
+.links { margin: 4px 0 8px; font-size: 13.5px; }
+.links a { display: inline-block; padding: 8px 4px; }
+.sirna-box { min-height: 120px; }
+.chk { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; cursor: pointer; }
+.chk input { width: 20px; height: 20px; }
+tr.qc-removed th, tr.qc-removed td { color: var(--faint); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--faint) 60%, transparent); }
+tr.qc-removed td:last-child { text-decoration: none; }
+.seqs ul { padding-left: 18px; font-size: 12.5px; word-break: break-all; }
+.dl-body .tbl td.sha code { font-size: 11px; white-space: normal; word-break: break-all; }
+.dl-body .tbl td.wrap, .dl-body .tbl td { white-space: normal; }
+.dl-body .tbl { margin-top: 4px; }
+.bib pre { margin: 8px 0 0; padding: 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; font: 12px/1.5 "IBM Plex Mono", monospace; white-space: pre; }
+
+.list-sum p { margin: 4px 0; max-width: 90ch; }
+.hitline .dn { color: var(--down); }
+.hitline .upc { color: var(--up); }
+.problems { margin: 12px 0; }
+.enrich, #listTableCard { margin: 14px 0; }
+.enrich ul.interp { padding-left: 18px; }
+p.interp { max-width: 80ch; }
+.kv { display: grid; grid-template-columns: auto auto; justify-content: start; gap: 4px 18px; margin: 8px 0; font-size: 14px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; font-family: "IBM Plex Mono", monospace; }
+.enrich .caveat { margin-top: 14px; padding: 10px 14px; background: var(--bg); border-radius: 8px; font-size: 13.5px; }
+.enrich .caveat ul { margin: 6px 0 0; padding-left: 18px; }
+svg.plot { display: block; width: 100%; height: auto; }
+svg.plot text { font: 12px "IBM Plex Sans", sans-serif; fill: var(--ink); }
+svg.plot .val { font-family: "IBM Plex Mono", monospace; font-size: 11px; fill: var(--muted); }
+svg.plot .gene { cursor: pointer; }
+svg.plot .lbl { font-size: 11.5px; font-weight: 600; }
+
+/* well viewer */
+#wellDlg { width: min(1120px, 100% - 24px); max-height: calc(100dvh - 24px); overflow: auto; }
+.vw-tools { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+.vw-group { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.vw-group[hidden] { display: none; }
+.vw-group button { min-width: 44px; min-height: 44px; padding: 0 12px; border: 0; border-right: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 600 14px "IBM Plex Sans", sans-serif; cursor: pointer; }
+.vw-group button:last-child { border-right: 0; }
+.vw-group button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.vw-group button:disabled { opacity: .5; cursor: default; }
+.vw-panes { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.vw-panes.two-up { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.vw-pane { margin: 0; min-width: 0; }
+.vw-cap { display: flex; align-items: center; justify-content: space-between; gap: 8px; font: 500 13px "IBM Plex Mono", monospace; margin-bottom: 6px; }
+.vw-title { overflow-wrap: anywhere; }
+.vw-dl { min-height: 44px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 600 13px "IBM Plex Sans", sans-serif; cursor: pointer; white-space: nowrap; }
+.vw-dl:disabled { opacity: .5; cursor: default; }
+.vw-stage { position: relative; width: 100%; aspect-ratio: 696 / 520; background: #05080f; border-radius: 10px; overflow: hidden; touch-action: pan-y; cursor: grab; }
+.vw-stage canvas { display: block; width: 100%; height: 100%; }
+.vw-status { min-height: 20px; margin: 4px 0 0; }
+.dlg-body.cmp-on { grid-template-columns: minmax(0, 1fr); }
+.cmp { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px 12px; margin: 14px 0 0; min-width: 0; }
+.cmp legend { font-size: 13px; color: var(--muted); padding: 0 6px; }
+.cmp label { display: block; font-size: 13px; color: var(--muted); margin: 8px 0 4px; }
+.cmp input, .cmp select { width: 100%; }
+.cmp .btn { margin-top: 10px; }
+.cmp .row .btn { margin-top: 0; }
+@media (max-width: 640px) { .vw-panes.two-up { grid-template-columns: minmax(0, 1fr); } .card { padding: 16px 14px; } .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.tbl table { min-width: 0; }
+img, svg, canvas { max-width: 100%; }
+
+[hidden] { display: none !important; }

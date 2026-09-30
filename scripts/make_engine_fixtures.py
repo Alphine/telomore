@@ -26,6 +26,7 @@ The IDR images are from idr0010 (Doil et al., Cell 2009), CC BY 4.0, the same da
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import hashlib
 import json
 import os
@@ -237,7 +238,8 @@ def reference(dna_raw: np.ndarray, foc_raw: np.ndarray, overrides: Dict[str, Any
         flat = smooth - ndi.grey_opening(smooth, size=p.background_size)
         thr = S._log_otsu(flat)
         out["threshold"] = float(thr)
-        out["hashes"] = {"norm_dna": _sha(dna), "norm_foci": _sha(foc), "smooth_dna": _sha(smooth), "flat": _sha(flat), "labels": _sha(nuclei.astype(np.int32))}
+        out["hashes"] = {"norm_dna": _sha(dna), "norm_foci": _sha(foc), "smooth_dna": _sha(smooth), "flat": _sha(flat), "labels": _sha(nuclei.astype(np.int32)),
+                         "overlay_rgb": _sha(S.overlay_rgb(dna, foc, res))}
         out["stats"] = {"smooth_dna": _stats(smooth), "flat": _stats(flat)}
         if th is not None:
             out["hashes"]["smooth_foci"] = _sha(sm)
@@ -305,7 +307,8 @@ def build(write: bool = True) -> Dict[str, Any]:
         for v in variants:
             merged = dict(c["params"]); merged.update(v)
             sweeps.append({"case": cid, "params": merged, "python": reference(c["dna"], c["foci"], merged, with_intermediates=False)})
-    manifest = {"format": FORMAT, "generator": "scripts/make_engine_fixtures.py", "env": env_info(), "cases": entries, "sweeps": sweeps}
+    manifest = {"format": FORMAT, "generator": "scripts/make_engine_fixtures.py", "env": env_info(),
+                "default_params": dataclasses.asdict(FociParams()), "cases": entries, "sweeps": sweeps}
     if write:
         with open(OUT / "manifest.json", "w", encoding="utf-8", newline="\n") as fh:
             json.dump(manifest, fh, separators=(",", ":"))

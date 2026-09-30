@@ -589,7 +589,17 @@
 
   // ------------------------------------------------------------------ pipeline
 
-  function tick() { return new Promise(function (r) { setTimeout(r, 0); }); }
+  // Yield to the event loop between stages so an AbortSignal can be delivered. In a browser use a MessageChannel: unlike
+  // setTimeout(0) it is not throttled to one tick per second in background tabs. (Node: a port with a handler would keep
+  // the process alive, so it uses setTimeout.)
+  var tick = (function () {
+    if (!IS_NODE && typeof MessageChannel !== 'undefined') {
+      var chan = new MessageChannel(), waiting = [];
+      chan.port1.onmessage = function () { var r = waiting.shift(); if (r) r(); };
+      return function () { return new Promise(function (r) { waiting.push(r); chan.port2.postMessage(0); }); };
+    }
+    return function () { return new Promise(function (r) { setTimeout(r, 0); }); };
+  })();
 
   function makeCtx(signal, debug) {
     var t0 = now(), last = t0, timing = {};
@@ -1151,7 +1161,13 @@
         warnings.push('GPU device was lost earlier in this session; used the CPU reference path.');
       } else {
         await initGpu();
-        if (gpuState.device && gpuState.selfTest === 'passed') useGpu = true;
+        if (gpuState.device && gpuState.selfTest === 'passed') {
+          var lim = gpuState.device.limits, bufMax = Math.min(lim.maxStorageBufferBindingSize || Infinity, lim.maxBufferSize || Infinity);
+          if (px * 4 > bufMax) {      // one float32 plane must fit a single storage buffer
+            if (o.mode === 'gpu') throw fail('too_large', 'the image needs ' + px * 4 + ' bytes per plane; this GPU allows ' + bufMax);
+            warnings.push('The image is larger than the buffer limit of this GPU; used the CPU reference path.');
+          } else useGpu = true;
+        }
         else if (o.mode === 'gpu') throw fail('gpu_lost', gpuState.selfTest === 'failed' ? 'the GPU self-test failed' : 'WebGPU is not available');
         else if (gpuState.selfTest === 'failed') warnings.push('The GPU self-test failed; used the CPU reference path.');
       }

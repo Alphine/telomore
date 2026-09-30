@@ -257,7 +257,7 @@
     if (ens) out.push(["Ensembl", "https://www.ensembl.org/id/" + encodeURIComponent(ens)]);
     if (GENE_RE.test(sym)) {
       out.push(["HGNC", "https://www.genenames.org/tools/search/#!/?query=" + encodeURIComponent(sym)]);
-      out.push(["UniProt", "https://www.uniprot.org/uniprotkb?query=" + encodeURIComponent(sym + " AND organism_id:9606").replace(/%20/g, "+")]);
+      out.push(["UniProt", "https://www.uniprot.org/uniprotkb?query=" + encodeURIComponent("gene_exact:" + sym + " AND organism_id:9606").replace(/%20/g, "+")]);
       out.push(["STRING", "https://string-db.org/cgi/network?identifiers=" + encodeURIComponent(sym) + "&species=9606"]);
     }
     return out;

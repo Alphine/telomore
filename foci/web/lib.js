@@ -326,7 +326,7 @@
     if (m && (m.built_utc || m.git_commit)) {
       lines.push("Data build: " + (m.built_utc ? String(m.built_utc).slice(0, 10) : "date not stated") + (m.git_commit ? ", commit " + String(m.git_commit).slice(0, 12) : "") + (m.code_version ? ", code version " + m.code_version : "") + ".");
     }
-    lines.push("Underlying data and images: " + String(v.attribution || "").replace(/^Images:\s*/, "") + (v.licence ? " Licence: " + v.licence + "." : ""));
+    lines.push("Underlying data and images: " + String(v.attribution || "").replace(/^Images:\s*/, "") + (v.licence && String(v.attribution || "").indexOf(v.licence) < 0 ? " Licence: " + v.licence + "." : ""));
     lines.push("Interpretation: exploratory; acute 72 h siRNA screen in U2OS cells; 53BP1 foci mark DNA breaks in general, not telomeres specifically.");
     return lines.join("\n");
   }

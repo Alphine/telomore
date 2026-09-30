@@ -157,6 +157,8 @@ test("citation: attribution parsing, BibTeX only from stated fields, text block"
   const t = L.citationText({ url: "https://studylab.id/foci/?gene=RNF168", accessed: "2026-09-30", viewLabel: "gene RNF168", manifest: { built_utc: "2026-09-29T10:00:00Z", git_commit: "84a125f0123456789", code_version: "1.2" }, attribution: S.attribution, licence: "CC BY 4.0" });
   assert.ok(t.includes("accessed 2026-09-30") && t.includes("commit 84a125f01234") && t.includes("Doil C, et al.") && t.includes("CC BY 4.0") && !t.includes("Images:"));
   assert.ok(!/commit/.test(L.citationText({ url: "u", accessed: "d", attribution: "x" })));
+  assert.equal((t.match(/CC BY 4\.0/g) || []).length, 1); // licence not repeated when the attribution already states it
+  assert.ok(/Licence: MIT/.test(L.citationText({ url: "u", accessed: "d", attribution: "x", licence: "MIT" })));
 });
 
 test("permalink hash for gene lists", () => {

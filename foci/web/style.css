@@ -239,3 +239,8 @@ svg.plot .lbl { font-size: 11.5px; font-weight: 600; }
 img, svg, canvas { max-width: 100%; }
 
 [hidden] { display: none !important; }
+@media (max-width: 860px) { .two, .dlg-body { grid-template-columns: minmax(0, 1fr); } }
+.note, .sub, .lead, .callout, .card p, #listLink, .sha code { overflow-wrap: anywhere; }
+.card, .card > * { min-width: 0; }
+.pill.down, .badge { color: color-mix(in srgb, var(--accent) 65%, var(--ink)); }
+.pill.up { color: color-mix(in srgb, var(--up) 80%, var(--ink)); }

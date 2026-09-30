@@ -36,6 +36,7 @@ from telomere_lab.experiments.runner import compare_scenarios, deltas
 from telomere_lab.schemas import ConfigError, ModelConfig
 
 from .. import schemas as api_schemas
+from .. import limits
 from ..auth import get_current_user
 
 router = APIRouter(tags=["compare"])
@@ -89,6 +90,8 @@ def compare(body: api_schemas.CompareRequest, user: _db.User = Depends(get_curre
             raise HTTPException(status.HTTP_400_BAD_REQUEST, f"{sc.name}: {exc}")
         except (TypeError, ValueError) as exc:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, f"{sc.name}: {exc}")
+
+    limits.check_compare(scenarios.values())
 
     comps = compare_scenarios(scenarios)
     baseline = comps[0]

@@ -16,6 +16,7 @@ from telomere_lab.schemas import ConfigError, EvolutionConfig, ModelConfig
 
 from .. import jobs as job_store
 from .. import schemas as api_schemas
+from .. import limits
 from ..auth import get_current_user
 
 router = APIRouter(tags=["evolve"])
@@ -29,6 +30,7 @@ def start_evolve(body: api_schemas.EvolveRequest, user: _db.User = Depends(get_c
         evo_config = EvolutionConfig.from_dict(body.evolution.to_plain()).validate()
     except ConfigError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+    limits.check_evolve(base_config, evo_config)
 
     job = job_store.create_job(kind="evolve", owner_id=user.id)
 

@@ -22,6 +22,7 @@ from telomere_lab.schemas import ConfigError, FitnessWeights, ModelConfig
 from telomere_lab.experiments.runner import run_simulation as _run_simulation
 
 from .. import schemas as api_schemas
+from .. import limits
 from ..auth import get_current_user
 
 router = APIRouter(tags=["simulate"])
@@ -34,6 +35,7 @@ def simulate(body: api_schemas.SimulateRequest, user: _db.User = Depends(get_cur
         config = ModelConfig.from_dict(body.config.to_plain()).validate()
     except ConfigError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+    limits.check_simulate(config)
 
     result = _run_simulation(config)
     breakdown = score(result)
@@ -67,6 +69,7 @@ def simulate_ensemble(body: api_schemas.EnsembleRequest, user: _db.User = Depend
         config = ModelConfig.from_dict(body.config.to_plain()).validate()
     except ConfigError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+    limits.check_ensemble(config, body.n_seeds)
 
     base_seed = int(body.base_seed) if body.base_seed is not None else int(config.seed)
     seeds = [base_seed + i for i in range(body.n_seeds)]

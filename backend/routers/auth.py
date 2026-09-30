@@ -29,6 +29,7 @@ from telomere_lab.email import send_email
 
 from .. import schemas as api_schemas
 from ..auth import create_access_token, get_current_user
+from ..ratelimit import rate_limit
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -45,7 +46,8 @@ def _frontend_link(query_param: str, token: str) -> str:
     return f"{base}/?{query_param}={token}"
 
 
-@router.post("/register", response_model=api_schemas.RegisterResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=api_schemas.RegisterResponse, status_code=status.HTTP_201_CREATED,
+             dependencies=[Depends(rate_limit("register", 10))])
 def register(body: api_schemas.RegisterRequest) -> api_schemas.RegisterResponse:
     try:
         user = _db.create_user(body.username, body.email, body.password)
@@ -84,7 +86,8 @@ def verify(token: str) -> api_schemas.VerifyResponse:
                                        verified=True)
 
 
-@router.post("/login", response_model=api_schemas.TokenResponse)
+@router.post("/login", response_model=api_schemas.TokenResponse,
+             dependencies=[Depends(rate_limit("login", 30))])
 def login(body: api_schemas.LoginRequest) -> api_schemas.TokenResponse:
     user = _db.authenticate(body.username, body.password)
     if user is None:
@@ -98,7 +101,8 @@ def login(body: api_schemas.LoginRequest) -> api_schemas.TokenResponse:
     return api_schemas.TokenResponse(access_token=token)
 
 
-@router.post("/forgot-password", response_model=api_schemas.ForgotPasswordResponse)
+@router.post("/forgot-password", response_model=api_schemas.ForgotPasswordResponse,
+             dependencies=[Depends(rate_limit("forgot_password", 10))])
 def forgot_password(body: api_schemas.ForgotPasswordRequest) -> api_schemas.ForgotPasswordResponse:
     result = _db.request_password_reset(body.email)
     # Always the same generic message, regardless of whether the account

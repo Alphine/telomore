@@ -747,3 +747,89 @@ All require authentication and are synchronous. Synthetic genes only
   `foci/web/data/well_index.json` (IDR idr0010) are accepted (400 malformed, 404 not imaged, 502 IDR
   unavailable). Returns `{well, image_id, nuclei, foci, foci_per_cell, jpeg (base64 overlay),
   validated: false, note, attribution}`; memoised per image. CORS allows https://studylab.id.
+
+## Limits and security notes
+
+All limits below live in the **backend request layer** (`backend/limits.py`,
+`backend/ratelimit.py`, `backend/jobs.py`, `backend/schemas.py`). The core
+`telomere_lab` library and `ModelConfig.validate()` are deliberately
+unrestricted, so scripts run locally can use any size. Every limit is an
+environment variable read at request time; `off` / `0` / `none` disables that
+single limit, and **`TELOMERE_DISABLE_LIMITS=1` switches off every limit in
+this section** (size, cost, job caps, rate limits) for a local single-user
+install.
+
+### Job size (422 with the limit and env var named in `detail`)
+
+| Env var | Default | Applies to |
+|---|---|---|
+| `TELOMERE_MAX_POPULATION_SIZE` | 5000 | `model.population_size` |
+| `TELOMERE_MAX_CARRYING_CAPACITY` | 20000 | `model.carrying_capacity` |
+| `TELOMERE_MAX_TELOMERES_PER_CELL` | 92 | `model.telomeres_per_cell` |
+| `TELOMERE_MAX_CYCLES` | 1000 | `model.cycles` |
+| `TELOMERE_MAX_GA_POPULATION` | 200 | GA / NSGA-II `population_size` |
+| `TELOMERE_MAX_GA_GENERATIONS` | 200 | GA / NSGA-II `generations` |
+| `TELOMERE_MAX_AL_ITERATIONS` | 200 | active learning `n_initial`, `n_iterations` |
+| `TELOMERE_MAX_CANDIDATE_POOL` | 5000 | active learning `candidate_pool_size` |
+| `TELOMERE_MAX_EVAL_SEEDS` | 20 | length of any `eval_seeds` list |
+| `TELOMERE_MAX_LIST_ITEMS` | 50 | sub-clones, sensitivity parameters, G×E genotypes / environments |
+| `TELOMERE_MAX_RUN_COST` | 3e8 | one simulation: `carrying_capacity × telomeres_per_cell × cycles` (~16 s) |
+| `TELOMERE_MAX_JOB_COST` | 3e10 | whole job: run cost × number of simulator runs (~30 min) |
+
+The number of runs is `population × (generations + 1) × seeds` for the GA /
+NSGA-II, `(2 × parameters + 1) × seeds` for sensitivity, `genotypes ×
+environments × seeds` for G×E, `(n_initial + n_iterations) × seeds` for active
+learning, `n_seeds` for the ensemble, the sum over scenarios for compare, and
+about 3× GA + NSGA-II for the benchmark. Measured on a laptop CPU: 100 cells /
+capacity 400 / 32 telomeres / 120 cycles = 0.11 s; capacity 4000 = 1.1 s;
+capacity 20000 / 200 cycles = 7 s. All `configs/*.yaml` and the frontend form
+maxima (2000 cells, capacity 5000, 92 telomeres, 600 cycles) are inside the
+defaults. The UI should display `detail` for a 422.
+
+### Job concurrency and retention
+
+| Env var | Default | Effect |
+|---|---|---|
+| `TELOMERE_MAX_CONCURRENT_JOBS` | 2 | Jobs running at once; extra jobs wait with `status: "pending"` (a queued job is simply a `pending` job that has not started; polling contract and terminal statuses are unchanged). Stopping a queued job marks it `stopped` without running it. |
+| `TELOMERE_MAX_ACTIVE_JOBS_PER_USER` | 3 | Pending + running jobs per user; more → **429** with `Retry-After: 30`. |
+| `TELOMERE_MAX_QUEUED_JOBS` | 50 | Pending + running jobs server-wide; more → **429**. |
+| `TELOMERE_JOB_TTL_SECONDS` | 3600 | Finished jobs are evicted this long after finishing (later polls get 404; results are in the ledger). |
+| `TELOMERE_MAX_FINISHED_JOBS` | 200 | Finished jobs kept in memory; oldest evicted first. |
+
+Synchronous endpoints (`/simulate`, `/simulate/ensemble`, `/compare`) are
+bounded by the cost caps above but not by the job queue.
+
+### Rate limiting (429 + `Retry-After`)
+
+A dependency-free in-memory sliding window per client IP, applied to
+`POST /api/auth/login` (30), `/register` (10), `/forgot-password` (10) and
+`GET /api/foci/overlay` (60), per `TELOMERE_RATE_LIMIT_WINDOW` seconds
+(default 60). Override a bucket with `TELOMERE_RATE_LIMIT_LOGIN`,
+`_REGISTER`, `_FORGOT_PASSWORD`, `_FOCI_OVERLAY`; disable everything with
+`TELOMERE_RATE_LIMIT=off` (the test suite does this in `tests/conftest.py`).
+The client IP is the **first hop of `X-Forwarded-For`** (Railway sits behind a
+proxy). That header is client-controlled: if the app is ever exposed without a
+trusted proxy in front, set `TELOMERE_TRUST_PROXY=0` (socket address only),
+otherwise the limit can be evaded by rotating the header. State is per
+process and resets on restart.
+
+### Credentials
+
+* Registration and password reset: password 8 characters minimum and 72
+  **bytes** (UTF-8) maximum (bcrypt limit), username 3–150 characters; 422
+  with a message otherwise. Login does not enforce the minimum, so existing
+  shorter passwords keep working.
+* `SECRET_KEY` is mandatory when `RAILWAY_ENVIRONMENT` is set: the app refuses
+  to start without it. Elsewhere a random per-process dev key is used (warning).
+* Duplicate username / e-mail still return 409 (needed for usable
+  registration, so account existence is observable there by design).
+
+### Security notes
+
+* **Shared ledger (intentional).** Any verified user can read any run in the
+  experiment ledger (`GET /api/experiments/{run_id}` and its artifacts); only
+  the listing is filtered by `mine`. This is the reproducibility design, not an
+  access-control gap. Do not put private data in run notes.
+* Run ids and artifact names are restricted to a single safe path segment
+  before touching the filesystem (400 otherwise).
+* Jobs are owner-only; the in-memory store is single-process.

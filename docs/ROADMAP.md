@@ -812,10 +812,16 @@ An audit of the docs for statements a working scientist could challenge.
 - `CITATION.cff`, `.zenodo.json`, `docs/CITING_AND_REPRODUCING.md` (owner
   fills the `TODO(owner)` items and releases; not done here).
 
+**Done in the same batch (2026-09-30):** cumulative population doublings,
+optional wall-clock axis (`hours_per_cycle`), separate within-cell length SD,
+heritable per-cell shortening-rate variation, stochastic senescence (softness
+and random arrest), Experiment M (`docs/EXPERIMENT_PROTOCOL.md` §15.3), API
+limits/rate limiting/job queue (`docs/API.md`), Foci Lab hit statistics with an
+empirical null and the corrected Experiment L explanation. All model additions
+are default-off and bit-identical when unused.
+
 **Deferred (planned, not done):**
 
-- Population-doubling count and a wall-clock time axis for the model
-  (currently a cycle is not a doubling count; no wall-clock time).
 - Bring-your-own-data CSV import and parameter fitting.
 - Assay layer: simulated TRF, Q-FISH and qPCR readouts.
 - Sobol sensitivity via SALib.

@@ -343,7 +343,7 @@ function split_plate_well(string $k): ?array {
     if ($p === false) return null;
     $plate = substr($k, 0, $p);
     $well = substr($k, $p + 1);
-    if (!valid_plate_name($plate) || !preg_match('/^([A-P])([0-9]{1,2})$/D', $well, $m)) return null;
+    if (!valid_plate_name($plate) || !preg_match('/^([A-P])([1-9][0-9]?)$/D', $well, $m)) return null;
     $col = (int) $m[2];
     if ($col < 1 || $col > 48) return null;
     return [$plate, $well, ord($m[1]) - 65, $col - 1];

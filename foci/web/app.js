@@ -36,8 +36,12 @@
   function $(id) { return document.getElementById(id); }
   function reduced() { return matchMedia("(prefers-reduced-motion: reduce)").matches; }
   function scrollTo(node, block) { node.scrollIntoView({ behavior: reduced() ? "auto" : "smooth", block: block || "nearest" }); }
+  // Cache-busting: the deploy step (scripts/stamp_foci_assets.py) replaces the placeholder with a hash of the data files,
+  // so a stale cached data file can never meet a newer app.js. Unstamped (local/dev) builds send no parameter.
+  var DATA_VERSION = "__DATA_VERSION__";
+  function versioned(u) { return DATA_VERSION.indexOf("__") === 0 ? u : u + (u.indexOf("?") < 0 ? "?" : "&") + "v=" + DATA_VERSION; }
   function optional(url) { // parsed JSON or null; never throws (404, HTML fallback pages, bad JSON, offline)
-    return fetch(url).then(function (r) { return r.ok ? r.text() : null; })
+    return fetch(versioned(url)).then(function (r) { return r.ok ? r.text() : null; })
       .then(function (body) { if (body == null) return null; try { return JSON.parse(body); } catch (e) { return null; } })
       .catch(function () { return null; });
   }
@@ -679,7 +683,7 @@
     optional("data/downloads/manifest.json").then(function (d) { manifest = d && Array.isArray(d.files) ? d : null; })
   ]);
 
-  function fetchJson(u) { return fetch(u).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status + " for " + u); return r.json(); }); }
+  function fetchJson(u) { return fetch(versioned(u)).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status + " for " + u); return r.json(); }); }
   Promise.all([fetchJson("data/summary.json"), fetchJson("data/genes.json")])
     .then(function (res) {
       S = res[0]; GENES = res[1];

@@ -30,6 +30,8 @@ xcopy /e /i /q /y "deploy\landing\*" "%STAGE%" >nul || goto gagal
 xcopy /e /i /q /y "frontend\dist\*" "%STAGE%\telomore" >nul || goto gagal
 xcopy /e /i /q /y "foci\web\*" "%STAGE%\foci" >nul || goto gagal
 copy /y "deploy\studylab.htaccess" "%STAGE%\.htaccess" >nul || goto gagal
+REM cache-busting: URL aset Foci Lab diberi hash isi (host menyimpan .js 7 hari)
+python scripts\stamp_foci_assets.py "%STAGE%\foci" || goto gagal
 del "%PKG%" 2>nul
 tar -czf "%PKG%" -C "%STAGE%" . || goto gagal
 

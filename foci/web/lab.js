@@ -198,7 +198,7 @@
 
   async function scanQueue() {
     if (S.scanning) return;
-    S.scanning = true;
+    S.scanning = true; updateButtons();
     try {
       var vf;
       while ((vf = S.files.filter(function (f) { return f.status === "queued"; })[0])) {
@@ -206,8 +206,8 @@
         try { await scanOne(vf); } catch (e) { vf.status = "error"; vf.error = errMsg(e); }
         renderFiles();
       }
-    } finally { S.scanning = false; }
-    buildSets();
+    } finally { S.scanning = false; S.zipCache = null; }     // do not keep a whole archive in memory
+    buildSets(); updateButtons();
   }
 
   async function zipBytes(file) {
@@ -222,8 +222,8 @@
   // Read raw bytes of a file entry (plain file or ZIP member).
   async function rawBytes(vf) {
     if (vf.zipEntry) {
-      var z = await zipBytes(vf.file), e = z.entries.filter(function (x) { return x.name === vf.zipEntry; })[0];
-      if (!e) throw new Error("The ZIP no longer lists '" + vf.zipEntry + "'.");
+      var z = await zipBytes(vf.file), e = z.entries[vf.zipIndex];
+      if (!e || e.name !== vf.zipEntry) throw new Error("The ZIP no longer lists '" + vf.zipEntry + "'.");
       return IO.extractZipEntry(z.buf, e);
     }
     if (vf.file.size > MAX_FILE_BYTES) throw new Error("File is " + fmtBytes(vf.file.size) + "; the limit is " + fmtBytes(MAX_FILE_BYTES) + ".");
@@ -234,22 +234,28 @@
     var bytes = await rawBytes(vf);
     vf.size = bytes.length;
     vf.sha256 = await IO.sha256(bytes);
-    var r = await IO.readBytes(bytes, vf.name, { maxPixels: S.maxPx, maxFileBytes: MAX_FILE_BYTES });
+    var opts = { maxPixels: S.maxPx, maxFileBytes: MAX_FILE_BYTES };
+    var r = await IO.readBytes(bytes, vf.name, Object.assign({ select: [] }, opts));   // TIFF: metadata first, then one channel at a time
     if (r.format === "zip") {
       if (vf.zipEntry) throw new Error("Nested ZIP archives are not opened.");
       vf.format = "zip"; vf.status = "container"; vf.warnings = r.warnings; vf.count = r.entries.length;
-      var at = S.files.indexOf(vf), kids = r.entries.map(function (e) {
-        return { id: S.nextFile++, name: vf.name + "/" + e.name, size: e.size, file: vf.file, zipEntry: e.name, container: { name: vf.name, sha256: vf.sha256 }, status: "queued", format: null, channels: [], warnings: [], error: null };
+      var at = S.files.indexOf(vf), kids = r.entries.map(function (e, zi) {
+        return { id: S.nextFile++, name: vf.name + "/" + e.name, size: e.size, file: vf.file, zipEntry: e.name, zipIndex: zi, container: { name: vf.name, sha256: vf.sha256 }, status: "queued", format: null, channels: [], warnings: [], error: null };
       });
       S.files.splice.apply(S.files, [at + 1, 0].concat(kids));
       S.zipCache = { file: vf.file, buf: bytes, entries: r.entries };
       return;
     }
     vf.format = r.format; vf.width = r.width; vf.height = r.height; vf.pixelSizeUm = r.pixelSizeUm; vf.warnings = r.warnings;
-    vf.channels = r.channels.map(function (c, i) {
-      var st = c.data ? Core.channelStats(c.data) : null;
-      return { index: i, name: c.name, bitDepth: c.bitDepth, width: c.width, height: c.height, stats: st, thumb: c.data ? Core.thumbnail(c.data, c.width, c.height, 280, st.p001, st.p9999 > st.p001 ? st.p9999 : st.max) : null };
-    });
+    var chans = [];
+    for (var i = 0; i < r.channels.length; i++) {
+      var c = r.channels[i];
+      if (!c.data) c = (await IO.readBytes(bytes, vf.name, Object.assign({ select: [i] }, opts))).channels[i];   // decode just this channel
+      var st = Core.channelStats(c.data);
+      chans.push({ index: i, name: c.name, bitDepth: c.bitDepth, width: c.width, height: c.height, stats: st,
+        thumb: Core.thumbnail(c.data, c.width, c.height, 280, st.p001, st.p9999 > st.p001 ? st.p9999 : st.max) });
+    }
+    vf.channels = chans;
     vf.status = "ok";
   }
 
@@ -443,7 +449,7 @@
 
   // ------------------------------------------------------------------ running
   function updateButtons() {
-    var ready = !!Eng && !!S.defaults && !S.running && S.sets.some(function (s) { return s.include && !setProblem(s); }) && !!readParams(false);
+    var ready = !!Eng && !!S.defaults && !S.running && !S.scanning && S.sets.some(function (s) { return s.include && !setProblem(s); }) && !!readParams(false);
     $("runBtn").disabled = !ready;
     $("cancelBtn").hidden = !S.running;
     ["pickFiles", "pickFolder", "repair", "addSet", "bulkApply"].forEach(function (id) { $(id).disabled = S.running || (id === "addSet" && !S.files.some(function (f) { return f.status === "ok"; })); });
@@ -685,7 +691,7 @@
   }
   function zoomBy(f) {
     var z = S.zoom === "fit" ? stage.getBoundingClientRect().width / cur.w : S.zoom;
-    S.zoom = Math.min(16, Math.max(0.05, z * f)); applyZoom();
+    S.zoom = Math.min(16, 20000 / cur.w, Math.max(0.05, z * f)); applyZoom();
   }
   $("zIn").addEventListener("click", function () { zoomBy(1.5); });
   $("zOut").addEventListener("click", function () { zoomBy(1 / 1.5); });

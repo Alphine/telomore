@@ -59,11 +59,27 @@ resolving, statistics, CSV, citation; UMD, so the same file runs in the page and
   "Cite this view" block (title, URL with gene or list permalink, access date, data build and commit, paper citation,
   licence) plus BibTeX. The BibTeX is parsed only from the attribution sentence in `summary.json` (authors, title, journal,
   year, volume, pages, DOI); nothing else is added.
-- Navigation has one link to `analyze.html` (a separate page, not part of this folder's files above).
+- Navigation also links to `analyze.html` (server-side upload analyser), `lab.html` (Browser lab, below) and `screen.html` (IDR plate mode); these are separate pages, not part of this folder's files above.
 
 Statistics are exploratory. The site states that siRNA concordance is weak (Spearman ~0.11), that lists chosen after
 looking at the data are biased, that the tests are not corrected for multiplicity, and that 53BP1 foci mark DNA breaks in
 general, not telomeres.
+
+## Browser lab (analyse your own images without uploading them)
+
+`foci/web/lab.html` reads PNG, TIFF / BigTIFF / OME-TIFF (8 to 32 bit, multi-page, LZW / Deflate / PackBits), JPEG (flagged
+lossy) and ZIP files **inside the browser**, pairs nuclei and foci files (or channels of one file), and analyses them with
+the in-browser engine (WebGPU when it passes its self-test, otherwise a CPU reference). A Content-Security-Policy with
+`connect-src 'none'` and a test over the code enforce that no file leaves the machine. It exports per-nucleus and per-image
+CSV and a provenance JSON (engine version, backend, parameters, SHA-256 of every file, timestamp). It is exploratory and not
+validated against manual counts. Reader code is in `foci/web/io/` (no third-party libraries are vendored), tests are
+`foci/tests/io-*.test.mjs` and `foci/tests/labcore.test.mjs` (fixtures are regenerated with
+`python foci/tests/fixtures/io_gen.py`).
+
+- [`foci/docs/LAB_MODE.md`](docs/LAB_MODE.md): formats, limits, privacy model, how results are produced, reproducibility.
+- [`foci/docs/ENGINE.md`](docs/ENGINE.md): the analysis engine (`window.FociEngine`) the lab page drives.
+- [`foci/docs/SCREEN_MODE.md`](docs/SCREEN_MODE.md): the IDR plate-screen page (`screen.html`).
+- [`docs/FOCI_BROWSER_COMPUTE.md`](../docs/FOCI_BROWSER_COMPUTE.md): why and how the heavy work runs in the browser.
 
 ### Optional data files and their contracts
 

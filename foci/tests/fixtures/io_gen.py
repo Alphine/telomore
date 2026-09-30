@@ -591,6 +591,10 @@ def main():
     _patch_tag("io_bad_tiff_floatpred.tif", 317, 3, add=True)
     FILES["io_bad_tiff_jpeg.tif"] = {"error": "unsupported", "match": "JPEG"}
     FILES["io_bad_tiff_floatpred.tif"] = {"error": "unsupported", "match": "predictor"}
+    # too many pages (z-stack / time series guard)
+    tiny = np.arange(16, dtype=np.uint8).reshape(4, 4)
+    write_tiff("io_bad_tiff_70pages.tif", [tiny] * 70)
+    FILES["io_bad_tiff_70pages.tif"] = {"error": "unsupported", "match": "pages"}
     # palette-colour tiff
     write_tiff("io_bad_tiff_palette.tif", [D["u8_0"]], photo=3)
     FILES["io_bad_tiff_palette.tif"] = {"error": "unsupported", "match": "palette"}
@@ -600,7 +604,11 @@ def main():
 
     # ---- ZIPs
     def put(z, n, data):
-        z.writestr(n, data)
+        zi = zipfile.ZipInfo(n, date_time=(2020, 1, 1, 0, 0, 0))     # fixed timestamp: output is deterministic
+        zi.compress_type = zipfile.ZIP_DEFLATED
+        if n.endswith("/"):
+            zi.external_attr = 0o40755 << 16
+        z.writestr(zi, data)
 
     with zipfile.ZipFile(os.path.join(HERE, "io_zip_ok.zip"), "w", zipfile.ZIP_DEFLATED) as z:
         put(z, "set/a_DAPI.png", open(os.path.join(HERE, "io_png_gray16.png"), "rb").read())

@@ -98,8 +98,11 @@ test("TIFF: impossible IFD entry count, offsets past EOF, huge tag counts", asyn
   const h = tiffHeader(), b = Buffer.alloc(8 + 2 + 4);
   h.copy(b); b.writeUInt16LE(65000, 8);
   await assert.rejects(IO.readBytes(new Uint8Array(b), "x.tif"), (e) => e.name === "FociIOError");
-  const e = Buffer.alloc(8 + 2 + 12 + 4); h.copy(e); e.writeUInt16LE(1, 8);
-  e.writeUInt16LE(273, 10); e.writeUInt16LE(4, 12); e.writeUInt32LE(0x7fffffff, 14); e.writeUInt32LE(100, 18);
+  const small = [[256, 3, 10], [257, 3, 10], [258, 3, 8], [259, 3, 1], [262, 3, 1], [277, 3, 1]];
+  const e = Buffer.alloc(8 + 2 + 12 * (small.length + 1) + 4); h.copy(e); e.writeUInt16LE(small.length + 1, 8);
+  small.forEach(([t, ty, v], i) => { const o = 10 + i * 12; e.writeUInt16LE(t, o); e.writeUInt16LE(ty, o + 2); e.writeUInt32LE(1, o + 4); e.writeUInt16LE(v, o + 8); });
+  const o7 = 10 + small.length * 12;
+  e.writeUInt16LE(273, o7); e.writeUInt16LE(4, o7 + 2); e.writeUInt32LE(0x7fffffff, o7 + 4); e.writeUInt32LE(100, o7 + 8);
   await assert.rejects(IO.readBytes(new Uint8Array(e), "x.tif"), (x) => x.name === "FociIOError" && /larger than the file|outside/.test(x.message));
   const n = Buffer.alloc(8 + 2 + 4); h.copy(n); n.writeUInt16LE(0, 8); n.writeUInt32LE(0xfffffff0, 10);
   await assert.rejects(IO.readBytes(new Uint8Array(n), "x.tif"), (x) => x.name === "FociIOError");
@@ -141,4 +144,16 @@ test("SHA-256 (WebCrypto path and pure-JS fallback) match node:crypto", async ()
     assert.equal(await INF.sha256(new Uint8Array(buf)), want, "subtle n=" + n);
     assert.equal(INF.sha256js(new Uint8Array(buf)), want, "js n=" + n);
   }
+});
+
+test("TIFF: absurd tile size is refused before any allocation", async () => {
+  const b = Uint8Array.from(fx("io_tiff_u16_tiled_lzw.tif")), dv = new DataView(b.buffer);
+  const ifd = dv.getUint32(4, true), n = dv.getUint16(ifd, true);
+  for (let i = 0; i < n; i++) { const o = ifd + 2 + i * 12, tag = dv.getUint16(o, true); if (tag === 322 || tag === 323) dv.setUint16(o + 8, 60000, true); }
+  await assert.rejects(IO.readBytes(b, "x.tif"), (e) => e.name === "FociIOError" && e.code === "too_large");
+});
+
+test("TIFF: many pages sharing one huge strip table never get that table read", async () => {
+  // the 70-page fixture is refused from the page count alone
+  await assert.rejects(IO.readBytes(fx("io_bad_tiff_70pages.tif"), "x.tif"), { code: "unsupported" });
 });

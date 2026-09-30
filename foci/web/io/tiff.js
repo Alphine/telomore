@@ -181,8 +181,7 @@
     p.rps = num(r, E[278], 4294967295);
     p.extra = value(r, E[338]);
     p.tiled = !!(E[322] || E[324]);
-    p.offsets = value(r, p.tiled ? E[324] : E[273]);
-    p.counts = value(r, p.tiled ? E[325] : E[279]);
+    p.E = E;                                             // strip/tile tables are read lazily, only for pages that are decoded
     p.xres = num(r, E[282], 0); p.resUnit = num(r, E[296], 2);
     p.desc = E[270] ? value(r, E[270], true) : null;
     return p;
@@ -217,7 +216,7 @@
     if (p.tiled) {
       if (!(p.tw >= 1 && p.tl >= 1) || p.tw > 65536 || p.tl > 65536) throw IOError("corrupt", tag + "invalid tile size.");
     }
-    if (!p.offsets || !p.offsets.length) throw IOError("corrupt", tag + "image has no strip/tile offsets.");
+    if (!(p.tiled ? p.E[324] : p.E[273])) throw IOError("corrupt", tag + "image has no strip/tile offsets.");
   }
 
   function layout(p) {
@@ -278,6 +277,11 @@
 
   async function decodePage(u8, r, p, wantSamples) {
     var L = layout(p), Out = outCtor(p), w = p.w, h = p.h, spp = p.spp;
+    p.offsets = value(r, p.tiled ? p.E[324] : p.E[273]);
+    p.counts = value(r, p.tiled ? p.E[325] : p.E[279]);
+    if (!p.offsets || !p.offsets.length) throw IOError("corrupt", "Image has no strip/tile offsets.");
+    var chunkRows = p.tiled ? p.tl : Math.min(L.rps, h), chunkCols = p.tiled ? p.tw : w;
+    if (chunkRows * chunkCols * L.spc * Math.max(1, p.depth >> 3) > 256 * 1048576) throw IOError("too_large", "Strips/tiles of this size (" + chunkCols + " x " + chunkRows + ") need too much memory; re-save the image with smaller strips or tiles.");
     if (!p.counts && !(L.n === 1 && p.comp === 1)) throw IOError("corrupt", "TIFF has no strip/tile byte counts.");
     if (p.offsets.length < L.n || (p.counts && p.counts.length < L.n)) throw IOError("truncated", "TIFF lists fewer strips/tiles (" + p.offsets.length + ") than the image needs (" + L.n + ").");
     var out = new Array(spp);
@@ -370,6 +374,7 @@
         if (planes0 > 0 && planes0 <= pages.length) pages = pages.slice(0, planes0);
       }
       if (ome && ome.multiFile) warnings.push("Multi-file OME-TIFF: only the planes stored in this file are read.");
+      if (pages.length > maxChannels) throw unsupported("The file has " + pages.length + " pages (limit " + maxChannels + "); it looks like a z-stack or time series.");
 
       for (var i = 0; i < pages.length; i++) validatePage(pages[i], i, maxPixels);
 

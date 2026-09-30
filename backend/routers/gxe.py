@@ -22,6 +22,7 @@ from telomere_lab.schemas import ConfigError, GxEConfig, ModelConfig
 
 from .. import jobs as job_store
 from .. import schemas as api_schemas
+from .. import limits
 from ..auth import get_current_user
 
 router = APIRouter(tags=["gxe"])
@@ -35,6 +36,7 @@ def start_gxe(body: api_schemas.GxERequest, user: _db.User = Depends(get_current
         gxe_config = GxEConfig.from_dict(body.gxe).validate()
     except ConfigError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+    limits.check_gxe(base_config, gxe_config)
 
     job = job_store.create_job(kind="gxe", owner_id=user.id)
 

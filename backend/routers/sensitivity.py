@@ -25,6 +25,7 @@ from telomere_lab.schemas import ConfigError, ModelConfig, SensitivityConfig
 
 from .. import jobs as job_store
 from .. import schemas as api_schemas
+from .. import limits
 from ..auth import get_current_user
 
 router = APIRouter(tags=["sensitivity"])
@@ -38,6 +39,7 @@ def start_sensitivity(body: api_schemas.SensitivityRequest, user: _db.User = Dep
         sens_config = SensitivityConfig.from_dict(body.sensitivity).validate()
     except ConfigError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+    limits.check_sensitivity(base_config, sens_config)
 
     job = job_store.create_job(kind="sensitivity", owner_id=user.id)
 

@@ -16,6 +16,7 @@ from telomere_lab.schemas import ConfigError, ModelConfig, MultiObjectiveConfig
 
 from .. import jobs as job_store
 from .. import schemas as api_schemas
+from .. import limits
 from ..auth import get_current_user
 
 router = APIRouter(tags=["pareto"])
@@ -29,6 +30,7 @@ def start_pareto(body: api_schemas.ParetoRequest, user: _db.User = Depends(get_c
         mo_config = MultiObjectiveConfig.from_dict(body.multiobjective.to_plain()).validate()
     except ConfigError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+    limits.check_pareto(base_config, mo_config)
 
     job = job_store.create_job(kind="pareto", owner_id=user.id)
 

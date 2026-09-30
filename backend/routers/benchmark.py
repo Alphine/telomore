@@ -36,6 +36,7 @@ from telomere_lab.schemas import ConfigError, EvolutionConfig, ModelConfig, Mult
 
 from .. import jobs as job_store
 from .. import schemas as api_schemas
+from .. import limits
 from ..auth import get_current_user
 
 router = APIRouter(tags=["benchmark"])
@@ -62,6 +63,7 @@ def start_benchmark(body: api_schemas.BenchmarkRequest, user: _db.User = Depends
         mo_config = MultiObjectiveConfig.from_dict(body.multiobjective.to_plain()).validate()
     except ConfigError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+    limits.check_benchmark(base_config, evo_config, mo_config)
 
     job = job_store.create_job(kind="benchmark", owner_id=user.id)
 

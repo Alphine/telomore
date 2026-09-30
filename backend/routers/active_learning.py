@@ -22,6 +22,7 @@ from telomere_lab.schemas import ActiveLearningConfig, ConfigError, ModelConfig
 
 from .. import jobs as job_store
 from .. import schemas as api_schemas
+from .. import limits
 from ..auth import get_current_user
 
 router = APIRouter(tags=["active-learning"])
@@ -35,6 +36,7 @@ def start_active_learning(body: api_schemas.ActiveLearningRequest, user: _db.Use
         al_config = ActiveLearningConfig.from_dict(body.active_learning.to_plain()).validate()
     except ConfigError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
+    limits.check_active_learning(base_config, al_config)
 
     job = job_store.create_job(kind="active_learning", owner_id=user.id)
 

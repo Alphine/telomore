@@ -127,6 +127,12 @@
     } catch (e) { throw wrap(e); }
   }
 
-  var api = { readFile: readFile, readBytes: readBytes, readZipEntry: readZipEntry, sha256: A.sha256, IOError: IOError, DEFAULTS: DEFAULTS, version: "1.0.0" };
+  // Raw (still encoded) bytes of a ZIP entry, CRC-checked; lets the caller hash the exact bytes it is about to decode.
+  async function extractZipEntry(zipBytes, entry) {
+    var u8 = zipBytes instanceof Uint8Array ? zipBytes : new Uint8Array(zipBytes);
+    try { return await ZIP.extract(u8, entry._entry || entry); } catch (e) { throw wrap(e); }
+  }
+
+  var api = { readFile: readFile, readBytes: readBytes, readZipEntry: readZipEntry, extractZipEntry: extractZipEntry, sha256: A.sha256, IOError: IOError, DEFAULTS: DEFAULTS, version: "1.0.0" };
   if (isNode) module.exports = api; else root.FociIO = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

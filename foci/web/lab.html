@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'none'; worker-src 'self' blob:; base-uri 'none'; form-action 'none'; object-src 'none'; media-src 'none'; frame-src 'none'; manifest-src 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Browser lab &middot; Foci Lab</title>
+<meta name="description" content="Count nuclei and DNA-damage foci (53BP1, gamma-H2AX) in your own microscopy images without uploading them: files are read and analysed inside your browser, using WebGPU when available. Exploratory, not validated.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500&display=swap">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="lab.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap top-row">
+    <a class="brand" href="index.html" aria-label="Foci Lab home">
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="9" cy="10" r="2.2" fill="var(--accent)"/><circle cx="16" cy="9" r="1.6" fill="var(--accent)"/><circle cx="14" cy="16" r="2.4" fill="var(--accent)"/></svg>
+      <span>Foci Lab</span>
+    </a>
+    <nav aria-label="Sections">
+      <a href="index.html">Screen explorer</a>
+      <a href="analyze.html">Analyse your image</a>
+      <a href="lab.html" aria-current="page">Browser lab</a>
+      <a href="screen.html">IDR plate mode</a>
+      <a href="/telomore/" rel="noopener">Telomere Lab</a>
+    </nav>
+    <button class="theme" id="themeBtn" type="button" aria-label="Toggle dark mode">
+      <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3a7 7 0 1 0 7 7 5.5 5.5 0 0 1-7-7z" fill="currentColor"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero wrap">
+    <p class="eyebrow">Your own microscopy &middot; runs in this tab &middot; exploratory</p>
+    <h1>Browser lab: analyse images without uploading them</h1>
+    <p class="lead">Drop a nuclear stain and a punctate marker (for example 53BP1 or gamma-H2AX), as one multi-channel file or as two files per field, or a whole batch. Files are read and analysed inside your browser; nothing is sent anywhere.</p>
+    <div class="banner" role="note">
+      <b>Read this first.</b>
+      <ul>
+        <li>This is a <b>classical counter and exploratory</b>. It is <b>not validated against manual counts</b> (Experiments L and L2 in the project record). Tune the parameters on your own positive and negative controls before trusting a number.</li>
+        <li>53BP1 and gamma-H2AX foci mark DNA double-strand breaks anywhere in the genome; they are <b>not telomere-specific</b>.</li>
+        <li><b>Your files never leave your machine.</b> This page is not allowed to make network requests: a Content-Security-Policy in the page header blocks them, and a test checks that the code contains none. Only fonts and the page's own scripts are loaded.</li>
+        <li>Large images need a lot of memory (16 megapixels per channel is the limit). If a tab runs out of memory, use smaller images or a pool size of 1.</li>
+      </ul>
+    </div>
+    <p id="engineMissing" class="callout err" role="alert" hidden>The analysis engine (<code>engine/engine.js</code>) did not load. You can still add and inspect files, but analysis is unavailable.</p>
+  </section>
+
+  <section class="wrap block" aria-labelledby="h-files">
+    <h2 id="h-files">1. Add images</h2>
+    <p class="sub">PNG, TIFF / BigTIFF / OME-TIFF (8, 12, 16 or 32-bit, multi-page or multi-channel), JPEG (lossy, flagged) or a ZIP of those. Up to <span id="maxFileText">200 MB</span> per file and <span id="maxPxText">16</span> megapixels per channel.</p>
+    <div class="card drop" id="drop" role="group" aria-labelledby="dropTitle">
+      <p id="dropTitle" class="drop-title">Drop files or a folder here</p>
+      <div class="actions">
+        <button type="button" class="btn" id="pickFiles">Choose files&hellip;</button>
+        <button type="button" class="btn ghost" id="pickFolder">Choose folder&hellip;</button>
+        <button type="button" class="btn ghost" id="clearFiles" disabled>Remove all</button>
+      </div>
+      <input type="file" id="fileInput" class="sr" multiple accept=".png,.tif,.tiff,.jpg,.jpeg,.zip,image/png,image/tiff,image/jpeg,application/zip" tabindex="-1" aria-label="Choose image files">
+      <input type="file" id="folderInput" class="sr" webkitdirectory multiple tabindex="-1" aria-label="Choose a folder of images">
+      <p class="note" id="fileSummary" role="status" aria-live="polite">No files yet.</p>
+      <div class="tbl" id="fileTblWrap" hidden>
+        <table id="fileTbl">
+          <caption class="sr">Files added</caption>
+          <thead><tr><th scope="col">File</th><th scope="col">Type</th><th scope="col">Size</th><th scope="col">Pixels</th><th scope="col">Channels</th><th scope="col">Status</th><th scope="col"><span class="sr">Remove</span></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap block" aria-labelledby="h-pair">
+    <h2 id="h-pair">2. Pair files and assign channels</h2>
+    <p class="sub">Files whose names contain a <b>nuclei</b> word and a <b>foci</b> word are paired when the rest of the name matches. You can edit the words (comma-separated), pick a preset, or assign every channel by hand below. A single multi-channel file becomes one set by itself.</p>
+    <div class="card">
+      <div class="rules">
+        <div class="field"><label for="rulePreset">Naming preset</label><select id="rulePreset"></select></div>
+        <div class="field"><label for="ruleNuc">Nuclei words</label><input type="text" id="ruleNuc" autocomplete="off" spellcheck="false" maxlength="200"></div>
+        <div class="field"><label for="ruleFoc">Foci words</label><input type="text" id="ruleFoc" autocomplete="off" spellcheck="false" maxlength="200"></div>
+        <div class="field btnfield"><button type="button" class="btn ghost" id="repair">Pair again</button></div>
+      </div>
+      <p class="note" id="pairNote" role="status" aria-live="polite"></p>
+    </div>
+    <div class="bulk card" id="bulkBox" hidden>
+      <p class="bulk-title"><b>Label conditions in bulk</b> <span class="note">(optional; e.g. every set whose name contains &ldquo;ctrl&rdquo; is &ldquo;control&rdquo;)</span></p>
+      <div class="rules">
+        <div class="field"><label for="bulkMatch">Name contains</label><input type="text" id="bulkMatch" autocomplete="off" maxlength="60"></div>
+        <div class="field"><label for="bulkCond">Condition</label><input type="text" id="bulkCond" list="condList" autocomplete="off" maxlength="60"></div>
+        <div class="field"><label for="bulkRep">Replicate (optional)</label><input type="text" id="bulkRep" autocomplete="off" maxlength="60"></div>
+        <div class="field btnfield"><button type="button" class="btn ghost" id="bulkApply">Apply to matching sets</button></div>
+      </div>
+      <datalist id="condList"><option value="control"></option><option value="treated"></option></datalist>
+    </div>
+    <div id="sets" class="sets" aria-live="polite"></div>
+    <div class="actions"><button type="button" class="btn ghost" id="addSet" disabled>Add a set manually</button></div>
+  </section>
+
+  <section class="wrap block" aria-labelledby="h-params">
+    <h2 id="h-params">3. Parameters and engine</h2>
+    <div class="card">
+      <p id="badge" class="backend none" role="status" aria-live="polite">Checking the analysis engine&hellip;</p>
+      <div class="rules engine-row">
+        <div class="field"><label for="mode">Backend</label>
+          <select id="mode"><option value="auto">Automatic (GPU if it passes its self-test)</option><option value="gpu">GPU only</option><option value="reference">CPU reference only</option></select></div>
+        <div class="field"><label for="pool">Worker pool size</label><select id="pool"></select></div>
+      </div>
+      <p class="note">Each worker holds one image pair in memory while it runs; use 1 for very large images.</p>
+      <div class="rules">
+        <div class="field"><label for="paramPreset">Preset</label>
+          <select id="paramPreset"><option value="defaults">Engine defaults</option><option value="strict">Stricter foci (minimum height x2)</option><option value="loose">Looser foci (minimum height x0.5)</option></select></div>
+        <div class="field btnfield"><button type="button" class="btn ghost" id="resetParams">Reset to defaults</button></div>
+        <div class="field btnfield"><button type="button" class="btn ghost" id="exportParams">Export parameters (JSON)</button></div>
+        <div class="field btnfield"><button type="button" class="btn ghost" id="importParamsBtn">Import parameters&hellip;</button><input type="file" id="importParams" class="sr" accept=".json,application/json" tabindex="-1" aria-label="Import parameters JSON"></div>
+      </div>
+      <div class="pgrid" id="paramGrid"></div>
+      <p class="note" id="paramMsg" role="status" aria-live="polite"></p>
+    </div>
+  </section>
+
+  <section class="wrap block" aria-labelledby="h-run">
+    <h2 id="h-run">4. Run</h2>
+    <div class="card">
+      <div class="actions">
+        <button type="button" class="btn" id="runBtn" disabled>Analyse</button>
+        <button type="button" class="btn ghost" id="cancelBtn" hidden>Cancel</button>
+        <span id="progWrap" class="progress" hidden><progress id="prog" value="0" max="1" aria-label="Batch progress"></progress> <span id="progText">0 / 0</span></span>
+      </div>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </div>
+  </section>
+
+  <section class="wrap block" id="results" aria-labelledby="h-res" hidden>
+    <h2 id="h-res">5. Results</h2>
+    <div class="card">
+      <div class="tbl-head"><h3>Batch table</h3>
+        <div class="actions">
+          <button type="button" class="btn" id="expNuc">Per-nucleus CSV</button>
+          <button type="button" class="btn" id="expImg">Per-image CSV</button>
+          <button type="button" class="btn" id="expProv">Provenance JSON</button>
+        </div></div>
+      <div class="tbl"><table id="batchTbl"><caption class="sr">One row per image set</caption>
+        <thead><tr><th scope="col">Image set</th><th scope="col">Condition</th><th scope="col">Replicate</th><th scope="col">Status</th><th scope="col" class="num">Nuclei</th><th scope="col" class="num">Foci</th><th scope="col" class="num">Foci / nucleus</th><th scope="col" class="num">% with foci</th><th scope="col">Backend</th><th scope="col"><span class="sr">Open</span></th></tr></thead>
+        <tbody></tbody></table></div>
+      <p class="note">The provenance file records the engine version, backend, parameters, normalisation, every file name with its SHA-256 (computed here in your browser) and a timestamp, so a result can be reproduced or audited.</p>
+    </div>
+    <div class="card" id="condCard" hidden>
+      <h3>By condition</h3>
+      <div class="tbl"><table id="condTbl"><caption class="sr">Summary per condition</caption>
+        <thead><tr><th scope="col">Condition</th><th scope="col" class="num">Images</th><th scope="col" class="num">Nuclei</th><th scope="col" class="num">Pooled foci / nucleus</th><th scope="col" class="num">Mean of images &plusmn; SD</th><th scope="col" class="num">Replicates</th><th scope="col" class="num">Mean of replicates &plusmn; SD</th></tr></thead>
+        <tbody></tbody></table></div>
+      <ul class="flags" id="condWarn"></ul>
+    </div>
+    <div id="detail" class="detail" hidden>
+      <h3 id="detailTitle" tabindex="-1"></h3>
+      <div class="tiles" id="tiles"></div>
+      <ul class="flags" id="detailWarn"></ul>
+      <div class="two">
+        <figure class="card viewer-card">
+          <figcaption><b>Overlay</b> &mdash; as drawn by the engine; toggle layers and zoom</figcaption>
+          <div class="vtools" role="group" aria-label="Overlay controls">
+            <label class="chk"><input type="checkbox" id="tgImg" checked> Engine overlay image</label>
+            <label class="chk"><input type="checkbox" id="tgPts" checked> Foci points</label>
+            <label class="chk"><input type="checkbox" id="tgIds"> Nucleus IDs</label>
+            <span class="zoom" role="group" aria-label="Zoom">
+              <button type="button" class="btn ghost sm" id="zOut" aria-label="Zoom out">&minus;</button>
+              <button type="button" class="btn ghost sm" id="zFit">Fit</button>
+              <button type="button" class="btn ghost sm" id="z100">100%</button>
+              <button type="button" class="btn ghost sm" id="zIn" aria-label="Zoom in">+</button>
+              <span id="zLabel" class="note" aria-live="polite"></span>
+            </span>
+          </div>
+          <div class="viewer" id="viewer" tabindex="0" role="region" aria-label="Overlay image; arrow keys scroll, plus and minus zoom">
+            <div class="stage" id="stage"><img id="ovImg" alt="Engine overlay of detected nuclei and foci"><svg id="ovSvg" aria-hidden="true"></svg></div>
+          </div>
+          <p class="note" id="ovNote"></p>
+        </figure>
+        <figure class="card">
+          <figcaption><b>Foci per nuclear object</b></figcaption>
+          <div id="hist" class="histbox"></div>
+          <p class="note">Objects are nuclei or touching clusters as found by the engine; see the warnings above for anything it flagged.</p>
+        </figure>
+      </div>
+      <div class="card">
+        <h3>Per-nucleus table</h3>
+        <div class="tbl"><table id="nucTbl"><caption class="sr">Nuclei of the selected image set</caption><thead><tr><th scope="col">ID</th><th scope="col" class="num">Area (px)</th><th scope="col" class="num">Centroid x</th><th scope="col" class="num">Centroid y</th><th scope="col" class="num">Foci</th></tr></thead><tbody></tbody></table></div>
+        <p class="note" id="nucNote"></p>
+      </div>
+      <details class="how card">
+        <summary>Parameters used, normalisation and what this cannot tell you</summary>
+        <dl class="used" id="used"></dl>
+        <ul>
+          <li>Exploratory classical counter, not validated against manual counts.</li>
+          <li>53BP1 / gamma-H2AX foci are DNA-break marks in general, not telomere-specific.</li>
+          <li>Fields from one well or dish are technical replicates, not independent experiments.</li>
+        </ul>
+      </details>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap foot">
+  <p>Method: Telomere Lab classical counter (Gaussian smoothing, background opening, Otsu on log intensity, white top-hat, local maxima), run by the in-browser engine. Details: <a href="https://github.com/Alphine/telomore/blob/master/foci/docs/LAB_MODE.md" rel="noopener">LAB_MODE.md</a> in the repository (formats, limits, privacy model, reproducibility). Research prototype, not a diagnostic or clinical tool. Code: <a href="https://github.com/Alphine/telomore" rel="noopener">github.com/Alphine/telomore</a> &middot; <a href="https://basyid.dev" rel="noopener">basyid.dev</a></p>
+</footer>
+
+<script src="io/inflate.js"></script>
+<script src="io/png.js"></script>
+<script src="io/tiff.js"></script>
+<script src="io/zip.js"></script>
+<script src="io/io.js"></script>
+<script src="io/labcore.js"></script>
+<script src="engine/engine.js"></script>
+<script src="lab.js"></script>
+</body>
+</html>

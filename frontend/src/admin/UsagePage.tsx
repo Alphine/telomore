@@ -197,7 +197,7 @@ export default function UsagePage() {
               {items.length === 0 ? (
                 <EmptyState title="No usage events">{filtersActive ? 'Nothing matches these filters.' : 'Events appear here once the API gets traffic.'}</EmptyState>
               ) : (
-                <div className={'overflow-x-auto transition-opacity ' + (q.loading ? 'opacity-60' : '')}>
+                <div tabIndex={0} role="region" aria-label="Usage events table (scrollable)" className={'overflow-x-auto transition-opacity ' + (q.loading ? 'opacity-60' : '')}>
                   <table className={TABLE + ' min-w-[52rem]'}>
                     <caption className="sr-only">Usage events, newest first</caption>
                     <thead className="bg-slate-50 dark:bg-slate-900/60">

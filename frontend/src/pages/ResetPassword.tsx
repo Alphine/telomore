@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { ApiError } from '../api/client'
 import { resetPassword } from '../api/endpoints'
@@ -10,7 +10,12 @@ import { passwordProblem } from '../auth/passwordRules'
 
 export function ResetPassword() {
   const [params] = useSearchParams()
-  const token = params.get('token') ?? ''
+  const navigate = useNavigate()
+  // Keep the one-time token in memory only and drop it from the address bar / history.
+  const [token] = useState(() => params.get('token') ?? '')
+  useEffect(() => {
+    if (params.has('token')) navigate('/reset-password', { replace: true })
+  }, [params, navigate])
 
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')

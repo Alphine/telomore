@@ -20,9 +20,13 @@ export function DevLink({ link, label }: { link: string; label: string }) {
       </div>
       <div className="mt-1 break-all">
         {mapped.kind === 'unknown' ? (
-          <a className="link" href={mapped.to}>
-            {label}
-          </a>
+          /^https?:\/\//i.test(mapped.to) || mapped.to.startsWith('/') ? (
+            <a className="link" href={mapped.to}>
+              {label}
+            </a>
+          ) : (
+            <span>{label}</span> // never put a javascript:/data: URL into href
+          )
         ) : (
           <Link className="link" to={mapped.to} data-testid="dev-link">
             {label}

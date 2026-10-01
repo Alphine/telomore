@@ -133,6 +133,17 @@ describe('ThemeProvider', () => {
       useTheme()
       return null
     }
-    expect(() => render(<Bare />)).toThrow(/useTheme must be used inside/)
+    // React re-reports a render error through console.error and jsdom through a window
+    // 'error' event; both are expected here, and left alone they surface as noisy
+    // (sometimes "unhandled error") output depending on timing -- swallow them explicitly.
+    const swallow = (e: ErrorEvent) => e.preventDefault()
+    window.addEventListener('error', swallow)
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      expect(() => render(<Bare />)).toThrow(/useTheme must be used inside/)
+    } finally {
+      spy.mockRestore()
+      window.removeEventListener('error', swallow)
+    }
   })
 })

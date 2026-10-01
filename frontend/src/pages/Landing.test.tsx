@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { FEATURES } from '../features'
@@ -30,7 +30,8 @@ describe('Landing page', () => {
     for (const f of FEATURES) {
       expect(screen.getByText(`Open ${f.title} →`)).toBeInTheDocument()
     }
-    expect(await screen.findByTestId('api-status')).toHaveTextContent('ok')
+    // the element exists at once ("GET /api/health …"); wait for the text instead of the node
+    await waitFor(() => expect(screen.getByTestId('api-status')).toHaveTextContent('ok'))
   })
 
   it('renders the disclaimer and scope caption verbatim', () => {

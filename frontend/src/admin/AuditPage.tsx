@@ -53,7 +53,7 @@ export default function AuditPage() {
               {items.length === 0 ? (
                 <EmptyState title="No audit entries">Every admin change is recorded here.</EmptyState>
               ) : (
-                <div className={'overflow-x-auto transition-opacity ' + (q.loading ? 'opacity-60' : '')}>
+                <div tabIndex={0} role="region" aria-label="Audit log table (scrollable)" className={'overflow-x-auto transition-opacity ' + (q.loading ? 'opacity-60' : '')}>
                   <table className={TABLE + ' min-w-[44rem]'}>
                     <caption className="sr-only">Audit log, newest first</caption>
                     <thead className="bg-slate-50 dark:bg-slate-900/60">

@@ -132,7 +132,7 @@ function RequestList({ items }: { items: AccessRequestItem[] }) {
 function UsageList({ items }: { items: AdminUserDetail['recent_usage'] }) {
   if (items.length === 0) return <p className="text-sm text-slate-500">No recorded activity.</p>
   return (
-    <div className="max-h-64 overflow-auto rounded-lg border border-slate-200 dark:border-slate-800">
+    <div tabIndex={0} role="region" aria-label="Recent activity table (scrollable)" className="max-h-64 overflow-auto rounded-lg border border-slate-200 dark:border-slate-800">
       <table className="w-full min-w-[26rem] text-xs">
         <caption className="sr-only">Recent activity</caption>
         <thead className="sticky top-0 bg-slate-50 text-left text-slate-500 dark:bg-slate-900">

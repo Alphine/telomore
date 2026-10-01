@@ -154,7 +154,7 @@ export default function RequestsPage() {
           setPage(1)
         }}
       >
-        <div className="max-w-full overflow-x-auto">
+        <div tabIndex={0} role="region" aria-label="Access requests list (scrollable)" className="max-w-full overflow-x-auto">
           <TabsList aria-label="Request status">
             {TABS.map((t) => (
               <TabsTrigger key={t.value} value={t.value}>

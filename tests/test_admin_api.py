@@ -89,14 +89,23 @@ def test_free_user_gets_pro_required_on_every_compute_endpoint(client, path):
     assert r.json()["detail"]["code"] == "pro_required"
 
 
+@pytest.fixture()
+def no_real_jobs(monkeypatch):
+    """The gate tests must not start real background jobs (they would starve later tests of job slots)."""
+    from backend import jobs
+    monkeypatch.setattr(jobs, "run_job", lambda job, target: None)
+    yield
+    jobs._JOBS.clear()
+
+
 @pytest.mark.parametrize("path", COMPUTE)
-def test_pro_user_passes_the_gate(client, path):
+def test_pro_user_passes_the_gate(client, path, no_real_jobs):
     u = make_user("proguy", plan="pro")
     r = client.post(path, json={}, headers=auth(u))
     assert r.status_code != 403  # empty body is invalid -> 422, but the plan gate let it through
 
 
-def test_plan_matrix(client):
+def test_plan_matrix(client, no_real_jobs):
     cases = {
         "free": (make_user("a_free"), 403),
         "pro": (make_user("b_pro", plan="pro"), 200),
@@ -114,7 +123,7 @@ def test_plan_matrix(client):
     assert r.json()["detail"]["code"] == "account_disabled"
 
 
-def test_require_pro_env_off_lets_free_users_through(client, monkeypatch):
+def test_require_pro_env_off_lets_free_users_through(client, monkeypatch, no_real_jobs):
     monkeypatch.setenv("TELOMERE_REQUIRE_PRO", "0")
     u = make_user("freebie")
     assert client.post("/api/simulate", json={}, headers=auth(u)).status_code == 200

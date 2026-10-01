@@ -2,7 +2,7 @@
 // 2026-09-13 follow-up to Genome Stability), built on the same job-polling
 // contract as Sensitivity (POST /api/gxe -> GET /api/jobs/{id}). No Stop
 // button: the API has no cooperative cancellation for G×E runs (docs/API.md).
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 
 import { ApiError } from '../../api/client'
@@ -14,6 +14,10 @@ import { BaselineSummary } from '../../components/BaselineSummary'
 import { Callout } from '../../components/Callout'
 import { MetricRow } from '../../components/MetricRow'
 import { OverrideListEditor } from '../../components/OverrideListEditor'
+import { DemoForm } from '../../components/DemoForm'
+import { useDemoScenario } from '../../demo/context'
+import { DEMO_JOB_PREFIX } from '../../demo/replay'
+import type { GxERequest } from '../../api/types'
 import { PageHeader } from '../../components/PageHeader'
 import { ProgressBar } from '../../components/ProgressBar'
 import { InterpretPanel } from '../../components/InterpretPanel'
@@ -116,6 +120,25 @@ export function GxE() {
   const items = result?.items ?? live
   const environments_ = useMemo(() => environmentOrder(items), [items])
 
+  // Demo mode: show the cached scenario (request fills the locked form, the job result is replayed locally).
+  const demoSc = useDemoScenario<GxERequest, unknown>()
+  useEffect(() => {
+    const req = demoSc?.request
+    if (!demoSc || !req || !bounds) return
+    if (req.model) setBase({ ...bounds.demo, ...req.model })
+    const g = req.gxe
+    if (g?.genotypes) setGenotypes(g.genotypes)
+    if (g?.environments) setEnvironments(g.environments)
+    const seeds = g?.eval_seeds ?? [1, 2, 3]
+    setSeedsText(seeds.join(', '))
+    if (g?.genotypes && g.environments) {
+      setSubmitted({ genotypes: g.genotypes, environments: g.environments, eval_seeds: seeds, weights: g.weights ?? bounds.fitness_weights_default })
+    }
+    setNotes(req.notes ?? '')
+    setLive([])
+    setJobId(DEMO_JOB_PREFIX + demoSc.id)
+  }, [demoSc, bounds, setBase, setGenotypes, setEnvironments, setSeedsText, setSubmitted, setNotes, setLive, setJobId])
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     if (!bounds || !baseline) return
@@ -178,7 +201,7 @@ export function GxE() {
       {!bounds && !boundsError && <p className="prose-muted">Loading parameter bounds…</p>}
 
       {bounds && baseline && (
-        <form onSubmit={onSubmit} className="space-y-6">
+        <DemoForm onSubmit={onSubmit} className="space-y-6">
           <BaselineSummary bounds={bounds} value={baseline} onChange={setBase} disabled={isActive} idPrefix="gxe-base" />
 
           <fieldset className="card space-y-3 p-5" data-testid="genotype-editor">
@@ -246,7 +269,7 @@ export function GxE() {
               </span>
             )}
           </div>
-        </form>
+        </DemoForm>
       )}
 
       {/* ---------------------------------------------------- live progress */}

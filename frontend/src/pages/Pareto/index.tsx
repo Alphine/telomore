@@ -1,6 +1,6 @@
 // Port of app/pages/05_Pareto.py on top of the job-polling contract
 // (POST /api/pareto -> GET /api/jobs/{id}, POST .../stop).
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -15,6 +15,10 @@ import { Callout } from '../../components/Callout'
 import { CheckboxGroup } from '../../components/CheckboxGroup'
 import { MetricRow } from '../../components/MetricRow'
 import { NumberInput } from '../../components/NumberInput'
+import { DemoForm } from '../../components/DemoForm'
+import { useDemoScenario } from '../../demo/context'
+import { DEMO_JOB_PREFIX } from '../../demo/replay'
+import type { ParetoRequest } from '../../api/types'
 import { PageHeader } from '../../components/PageHeader'
 import { PhasesControl } from '../../components/PhasesControl'
 import { ProgressBar } from '../../components/ProgressBar'
@@ -73,6 +77,30 @@ export function Pareto() {
   const history = result?.history ?? live
   const objectives = submitted?.objectives ?? form.objectives
   const freeGenes = submitted?.free_genes ?? form.free_genes
+
+  // Demo mode: show the cached scenario (request fills the locked form, the job result is replayed locally).
+  const demoSc = useDemoScenario<ParetoRequest, unknown>()
+  useEffect(() => {
+    const req = demoSc?.request
+    if (!demoSc || !req || !bounds) return
+    if (req.model) setBase({ ...bounds.demo, ...req.model })
+    const mo = req.multiobjective ?? {}
+    const { eval_seeds, weights, checkpoint_every, ...rest } = mo
+    const seeds = eval_seeds ?? [42]
+    setForm({ ...PARETO_DEFAULTS, ...rest, eval_seeds_text: seeds.join(', ') })
+    setSubmitted({
+      ...PARETO_DEFAULTS,
+      ...rest,
+      eval_seeds: seeds,
+      checkpoint_every: checkpoint_every ?? 5,
+      weights: weights ?? bounds.fitness_weights_default,
+    })
+    setNotes(req.notes ?? '')
+    setLive([])
+    setColorBy(undefined)
+    setPick(0)
+    setJobId(DEMO_JOB_PREFIX + demoSc.id)
+  }, [demoSc, bounds, setBase, setForm, setSubmitted, setNotes, setLive, setColorBy, setPick, setJobId])
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -172,7 +200,7 @@ export function Pareto() {
       {!bounds && !boundsError && <p className="prose-muted">Loading parameter bounds…</p>}
 
       {bounds && baseline && (
-        <form onSubmit={onSubmit} className="space-y-6">
+        <DemoForm onSubmit={onSubmit} className="space-y-6">
           <BaselineSummary bounds={bounds} value={baseline} onChange={setBase} disabled={isActive} idPrefix="par-base" />
 
           <section className="card space-y-4 p-5">
@@ -324,7 +352,7 @@ export function Pareto() {
               </>
             )}
           </div>
-        </form>
+        </DemoForm>
       )}
 
       {/* ---------------------------------------------------- live progress */}

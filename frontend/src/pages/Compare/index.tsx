@@ -2,7 +2,8 @@
 // Scenario sources: the shared baseline (sessionStorage `tel_baseline_config`),
 // the last Evolve result (`tel_evolve_best`), a Pareto point
 // (`tel_compare_user_config`) and a manually edited ModelConfig.
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useDemoScenario } from '../../demo/context'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -14,6 +15,7 @@ import { useChipPresets } from '../../api/useChipPresets'
 import { Callout } from '../../components/Callout'
 import { ModelConfigForm } from '../../components/ModelConfigForm'
 import { NumberInput } from '../../components/NumberInput'
+import { DemoForm } from '../../components/DemoForm'
 import { PageHeader } from '../../components/PageHeader'
 import { loadBaseline } from '../../components/baseline'
 import { BIOLOGICAL_AGE_DISCLAIMER } from '../../components/biologicalAgeUtils'
@@ -125,6 +127,12 @@ export function Compare() {
     return out
   }, [baseline, includeEvolved, evolved, includePareto, pareto, includeManual, manualCfg, chipScenarios])
 
+  // Demo mode: show the cached comparison; the scenario picker above the form is locked.
+  const demoSc = useDemoScenario<unknown, CompareResponse>()
+  useEffect(() => {
+    if (demoSc?.response) setResponse(demoSc.response)
+  }, [demoSc, setResponse])
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     if (!scenarios.length) return
@@ -186,7 +194,7 @@ export function Compare() {
       {!bounds && !boundsError && <p className="prose-muted">Loading parameter bounds…</p>}
 
       {bounds && baseline && manualCfg && (
-        <form onSubmit={onSubmit} className="space-y-6">
+        <DemoForm onSubmit={onSubmit} className="space-y-6">
           <section className="card space-y-4 p-5">
             <h2 className="text-lg font-semibold">Scenarios</h2>
             <ul className="space-y-3 text-sm">
@@ -412,7 +420,7 @@ export function Compare() {
             </button>
             {scenarios.length === 1 && <span className="prose-muted text-xs">Add a second scenario to see deltas.</span>}
           </div>
-        </form>
+        </DemoForm>
       )}
 
       {!response && !running && bounds && (

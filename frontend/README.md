@@ -71,6 +71,11 @@ and auth pages never download it; Vite's ">500 kB chunk" warning at build
 time refers to that chunk and is expected. Both packages ship their own
 TypeScript types, so no `@types/*` packages are needed for them.
 
+## Access modes (live vs demo), account and admin
+
+Anonymous and free visitors see every feature page on precomputed scenarios; Pro users and admins run live. See
+[FRONTEND_MODES.md](FRONTEND_MODES.md) for the model, the files involved and how to add a feature to demo mode.
+
 ## Layout
 
 ```

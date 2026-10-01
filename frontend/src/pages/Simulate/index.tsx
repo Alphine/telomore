@@ -1,9 +1,9 @@
 // Port of app/pages/01_Simulate.py (SDD §16, page 1).
-import { Suspense, lazy, useCallback, useMemo, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
 
 import { ApiError } from '../../api/client'
 import { simulate as apiSimulate, simulateEnsemble } from '../../api/endpoints'
-import type { ChipParams, EnsembleResponse, ModelConfig, SimulationRun } from '../../api/types'
+import type { ChipParams, EnsembleResponse, ModelConfig, SimulateResponse, SimulationRun } from '../../api/types'
 import { MAX_ENSEMBLE_SEEDS, MIN_ENSEMBLE_SEEDS } from '../../api/types'
 import { useBounds } from '../../api/useBounds'
 import { BiologicalAgeGauge } from '../../components/BiologicalAgeGauge'
@@ -13,6 +13,7 @@ import { EnsemblePopulationCanvas } from '../../components/EnsemblePopulationCan
 import { EnsembleSummaryTable } from '../../components/EnsembleSummaryTable'
 import { MetricRow } from '../../components/MetricRow'
 import { ModelConfigForm } from '../../components/ModelConfigForm'
+import { DemoForm } from '../../components/DemoForm'
 import { PageHeader } from '../../components/PageHeader'
 import { PopulationCanvas } from '../../components/PopulationCanvas'
 import { ProtocolProposer } from '../../components/ProtocolProposer'
@@ -38,6 +39,7 @@ import { usePrefersDark } from '../../components/charts/theme'
 import { downloadJson, downloadText, timeseriesCsv } from '../../components/download'
 import { configPayload, isScheduled, scheduledParameters, withSchedule } from '../../components/scheduleUtils'
 import { finalComposition, hasSubclones } from '../../components/subclonesUtils'
+import { useDemoScenario } from '../../demo/context'
 import { FEATURES } from '../../features'
 import { reproduceCommand, terminalMetrics } from './metrics'
 import { usePersistentState } from '../../state/usePersistentState'
@@ -104,6 +106,24 @@ export function Simulate() {
   }, [config, useChip, derived])
 
   const onCycle = useCallback((c: number) => setCursor(c), [])
+
+  // Demo mode: show the cached scenario (a single run or an ensemble) with its own config in the locked form.
+  const demoScenario = useDemoScenario<unknown, SimulateResponse | EnsembleResponse>()
+  useEffect(() => {
+    const res = demoScenario?.response
+    if (!res) return
+    if ('bands' in res) {
+      setEnsemble(res)
+      setEnsembleEnabled(true)
+      setNSeeds(res.n_seeds)
+      setEdited(res.config)
+    } else if ('run' in res) {
+      setRun(res.run)
+      setCursor(null)
+      setEnsembleEnabled(false)
+      setEdited(res.run.config)
+    }
+  }, [demoScenario, setEnsemble, setEnsembleEnabled, setNSeeds, setEdited, setRun])
 
   // Scheduled parameters are read-only in the scalar form (the protocol below
   // sets them per phase; the scalar is the phase-0 value), like chip-derived ones.
@@ -226,7 +246,7 @@ export function Simulate() {
           )}
           {!bounds && !boundsError && <p className="prose-muted">Loading parameter bounds…</p>}
           {bounds && config && (
-            <form
+            <DemoForm
               className="space-y-5"
               onSubmit={(e) => {
                 e.preventDefault()
@@ -349,7 +369,7 @@ export function Simulate() {
                   </>
                 )}
               </div>
-            </form>
+            </DemoForm>
           )}
         </aside>
 

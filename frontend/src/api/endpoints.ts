@@ -2,6 +2,7 @@
 // backend/schemas.py, mirrored in ./types.ts.
 import { API_BASE, request, requestBlob } from './client'
 import type {
+  AccessRequest,
   ActiveLearningRequest,
   ArtifactInfo,
   BoundsResponse,
@@ -175,4 +176,16 @@ export function mutateGene(body: { gene: string; position: number; alt: string }
 
 export function runLineage(body: LineageRequest): Promise<LineageResponse> {
   return request<LineageResponse>('/sequence/lineage', { method: 'POST', body })
+}
+
+// ------------------------------------------------------- access requests
+
+/** Ask for Pro access (docs/ADMIN.md). One open request per user; message <= 500 chars. */
+export function createAccessRequest(message: string): Promise<AccessRequest> {
+  return request<AccessRequest>('/access-requests', { method: 'POST', body: { message } })
+}
+
+/** The caller's own access requests, newest first. */
+export function myAccessRequests(): Promise<AccessRequest[]> {
+  return request<AccessRequest[]>('/access-requests/mine')
 }

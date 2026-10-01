@@ -71,16 +71,29 @@ export function AuthProvider({ children, initialToken }: AuthProviderProps) {
     } catch (err: unknown) {
       if (err instanceof ApiError) {
         if (err.status === 401) return { ok: false, reason: 'wrong_credentials', message: err.message }
-        if (err.status === 403) return { ok: false, reason: 'not_verified', message: err.message }
+        if (err.status === 403) {
+          const code = (err.detail as { code?: string } | null)?.code
+          // A disabled account is not an unverified one: do not offer 'resend verification'.
+          return { ok: false, reason: code === 'account_disabled' ? 'error' : 'not_verified', message: err.message }
+        }
         return { ok: false, reason: 'error', message: err.message }
       }
       return { ok: false, reason: 'error', message: 'Could not reach the API.' }
     }
   }, [])
 
+  const refresh = useCallback(async () => {
+    if (!token) return
+    try {
+      setUser(await apiMe(token))
+    } catch {
+      /* keep the last known user; the next navigation retries */
+    }
+  }, [token])
+
   const value = useMemo<AuthState>(
-    () => ({ token, user, status, login, logout: clear }),
-    [token, user, status, login, clear],
+    () => ({ token, user, status, login, logout: clear, refresh }),
+    [token, user, status, login, clear, refresh],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

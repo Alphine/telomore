@@ -1,7 +1,7 @@
 // Port of app/pages/06_Sensitivity.py on top of the job-polling contract
 // (POST /api/sensitivity -> GET /api/jobs/{id}). No Stop button: the API has
 // no cooperative cancellation for sensitivity runs (docs/API.md).
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 
 import { ApiError } from '../../api/client'
@@ -13,6 +13,10 @@ import { BaselineSummary } from '../../components/BaselineSummary'
 import { Callout } from '../../components/Callout'
 import { CheckboxGroup } from '../../components/CheckboxGroup'
 import { MetricRow } from '../../components/MetricRow'
+import { DemoForm } from '../../components/DemoForm'
+import { useDemoScenario } from '../../demo/context'
+import { DEMO_JOB_PREFIX } from '../../demo/replay'
+import type { SensitivityRequest } from '../../api/types'
 import { PageHeader } from '../../components/PageHeader'
 import { ProgressBar } from '../../components/ProgressBar'
 import { InterpretPanel } from '../../components/InterpretPanel'
@@ -105,6 +109,29 @@ export function Sensitivity() {
   const result = job?.status === 'completed' ? job.result : null
   const items = useMemo(() => sortBySwing(result?.items ?? live), [result, live])
 
+  // Demo mode: show the cached scenario (request fills the locked form, the job result is replayed locally).
+  const demoSc = useDemoScenario<SensitivityRequest, unknown>()
+  useEffect(() => {
+    const req = demoSc?.request
+    if (!demoSc || !req || !bounds) return
+    if (req.model) setBase({ ...bounds.demo, ...req.model })
+    const sens = req.sensitivity ?? {}
+    const seeds = sens.eval_seeds ?? [1, 2, 3]
+    const cfg: SensitivityConfig = {
+      parameters: sens.parameters ?? [],
+      perturbation_fraction: sens.perturbation_fraction ?? DEFAULT_FRACTION,
+      eval_seeds: seeds,
+      weights: sens.weights ?? bounds.fitness_weights_default,
+    }
+    setParams(cfg.parameters)
+    setFraction(cfg.perturbation_fraction)
+    setSeedsText(seeds.join(', '))
+    setSubmitted(cfg)
+    setNotes(req.notes ?? '')
+    setLive([])
+    setJobId(DEMO_JOB_PREFIX + demoSc.id)
+  }, [demoSc, bounds, setBase, setParams, setFraction, setSeedsText, setSubmitted, setNotes, setLive, setJobId])
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     if (!bounds || !baseline) return
@@ -161,7 +188,7 @@ export function Sensitivity() {
       {!bounds && !boundsError && <p className="prose-muted">Loading parameter bounds…</p>}
 
       {bounds && baseline && (
-        <form onSubmit={onSubmit} className="space-y-6">
+        <DemoForm onSubmit={onSubmit} className="space-y-6">
           <BaselineSummary bounds={bounds} value={baseline} onChange={setBase} disabled={isActive} idPrefix="sens-base" />
 
           <section className="card space-y-4 p-5">
@@ -227,7 +254,7 @@ export function Sensitivity() {
               </span>
             )}
           </div>
-        </form>
+        </DemoForm>
       )}
 
       {/* ---------------------------------------------------- live progress */}

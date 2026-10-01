@@ -190,6 +190,7 @@ try {
         serve_variant($variant, $file, $iid, 'HIT');
     }
     $GLOBALS['quota_left'] = charge_client($CFG, true);
+    $charged = true;
     idr_slot_acquire($CFG);                          // at most K simultaneous IDR fetches for the whole site
     $PACE_DEADLINE = microtime(true) + $CFG['idr_wait_ms'] / 1000.0;
 
@@ -268,6 +269,7 @@ try {
     register_shutdown_function('maybe_cleanup', $CFG);   // sometimes trim the cache, after the response is sent
     if (!serve_variant($variant, $file, $iid, 'MISS')) fail(502, 'cache unavailable');   // evicted within microseconds: cannot happen with the grace period
 } catch (Refused $r) {
+    if (!empty($charged) && $r->status === 503) refund_client($CFG);   // our saturation (or IDR's) is not the visitor's miss
     fail_refused($r);
 } catch (Throwable $e) {
     error_log('well.php: ' . get_class($e) . ': ' . $e->getMessage());   // server log only, never the response

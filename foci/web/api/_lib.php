@@ -156,7 +156,7 @@ function buckets_take(string $file, array $specs, float $cost = 1.0, bool $consu
             if ($only !== null && $i !== $only) continue;       // untouched buckets still get their refill
             if ($tok[$i] + 1e-9 < $cost) { $ok = false; $retry = max($retry, ($cost - $tok[$i]) / max($rate, 1e-9)); }
         }
-        if ($ok && $consume) foreach ($tok as $i => $_) if ($only === null || $i === $only) $tok[$i] -= $cost;
+        if ($ok && $consume) foreach ($tok as $i => $_) if ($only === null || $i === $only) $tok[$i] = min((float) $specs[$i][0], $tok[$i] - $cost);   // a negative cost refunds
         if ($consume) {     // persist also on refusal (refill is accounted for), so ts always advances
             ftruncate($fh, 0); rewind($fh);
             fwrite($fh, sprintf('%.4f', $now) . ' ' . implode(' ', array_map(static fn($t) => sprintf('%.4f', $t), $tok)));
@@ -202,6 +202,12 @@ function charge_client(array $cfg, bool $miss): array {
     if ($r['error'] && $miss) throw new Refused(503, 'rate limiter unavailable', 10);
     if (!$r['ok']) throw new Refused(429, $miss ? 'too many uncached images requested; slow down' : 'too many requests; slow down', (int) ceil($r['retry']));
     return $r['left'];
+}
+
+/** Give back a miss charge when the request was then refused before it could use IDR (503): the client is not billed for our saturation. */
+function refund_client(array $cfg): void {
+    try { $file = foci_dir('_rl') . '/c_' . foci_client_key($cfg); } catch (Throwable $e) { return; }
+    buckets_take($file, client_specs($cfg), -1.0);
 }
 
 /** Remaining tokens for this client without charging (for plate.php / headers). */

@@ -153,12 +153,17 @@ def make_site(tmp_path, stub):
 
 
 def get(url, method="GET", headers=None):
-    req = urllib.request.Request(url, method=method, headers=headers or {})
-    try:
-        with urllib.request.urlopen(req, timeout=40) as r:
-            return r.status, dict(r.headers), r.read()
-    except urllib.error.HTTPError as e:
-        return e.code, dict(e.headers), e.read()
+    for attempt in range(4):   # `php -S` on a busy laptop sometimes drops the very first connection
+        req = urllib.request.Request(url, method=method, headers=headers or {})
+        try:
+            with urllib.request.urlopen(req, timeout=40) as r:
+                return r.status, dict(r.headers), r.read()
+        except urllib.error.HTTPError as e:
+            return e.code, dict(e.headers), e.read()
+        except urllib.error.URLError:
+            if attempt == 3:
+                raise
+            time.sleep(0.4)
 
 
 def wells_of(plate):
@@ -330,7 +335,7 @@ def test_idr_concurrency_cap_503(make_site, stub):
 
 
 def test_idr_request_rate_cap_503(make_site):
-    s = make_site({"FOCI_IDR_RATE": 0.2, "FOCI_IDR_BURST": 3, "FOCI_IDR_WAIT_MS": 0, "FOCI_MISS_PER_MIN": 1000})
+    s = make_site({"FOCI_IDR_RATE": 0.2, "FOCI_IDR_BURST": 3, "FOCI_IDR_WAIT_MS": 0, "FOCI_MISS_PER_MIN": 4})
     # first miss needs 3 IDR calls (session cookie, imgData, render) = the whole burst
     assert get(s["base"] + "well.php?w=7-14_A1&ch=dna")[0] == 200
     n = Stub.idr_count()
@@ -338,6 +343,12 @@ def test_idr_request_rate_cap_503(make_site):
     assert st == 503 and int(h["Retry-After"]) >= 1
     assert Stub.idr_count() == n                                  # nothing was sent to IDR
     assert not list(s["cache"].glob("7*.tmp*")) and not list(s["cache"].glob("*.tmp*"))
+    # refused for OUR saturation: the visitor is not billed a miss for it (minute bucket: 4 - 1 spent on the first image)
+    for w in ("7-14_C1", "7-14_D1", "7-14_E1"):
+        assert get(s["base"] + f"well.php?w={w}&ch=dna")[0] == 503
+    [f] = list((s["cache"] / "_rl").iterdir())
+    _, resp, minute, day = (float(x) for x in f.read_text().split())
+    assert 2.9 < minute <= 3.6 and day > 1990, f.read_text()   # 4 - 1 spent; the three refused attempts were refunded
 
 
 def test_idr_upstream_429_becomes_503(make_site):

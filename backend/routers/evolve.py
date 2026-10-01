@@ -17,13 +17,13 @@ from telomere_lab.schemas import ConfigError, EvolutionConfig, ModelConfig
 from .. import jobs as job_store
 from .. import schemas as api_schemas
 from .. import limits
-from ..auth import get_current_user
+from ..auth import require_pro
 
 router = APIRouter(tags=["evolve"])
 
 
 @router.post("/evolve", response_model=api_schemas.JobStartResponse)
-def start_evolve(body: api_schemas.EvolveRequest, user: _db.User = Depends(get_current_user)
+def start_evolve(body: api_schemas.EvolveRequest, user: _db.User = Depends(require_pro)
                   ) -> api_schemas.JobStartResponse:
     try:
         base_config = ModelConfig.from_dict(body.model.to_plain()).validate()

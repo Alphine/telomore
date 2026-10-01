@@ -35,8 +35,11 @@ import bcrypt
 from sqlalchemy import (
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
+    Integer,
     String,
+    Text,
     UniqueConstraint,
     create_engine,
     func,
@@ -82,6 +85,15 @@ class User(Base):
     reset_token: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     reset_token_expires_at: Mapped[Optional[_dt.datetime]] = mapped_column(DateTime, nullable=True)
 
+    # ------------------------------------------------------- plan / admin
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    plan: Mapped[str] = mapped_column(String(16), default="free", nullable=False)
+    is_disabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    plan_expires_at: Mapped[Optional[_dt.datetime]] = mapped_column(DateTime, nullable=True)
+    last_login_at: Mapped[Optional[_dt.datetime]] = mapped_column(DateTime, nullable=True)
+    last_seen_at: Mapped[Optional[_dt.datetime]] = mapped_column(DateTime, nullable=True)
+    admin_note: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
     runs: Mapped[List["UserRun"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
@@ -100,6 +112,54 @@ class UserRun(Base):
     )
 
     user: Mapped["User"] = relationship(back_populates="runs")
+
+
+def utcnow() -> _dt.datetime:
+    """Naive UTC "now" (all new datetime columns store naive UTC)."""
+    return _dt.datetime.now(_dt.timezone.utc).replace(tzinfo=None)
+
+
+class AccessRequest(Base):
+    """A user asking an admin for PRO access."""
+
+    __tablename__ = "access_requests"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    message: Mapped[str] = mapped_column(String(500), default="", nullable=False)
+    status: Mapped[str] = mapped_column(String(16), default="pending", nullable=False, index=True)
+    created_at: Mapped[_dt.datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
+    decided_by: Mapped[Optional[int]] = mapped_column(ForeignKey("users.id"), nullable=True)
+    decided_at: Mapped[Optional[_dt.datetime]] = mapped_column(DateTime, nullable=True)
+    decision_note: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
+
+class UsageEvent(Base):
+    """One API request. Route template only; no bodies, tokens or raw IPs."""
+
+    __tablename__ = "usage_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ts: Mapped[_dt.datetime] = mapped_column(DateTime, default=utcnow, nullable=False, index=True)
+    user_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True)
+    endpoint: Mapped[str] = mapped_column(String(200), nullable=False)
+    method: Mapped[str] = mapped_column(String(10), nullable=False)
+    status_code: Mapped[int] = mapped_column(Integer, nullable=False)
+    duration_ms: Mapped[float] = mapped_column(Float, nullable=False)
+    ip_hash: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    req_bytes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    kind: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
+
+
+class AdminAuditLog(Base):
+    __tablename__ = "admin_audit_log"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ts: Mapped[_dt.datetime] = mapped_column(DateTime, default=utcnow, nullable=False, index=True)
+    admin_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    action: Mapped[str] = mapped_column(String(40), nullable=False)
+    target_user_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True)
+    detail: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON string
 
 
 class DuplicateUsernameError(Exception):
@@ -447,3 +507,103 @@ def reset_password(token: str, new_password: str, session: Optional[Session] = N
     finally:
         if own_session:
             db.close()
+
+
+# ------------------------------------------------------------ plans / admins
+PLAN_FREE = "free"
+PLAN_PRO = "pro"
+
+
+def admin_identifiers() -> set:
+    """Lower-cased usernames/emails listed in ``TELOMERE_ADMIN_USERS``."""
+    raw = os.environ.get("TELOMERE_ADMIN_USERS", "")
+    return {p.strip().lower() for p in raw.split(",") if p.strip()}
+
+
+def is_env_admin(user: User) -> bool:
+    ids = admin_identifiers()
+    return bool(ids) and (user.username.lower() in ids or user.email.lower() in ids)
+
+
+def effective_plan(user: User, now: Optional[_dt.datetime] = None) -> str:
+    """``pro`` only while the plan has not expired (admins always count as pro)."""
+    if user.is_admin:
+        return PLAN_PRO
+    if user.plan != PLAN_PRO:
+        return PLAN_FREE
+    exp = user.plan_expires_at
+    if exp is not None:
+        if exp.tzinfo is not None:
+            exp = exp.astimezone(_dt.timezone.utc).replace(tzinfo=None)
+        if exp <= (now or utcnow()):
+            return PLAN_FREE
+    return PLAN_PRO
+
+
+def apply_admin_bootstrap(session: Optional[Session] = None) -> int:
+    """Promote every user matching ``TELOMERE_ADMIN_USERS`` (username or
+    email, case-insensitive) to admin + pro. The only path that creates an
+    admin. Returns how many rows changed."""
+    ids = admin_identifiers()
+    if not ids:
+        return 0
+    own = session is None
+    db = session or get_session()
+    try:
+        users = db.execute(
+            select(User).where(
+                (func.lower(User.username).in_(ids)) | (func.lower(User.email).in_(ids))
+            )
+        ).scalars().all()
+        changed = 0
+        for u in users:
+            if not u.is_admin or u.plan != PLAN_PRO or u.is_disabled or u.plan_expires_at is not None:
+                u.is_admin = True
+                u.plan = PLAN_PRO
+                u.plan_expires_at = None
+                u.is_disabled = False
+                changed += 1
+        if changed:
+            db.commit()
+        return changed
+    finally:
+        if own:
+            db.close()
+
+
+def record_login(user_id: int) -> Optional[User]:
+    """Stamp ``last_login_at``, re-apply the admin bootstrap for this user
+    and return the fresh row."""
+    db = get_session()
+    try:
+        user = db.get(User, user_id)
+        if user is None:
+            return None
+        user.last_login_at = utcnow()
+        user.last_seen_at = user.last_login_at
+        if is_env_admin(user):
+            user.is_admin = True
+            user.plan = PLAN_PRO
+            user.plan_expires_at = None
+            user.is_disabled = False
+        db.commit()
+        db.refresh(user)
+        return user
+    finally:
+        db.close()
+
+
+def touch_last_seen(user_id: int, min_interval: _dt.timedelta = _dt.timedelta(minutes=5)) -> None:
+    """Best-effort ``last_seen_at`` update, at most once per ``min_interval``."""
+    try:
+        now = utcnow()
+        db = get_session()
+        try:
+            user = db.get(User, user_id)
+            if user is not None and (user.last_seen_at is None or now - user.last_seen_at > min_interval):
+                user.last_seen_at = now
+                db.commit()
+        finally:
+            db.close()
+    except Exception:  # noqa: BLE001 - never break a request over a timestamp
+        pass

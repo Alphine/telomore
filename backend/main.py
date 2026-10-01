@@ -13,6 +13,7 @@ in ``frontend/dist``.
 from __future__ import annotations
 
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -20,8 +21,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from . import usage
 from .routers import (
+    access,
     active_learning,
+    admin,
     auth,
     benchmark,
     compare,
@@ -70,8 +74,16 @@ def _mount_frontend(app: FastAPI, dist: Path) -> None:
         return FileResponse(index_html)
 
 
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    usage.startup()  # admin bootstrap + usage retention prune (never raises)
+    yield
+    usage.flush(3.0)
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
+        lifespan=_lifespan,
         title="Telomere Evolution Lab API",
         description="REST API wrapping telomere_lab's simulation/optimization service layer; "
                      "also serves the built React frontend (frontend/dist) when present.",
@@ -89,6 +101,8 @@ def create_app() -> FastAPI:
     if extra_origin:
         allowed_origins.append(extra_origin)
 
+    # Added BEFORE CORS so CORS stays outermost (error responses keep their headers).
+    app.add_middleware(usage.UsageMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,
@@ -102,6 +116,8 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(auth.router, prefix="/api")
+    app.include_router(access.router, prefix="/api")
+    app.include_router(admin.router, prefix="/api")
     app.include_router(simulate.router, prefix="/api")
     app.include_router(evolve.router, prefix="/api")
     app.include_router(pareto.router, prefix="/api")

@@ -1016,3 +1016,8 @@ is asked once, `idr_cookies.txt` (refreshed hourly under a lock, replaced atomic
 least-recently-used `<imageid>.<variant>` files (mtime, refreshed by hits) down to 90 % of the cap; `.tmp` files older than
 15 minutes and limiter files older than two days are removed in the same pass. `php api/cache_gc.php` does the same from
 cron. Web access to `api/_*.php`, `cache_gc.php` and `config.php` is refused by `.htaccess` (and they do nothing when called).
+
+
+## PRO access, admin API and usage logging
+
+Compute endpoints (`/simulate`, `/simulate/ensemble`, `/evolve`, `/pareto`, `/sensitivity`, `/gxe`, `/active-learning`, `/benchmark`, `/compare`, `/llm/interpret`, `/llm/propose-protocol`) require a PRO account (HTTP 403 `{"detail": {"code": "pro_required", ...}}` otherwise); disabled accounts get 403 `account_disabled` everywhere. New: `GET /auth/me` plan fields, `POST /access-requests`, `GET /access-requests/mine`, and the admin-only `/admin/*` family. Env: `TELOMERE_ADMIN_USERS`, `TELOMERE_REQUIRE_PRO`, `TELOMERE_USAGE_RETENTION_DAYS`. Full contract, JSON shapes and the privacy statement: [ADMIN.md](ADMIN.md).

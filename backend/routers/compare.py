@@ -37,7 +37,7 @@ from telomere_lab.schemas import ConfigError, ModelConfig
 
 from .. import schemas as api_schemas
 from .. import limits
-from ..auth import get_current_user
+from ..auth import require_pro
 
 router = APIRouter(tags=["compare"])
 
@@ -70,7 +70,7 @@ def _scenario_config(sc: api_schemas.CompareScenario, base_config: dict) -> dict
 
 
 @router.post("/compare", response_model=api_schemas.CompareResponse)
-def compare(body: api_schemas.CompareRequest, user: _db.User = Depends(get_current_user)
+def compare(body: api_schemas.CompareRequest, user: _db.User = Depends(require_pro)
             ) -> api_schemas.CompareResponse:
     del user  # auth gate only -- nothing is recorded per user here
     if len(body.scenarios) > MAX_SCENARIOS:

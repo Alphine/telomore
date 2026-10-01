@@ -95,6 +95,41 @@ def get_current_user(
 
     if user is None:
         raise _CREDENTIALS_ERROR
+    if user.is_disabled:
+        raise account_disabled_error()
     if not user.is_verified:
         raise _UNVERIFIED_ERROR
+    if user.last_seen_at is None or _db.utcnow() - user.last_seen_at > _dt.timedelta(minutes=5):
+        _db.touch_last_seen(user.id)
+    return user
+
+
+def error_detail(code: str, message: str) -> dict:
+    return {"code": code, "message": message}
+
+
+def account_disabled_error() -> HTTPException:
+    return HTTPException(status.HTTP_403_FORBIDDEN,
+                         detail=error_detail("account_disabled", "This account has been disabled."))
+
+
+def pro_required() -> bool:
+    return os.environ.get("TELOMERE_REQUIRE_PRO", "1").strip().lower() not in ("0", "false", "no", "off")
+
+
+def require_pro(user: _db.User = Depends(get_current_user)) -> _db.User:
+    """Compute gate: verified, enabled and on an unexpired PRO plan (or admin)."""
+    if pro_required() and _db.effective_plan(user) != _db.PLAN_PRO:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail=error_detail("pro_required",
+                                "Running computations needs a PRO account. Request access from your account page."),
+        )
+    return user
+
+
+def require_admin(user: _db.User = Depends(get_current_user)) -> _db.User:
+    if not user.is_admin:
+        raise HTTPException(status.HTTP_403_FORBIDDEN,
+                            detail=error_detail("admin_required", "Administrator access required."))
     return user

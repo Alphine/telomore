@@ -216,6 +216,40 @@ def nucleus_pairing_check(a: pd.DataFrame, byname: dict) -> dict:
     return out
 
 
+def write_pairing_fixture(a: pd.DataFrame, byname: dict, summary: dict, dest: Path) -> int:
+    """foci/tests/fixtures/foci_pairing_nuclei.json: per cached image, our nucleus count and the authors' Cell Count of the
+    row paired by name and by column-major Well Number (regression test of the pairing; no images needed).
+    Images fetched for the default-pairing gallery after Experiment L's sample (summary.gallery) are left out."""
+    col = paired_index(byname, "colmajor")
+    inv_name, inv_col = {v: k for k, v in byname.items()}, {v: k for k, v in col.items()}
+    skip = {g["image_id"] for g in summary.get("gallery", [])}
+    t = a.set_index("Plate_Well")
+
+    def cells(k):
+        v = t.loc[k, "Cell Count"]
+        return None if pd.isna(v) else float(v)
+
+    rows = []
+    for f in sorted((CACHE / "img").glob("*.npz")):
+        i = int(f.stem)
+        if i in skip or i not in inv_name:
+            continue
+        d = np.load(f)
+        n = count_foci(d["dna"].astype(np.float32), d["foci"].astype(np.float32)).n_nuclei
+        nm, cm = inv_name[i], inv_col[i]
+        rows.append([i, nm, int(t.loc[nm, "Well Number"]), cells(nm), cm, int(t.loc[cm, "Well Number"]), cells(cm), int(n)])
+    dest.write_text(json.dumps({
+        "about": "idr0010 images cached by the Foci Lab build (Experiment L sample): our nucleus count "
+                 "(telomere_lab.foci.count_foci, default parameters) and the authors' Cell Count of the annotation row paired "
+                 "with the image by IDR name vs by column-major Well Number. Annotation numbers: "
+                 "idr0010-screenA-annotation.csv (Doil et al. 2009, IDR, CC BY 4.0). Written by "
+                 "scripts/build_foci_dataset.py --pairing-fixture.",
+        "columns": ["image_id", "idr_well", "name_row_well_number", "name_row_cells", "colmajor_row",
+                    "colmajor_row_well_number", "colmajor_row_cells", "nuclei"],
+        "rows": rows}, separators=(",", ":")), encoding="utf-8", newline="\n")
+    return len(rows)
+
+
 def fetch_cached(iid: int):
     f = CACHE / "img" / f"{iid}.npz"
     if f.exists():
@@ -599,6 +633,8 @@ def main(argv=None) -> int:
     ap.add_argument("--only-gallery", action="store_true",
                     help="rebuild just the gallery tiles of the default pairing and merge them into summary.json")
     ap.add_argument("--gallery-keys", default=None, help="comma-separated GALLERY keys for --only-gallery (default all)")
+    ap.add_argument("--pairing-fixture", default=None, metavar="OUT.json",
+                    help="write the pairing regression fixture from the cached images (offline) and exit")
     ap.add_argument("--max-requests", type=int, default=None, help="hard cap on IDR requests made by gallery fetches")
     args = ap.parse_args(argv)
     global CLIENT
@@ -615,6 +651,10 @@ def main(argv=None) -> int:
     ok = a[a["Quality Control"].isna()].copy()
     print(f"{len(a)} wells, {len(ok)} pass QC, {len(idx)} imaged, pairing {args.pairing}")
 
+    if args.pairing_fixture:
+        n = write_pairing_fixture(a, byname, json.loads((out / "summary.json").read_text()), Path(args.pairing_fixture))
+        print(f"{n} cached images -> {args.pairing_fixture}")
+        return 0
     if args.only_gallery:
         keys = set(args.gallery_keys.split(",")) if args.gallery_keys else None
         f = out / "summary.json"

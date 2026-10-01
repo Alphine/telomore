@@ -70,7 +70,7 @@
   /** One 8-bit channel of one well as an engine Channel. The proxy sends an RGB PNG with R = G = B: read R. */
   async function fetchChannel(plateWell, ch, signal) {
     if (!budget.spend(1)) { var cap = new Error("per-tab request cap reached (" + SESSION_CAP + ")"); cap.fatal = true; cap.capReached = true; throw cap; }
-    var res = await fetch("api/well.php?w=" + encodeURIComponent(plateWell) + "&ch=" + ch, { credentials: "omit", signal: signal });
+    var res = await fetch("api/well.php?pair=name&w=" + encodeURIComponent(plateWell) + "&ch=" + ch, { credentials: "omit", signal: signal });
     if (!res.ok) throw httpError(res);
     var cache = res.headers.get("X-Foci-Cache");
     if (cache === "HIT") S.stats.hit++; else if (cache === "MISS") S.stats.miss++; else S.stats.fetched++;

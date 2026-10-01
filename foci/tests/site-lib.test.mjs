@@ -192,3 +192,46 @@ test("real data: every screen symbol resolves to itself; RNF168 is a supported h
   assert.equal(a.universe, 13330);
   assert.equal(a.hyper.find((h) => h.key === "any").K, 29);
 });
+
+// ---- image <-> annotation pairing (docs/EXPERIMENT_PROTOCOL.md 15.4; empirically inferred, unconfirmed by IDR) ----
+test("pairing: column-major rule, inverse, normalisation and backend overlay key", () => {
+  assert.deepEqual(L.PAIRINGS, ["colmajor", "name"]);
+  assert.equal(L.normPairing("name"), "name");
+  assert.equal(L.normPairing("anything else"), "colmajor");
+  assert.equal(L.normPairing(undefined), "colmajor");
+  assert.equal(L.imageAddress("7-14_A1", "colmajor"), "7-14_A1");     // Well Number 1 (fixed point)
+  assert.equal(L.imageAddress("7-14_A2", "colmajor"), "7-14_B1");     // Well Number 2
+  assert.equal(L.imageAddress("7-14_B1", "colmajor"), "7-14_I3");     // Well Number 33
+  assert.equal(L.imageAddress("7-14_L32", "colmajor"), "7-14_L32");   // Well Number 384
+  assert.equal(L.imageAddress("7-14_B1", "name"), "7-14_B1");
+  assert.equal(L.imageAddress("7-14_M1", "colmajor"), null);          // only 12 rows
+  assert.equal(L.imageAddress("7-14_A33", "colmajor"), null);         // only 32 columns
+  assert.equal(L.imageAddress("garbage", "colmajor"), null);
+  assert.equal(L.imageAddress("100-27_A1", "colmajor"), "100-27_A1");
+  // a permutation per plate, inverted by annotationForImage; overlayKey reaches the same image through the colmajor-keyed backend
+  const seen = new Set();
+  for (let r = 0; r < 12; r++) for (let c = 0; c < 32; c++) {
+    const key = "10-34_" + String.fromCharCode(65 + r) + (c + 1);
+    const addr = L.imageAddress(key, "colmajor");
+    seen.add(addr);
+    assert.equal(L.annotationForImage(addr, "colmajor"), key);
+    assert.equal(L.imageAddress(L.overlayKey(key, "colmajor"), "colmajor"), addr);
+    assert.equal(L.imageAddress(L.overlayKey(key, "name"), "colmajor"), key);   // by name: the image at address `key`
+  }
+  assert.equal(seen.size, 384);
+  assert.match(L.PAIRING_NOTE, /unconfirmed/);
+});
+
+test("pairing: lib rule reproduces the shipped data/well_index.json from well_index_byname.json", () => {
+  const dir = path.join(here, "..", "web", "data");
+  const byname = JSON.parse(readFileSync(path.join(dir, "well_index_byname.json"), "utf8"));
+  const col = JSON.parse(readFileSync(path.join(dir, "well_index.json"), "utf8"));
+  const keys = Object.keys(col);
+  assert.equal(keys.length, Object.keys(byname).length);
+  let changed = 0;
+  for (const k of keys) {
+    assert.equal(col[k], byname[L.imageAddress(k, "colmajor")], k);
+    if (col[k] !== byname[k]) changed++;
+  }
+  assert.equal(changed, 56536);
+});

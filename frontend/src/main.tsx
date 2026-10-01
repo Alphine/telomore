@@ -1,3 +1,4 @@
+import { LazyMotion, domAnimation } from 'framer-motion'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
@@ -17,6 +18,7 @@ applyInitialThemeClass()
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
+      <LazyMotion features={domAnimation} strict>
       <ToastProvider>
         {/* basename follows Vite's `base` so the app also works under /telomore/ */}
         <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '') || undefined}>
@@ -27,6 +29,7 @@ createRoot(document.getElementById('root')!).render(
           </AuthProvider>
         </BrowserRouter>
       </ToastProvider>
+      </LazyMotion>
     </ThemeProvider>
   </StrictMode>,
 )

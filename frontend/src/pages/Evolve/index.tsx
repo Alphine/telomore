@@ -100,7 +100,11 @@ export function Evolve() {
     const req = demoSc?.request
     if (!demoSc || !req || !bounds) return
     if (req.model) setBase({ ...bounds.demo, ...req.model })
-    const evolution = { ...bounds.evolution_default, ...req.evolution }
+    const evolution = {
+      ...bounds.evolution_default,
+      ...req.evolution,
+      weights: { ...bounds.fitness_weights_default, ...bounds.evolution_default.weights, ...req.evolution?.weights },
+    }
     setEvo(toForm(evolution))
     setWeights(evolution.weights)
     setNotes(req.notes ?? '')

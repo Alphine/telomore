@@ -1,7 +1,7 @@
 // Tiny toast system (Radix has a toast primitive, but it is not in the approved
 // dependency list). A provider holds the queue; `useToast()` is a no-op outside
 // one so components stay renderable in isolation (tests).
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, m } from 'framer-motion'
 import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react'
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -62,7 +62,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           {items.map((t) => {
             const Icon = ICONS[t.tone]
             return (
-              <motion.div
+              <m.div
                 key={t.id}
                 layout
                 initial={{ opacity: 0, y: 12 }}
@@ -85,7 +85,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 >
                   <X className="h-3.5 w-3.5" aria-hidden />
                 </button>
-              </motion.div>
+              </m.div>
             )
           })}
         </AnimatePresence>

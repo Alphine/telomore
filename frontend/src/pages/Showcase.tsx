@@ -696,7 +696,10 @@ export function Showcase() {
               Log in and the whole loop is yours &mdash; simulate a culture, evolve a protocol, and read the
               reproducibility ledger for every run.
             </p>
-            <div className="relative mt-2 flex gap-3">
+            <div className="relative mt-2 flex flex-wrap gap-3">
+              <Link to="/simulate" className={btnGhost}>
+                Try the precomputed demo
+              </Link>
               <Link to="/register" className={btnPrimary}>
                 Register &mdash; it's free
               </Link>

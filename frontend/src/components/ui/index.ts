@@ -1,5 +1,6 @@
 export { Badge } from './Badge'
-export { Button, buttonVariants } from './Button'
+export { Button } from './Button'
+export { buttonVariants } from './buttonVariants'
 export { Card, CardContent, CardDescription, CardHeader, CardTitle } from './Card'
 export { Dialog, DialogClose, DialogContent, DialogTrigger } from './Dialog'
 export { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from './DropdownMenu'

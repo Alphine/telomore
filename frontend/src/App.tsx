@@ -8,7 +8,6 @@ import { Layout } from './components/Layout'
 import { Skeleton } from './components/ui/Skeleton'
 import { FeatureGate } from './demo/FeatureGate'
 import { FEATURES } from './features'
-import { Account } from './pages/Account'
 import { Docs } from './pages/Docs'
 import { ForgotPassword } from './pages/ForgotPassword'
 import { Home } from './pages/Home'
@@ -35,6 +34,8 @@ const MIGRATED: Record<string, LazyExoticComponent<ComponentType>> = {
   '/experiments': lazyNamed(() => import('./pages/Experiments'), 'Experiments'),
   '/genome': lazyNamed(() => import('./pages/GenomeExplorer'), 'GenomeExplorer'),
 }
+
+const Account = lazyNamed(() => import('./pages/Account'), 'Account')
 
 // The admin area is its own lazy chunk: ordinary visitors never download it.
 const AdminApp = lazy(() => import('./admin/AdminApp'))
@@ -70,7 +71,9 @@ export default function App() {
           path="/account"
           element={
             <RequireAuth>
-              <Account />
+              <Suspense fallback={<RouteFallback />}>
+                <Account />
+              </Suspense>
             </RequireAuth>
           }
         />

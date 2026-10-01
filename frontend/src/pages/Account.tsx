@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { LogOut } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -54,7 +54,7 @@ export function Account() {
   const showForm = !canLive && !pending && !(requests === null && hasPendingFlag)
 
   return (
-    <motion.div {...enter} className="mx-auto max-w-2xl space-y-6">
+    <m.div {...enter} className="mx-auto max-w-2xl space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Account</h1>
         <p className="prose-muted mt-1">Your plan, access requests and session.</p>
@@ -146,6 +146,6 @@ export function Account() {
           <LogOut className="h-4 w-4" aria-hidden /> Log out
         </Button>
       </div>
-    </motion.div>
+    </m.div>
   )
 }

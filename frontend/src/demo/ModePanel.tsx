@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { FlaskConical, Lock, RefreshCw, Sparkles, Zap } from 'lucide-react'
 import { useContext } from 'react'
 import { Link, useLocation } from 'react-router-dom'
@@ -85,7 +85,7 @@ function Picker() {
       {demo.scenarios.map((s, i) => {
         const selected = s.id === demo.selectedId
         return (
-          <motion.button
+          <m.button
             key={s.id}
             type="button"
             role="radio"
@@ -104,8 +104,8 @@ function Picker() {
               <span className="font-heading text-sm font-semibold">{s.title}</span>
               {selected && <Badge tone="teal">Showing</Badge>}
             </span>
-            <span title={s.description} className="mt-1 line-clamp-3 block text-xs leading-relaxed text-slate-600 dark:text-slate-400">{s.description}</span>
-          </motion.button>
+            <span title={s.description} className="mt-1 line-clamp-3 text-xs leading-relaxed text-slate-600 dark:text-slate-400">{s.description}</span>
+          </m.button>
         )
       })}
     </div>

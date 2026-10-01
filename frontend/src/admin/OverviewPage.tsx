@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 import { Link } from 'react-router-dom'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/Card'
@@ -102,7 +102,7 @@ export default function OverviewPage() {
   const computeTotal = compute.reduce((a, d) => a + d.value, 0)
 
   return (
-    <motion.div {...enter} className="space-y-6">
+    <m.div {...enter} className="space-y-6">
       {q.error ? <ErrorCard error={q.error} onRetry={q.reload} title="Refresh failed, showing older numbers" /> : null}
       <section aria-label="Key figures" className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
         {kpis(s).map((k) => (
@@ -169,6 +169,6 @@ export default function OverviewPage() {
           </CardContent>
         </Card>
       </div>
-    </motion.div>
+    </m.div>
   )
 }

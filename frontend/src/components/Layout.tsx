@@ -1,6 +1,6 @@
-import { motion, useReducedMotion } from 'framer-motion'
+import { m, useReducedMotion } from 'framer-motion'
 import { Command, Menu, ShieldCheck, UserRound, X } from 'lucide-react'
-import { useState } from 'react'
+import { Suspense, lazy, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
@@ -9,10 +9,13 @@ import { useAuth } from '../auth/context'
 import { FOCI_LAB_URL, NAV_FEATURES, PUBLIC_NAV_LINKS } from '../features'
 import { ActiveJobsProvider } from '../jobs/ActiveJobsContext'
 import { useActiveJobs } from '../jobs/useActiveJobs'
-import { CommandPalette, useCommandPaletteShortcut } from './CommandPalette'
 import { PlanBadge } from './PlanBadge'
+import { useCommandPaletteShortcut } from './useCommandPalette'
 import { ThemeToggle } from './ThemeToggle'
 import { Button } from './ui/Button'
+
+// Radix dialog + palette code only downloads the first time the palette is opened.
+const CommandPalette = lazy(() => import('./CommandPalette').then((mod) => ({ default: mod.CommandPalette })))
 
 // Maps a background-job `kind` (backend/routers/*.py's `create_job(kind=...)`)
 // to the nav path that started it, so a page's own "in progress" state is
@@ -158,14 +161,14 @@ function PageTransition({ children }: { children: ReactNode }) {
   const reduce = useReducedMotion()
   if (reduce) return <>{children}</>
   return (
-    <motion.div
+    <m.div
         key={location.pathname}
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
       >
         {children}
-    </motion.div>
+    </m.div>
   )
 }
 
@@ -235,7 +238,11 @@ export function Layout({ children }: { children?: ReactNode } = {}) {
           </div>
         </main>
       </div>
-      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+      {paletteOpen && (
+        <Suspense fallback={null}>
+          <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+        </Suspense>
+      )}
     </ActiveJobsProvider>
   )
 }

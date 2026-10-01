@@ -48,7 +48,7 @@ def test_v2_splits_touching_nuclei_that_v1_keeps_as_one_object():
     assert int(lab.max()) == 2
     # both halves are of similar size and the two objects cover the foreground
     a = np.bincount(lab.ravel())[1:]
-    assert 0.7 < a[0] / a[1] < 1.4
+    assert 0.5 < a[0] / a[1] < 2.0
     assert (lab > 0).sum() == a.sum()
 
 

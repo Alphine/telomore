@@ -68,14 +68,14 @@
 
   // Pipeline "v2" (segment_v2.py, NucleusV2Params): the nucleus parameters differ, the four foci parameters are shared.
   var DEFAULTS_V2 = Object.freeze(Object.assign({
-    sigma: 1.0,
+    sigma: 0.7,
     background_size: 41,
     thr_factor: 0.8,
     min_nucleus_px: 60,
-    split_sigma: 1.0,
-    h: 0.5,
-    intensity_weight: 0.0,
-    intensity_sigma: 2.0,
+    split_sigma: 0.5,
+    h: 1.0,
+    intensity_weight: 0.4,
+    intensity_sigma: 1.0,
   }, { foci_sigma: 1.0, tophat_size: 7, min_height: 12.0, peak_window: 5 }));
   var SPECS_V2 = {
     sigma: { int: false, odd: false, lo: 0.1, hi: 10 },

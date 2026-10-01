@@ -206,17 +206,33 @@ def summarise(rows_by, ref="v1", seed=0):
 
 # ------------------------------------------------------------------------------------ tune
 
-def tune(d, rounds=2):
+def _write_tuning(cur, best, trace, done):
+    TUNING.parent.mkdir(parents=True, exist_ok=True)
+    TUNING.write_text(json.dumps({
+        "split": "training (100 images)", "objective": "mean F1 over images and IoU thresholds 0.5..0.9",
+        "grid": GRID, "complete": done, "chosen": dataclasses.asdict(cur), "chosen_objective": best, "trace": trace,
+    }, indent=1) + "\n", encoding="utf-8")
+
+
+def tune(d, rounds=2, start=None):
+    """Coordinate descent over GRID on the training split. ``start`` (dict) resumes from a known point; the run is
+    checkpointed after every improvement, so an interrupted tuning can be continued with ``--start``."""
     train = load_split(d, "training")
     assert len(train) == 100
-    cur = V2.NucleusV2Params()
+    cur = dataclasses.replace(V2.NucleusV2Params(), **(start or {}))
     trace = []
 
     def score(p):
-        return objective(evaluate(train, "v2", p))
+        for attempt in range(40):  # the machine may be short of memory because of other jobs: wait and retry, never skip
+            try:
+                return objective(evaluate(train, "v2", p))
+            except MemoryError:
+                print("  (out of memory, retrying in 30 s)", flush=True)
+                time.sleep(30)
+        raise SystemExit("persistent out-of-memory")
 
     best = score(cur)
-    trace.append({"params": dataclasses.asdict(cur), "objective": best, "note": "start (initial defaults)"})
+    trace.append({"params": dataclasses.asdict(cur), "objective": best, "note": "start (initial defaults)" if not start else "resumed from a checkpoint"})
     print("start", round(best, 4), flush=True)
     for r in range(rounds):
         changed = False
@@ -231,13 +247,10 @@ def tune(d, rounds=2):
                 if s > best + 1e-9:
                     best, cur, changed = s, cand, True
                     print("  -> new best", round(best, 4), dataclasses.asdict(cur), flush=True)
+                    _write_tuning(cur, best, trace, False)
         if not changed:
             break
-    TUNING.parent.mkdir(parents=True, exist_ok=True)
-    TUNING.write_text(json.dumps({
-        "split": "training (100 images)", "objective": "mean F1 over images and IoU thresholds 0.5..0.9",
-        "grid": GRID, "chosen": dataclasses.asdict(cur), "chosen_objective": best, "trace": trace,
-    }, indent=1) + "\n", encoding="utf-8")
+    _write_tuning(cur, best, trace, True)
     print("chosen", dataclasses.asdict(cur), "objective", round(best, 4))
 
 
@@ -284,9 +297,16 @@ def main():
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--tune", action="store_true")
     g.add_argument("--final", action="store_true")
+    ap.add_argument("--start", help="with --tune: resume from these parameters, e.g. sigma=0.7,h=1.0")
+    ap.add_argument("--rounds", type=int, default=2)
     a = ap.parse_args()
     d = data_dir(a.data)
-    tune(d) if a.tune else final(d)
+    if a.tune:
+        proto = V2.NucleusV2Params()
+        start = {k: type(getattr(proto, k))(v) for k, v in (kv.split("=") for kv in a.start.split(","))} if a.start else None
+        tune(d, a.rounds, start)
+    else:
+        final(d)
 
 
 if __name__ == "__main__":

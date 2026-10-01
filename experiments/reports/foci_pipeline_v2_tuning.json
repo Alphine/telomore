@@ -1,0 +1,826 @@
+{
+ "split": "training (100 images)",
+ "objective": "mean F1 over images and IoU thresholds 0.5..0.9",
+ "grid": {
+  "thr_factor": [
+   0.6,
+   0.7,
+   0.8,
+   0.9,
+   1.0
+  ],
+  "sigma": [
+   0.7,
+   1.0,
+   1.5,
+   2.0
+  ],
+  "split_sigma": [
+   0.5,
+   1.0,
+   1.5,
+   2.0
+  ],
+  "h": [
+   0.25,
+   0.5,
+   1.0,
+   1.5,
+   2.0
+  ],
+  "intensity_weight": [
+   0.0,
+   0.2,
+   0.4,
+   0.7,
+   1.0
+  ],
+  "intensity_sigma": [
+   1.0,
+   2.0,
+   3.0
+  ],
+  "min_nucleus_px": [
+   30,
+   60,
+   100,
+   150
+  ],
+  "background_size": [
+   31,
+   41,
+   61
+  ]
+ },
+ "complete": true,
+ "chosen": {
+  "sigma": 0.7,
+  "background_size": 41,
+  "thr_factor": 0.8,
+  "min_nucleus_px": 60,
+  "split_sigma": 0.5,
+  "h": 1.0,
+  "intensity_weight": 0.4,
+  "intensity_sigma": 1.0
+ },
+ "chosen_objective": 0.818756456317094,
+ "trace": [
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.5,
+    "h": 1.0,
+    "intensity_weight": 0.7,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8175199267274234,
+   "note": "resumed from a checkpoint"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.6,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.5,
+    "h": 1.0,
+    "intensity_weight": 0.7,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.7799687939737999,
+   "note": "round 1: thr_factor=0.6"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.7,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.5,
+    "h": 1.0,
+    "intensity_weight": 0.7,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.807587907237931,
+   "note": "round 1: thr_factor=0.7"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.9,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.5,
+    "h": 1.0,
+    "intensity_weight": 0.7,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.810692488271689,
+   "note": "round 1: thr_factor=0.9"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 1.0,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.5,
+    "h": 1.0,
+    "intensity_weight": 0.7,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.7854076319694534,
+   "note": "round 1: thr_factor=1.0"
+  },
+  {
+   "params": {
+    "sigma": 1.0,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.5,
+    "h": 1.0,
+    "intensity_weight": 0.7,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8056087420898941,
+   "note": "round 1: sigma=1.0"
+  },
+  {
+   "params": {
+    "sigma": 1.5,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.5,
+    "h": 1.0,
+    "intensity_weight": 0.7,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.7866008438673523,
+   "note": "round 1: sigma=1.5"
+  },
+  {
+   "params": {
+    "sigma": 2.0,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.5,
+    "h": 1.0,
+    "intensity_weight": 0.7,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.7612642605174554,
+   "note": "round 1: sigma=2.0"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 0.5,
+    "h": 1.0,
+    "intensity_weight": 0.7,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8140570911920504,
+   "note": "round 1: split_sigma=0.5"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.0,
+    "h": 1.0,
+    "intensity_weight": 0.7,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8176856455389492,
+   "note": "round 1: split_sigma=1.0"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.5,
+    "h": 1.0,
+    "intensity_weight": 0.7,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8175199267274234,
+   "note": "round 1: split_sigma=1.5"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 2.0,
+    "h": 1.0,
+    "intensity_weight": 0.7,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8153450879240783,
+   "note": "round 1: split_sigma=2.0"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.0,
+    "h": 0.25,
+    "intensity_weight": 0.7,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.7477299390983072,
+   "note": "round 1: h=0.25"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.0,
+    "h": 0.5,
+    "intensity_weight": 0.7,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.7948396998453389,
+   "note": "round 1: h=0.5"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.0,
+    "h": 1.5,
+    "intensity_weight": 0.7,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8176712984148549,
+   "note": "round 1: h=1.5"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.0,
+    "h": 2.0,
+    "intensity_weight": 0.7,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8142604426910661,
+   "note": "round 1: h=2.0"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.0,
+    "h": 1.0,
+    "intensity_weight": 0.0,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8132778573448941,
+   "note": "round 1: intensity_weight=0.0"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.0,
+    "h": 1.0,
+    "intensity_weight": 0.2,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8174219392999191,
+   "note": "round 1: intensity_weight=0.2"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.0,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8180686532055484,
+   "note": "round 1: intensity_weight=0.4"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.0,
+    "h": 1.0,
+    "intensity_weight": 0.7,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8176856455389492,
+   "note": "round 1: intensity_weight=0.7"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.0,
+    "h": 1.0,
+    "intensity_weight": 1.0,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8107005220024636,
+   "note": "round 1: intensity_weight=1.0"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.0,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 2.0
+   },
+   "objective": 0.8172173746795708,
+   "note": "round 1: intensity_sigma=2.0"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.0,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 3.0
+   },
+   "objective": 0.8150956985539439,
+   "note": "round 1: intensity_sigma=3.0"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 60,
+    "split_sigma": 1.0,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8179609790431224,
+   "note": "round 1: min_nucleus_px=60"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 100,
+    "split_sigma": 1.0,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8161433179921269,
+   "note": "round 1: min_nucleus_px=100"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 150,
+    "split_sigma": 1.0,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.811137421946338,
+   "note": "round 1: min_nucleus_px=150"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 31,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.0,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8156135797304471,
+   "note": "round 1: background_size=31"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 61,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.0,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8123806646159701,
+   "note": "round 1: background_size=61"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.6,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.0,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.7811811334110903,
+   "note": "round 2: thr_factor=0.6"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.7,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.0,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.808983975701632,
+   "note": "round 2: thr_factor=0.7"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.9,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.0,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8108136477331671,
+   "note": "round 2: thr_factor=0.9"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 1.0,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.0,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.7860238715294998,
+   "note": "round 2: thr_factor=1.0"
+  },
+  {
+   "params": {
+    "sigma": 1.0,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.0,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8076454266363235,
+   "note": "round 2: sigma=1.0"
+  },
+  {
+   "params": {
+    "sigma": 1.5,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.0,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.7859169628465148,
+   "note": "round 2: sigma=1.5"
+  },
+  {
+   "params": {
+    "sigma": 2.0,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.0,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.7611576374067758,
+   "note": "round 2: sigma=2.0"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 0.5,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8186200057022801,
+   "note": "round 2: split_sigma=0.5"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.0,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8180686532055484,
+   "note": "round 2: split_sigma=1.0"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 1.5,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8176280338745482,
+   "note": "round 2: split_sigma=1.5"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 2.0,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8148083433614605,
+   "note": "round 2: split_sigma=2.0"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 0.5,
+    "h": 0.25,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.48932374141311136,
+   "note": "round 2: h=0.25"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 0.5,
+    "h": 0.5,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.7819992070799102,
+   "note": "round 2: h=0.5"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 0.5,
+    "h": 1.5,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.818435985800888,
+   "note": "round 2: h=1.5"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 0.5,
+    "h": 2.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8145154201338907,
+   "note": "round 2: h=2.0"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 0.5,
+    "h": 1.0,
+    "intensity_weight": 0.0,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8120441379512815,
+   "note": "round 2: intensity_weight=0.0"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 0.5,
+    "h": 1.0,
+    "intensity_weight": 0.2,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8172355483086935,
+   "note": "round 2: intensity_weight=0.2"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 0.5,
+    "h": 1.0,
+    "intensity_weight": 0.7,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8140570911920504,
+   "note": "round 2: intensity_weight=0.7"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 0.5,
+    "h": 1.0,
+    "intensity_weight": 1.0,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8041417343070286,
+   "note": "round 2: intensity_weight=1.0"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 0.5,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 2.0
+   },
+   "objective": 0.8169883971072396,
+   "note": "round 2: intensity_sigma=2.0"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 30,
+    "split_sigma": 0.5,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 3.0
+   },
+   "objective": 0.8150225641922915,
+   "note": "round 2: intensity_sigma=3.0"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 60,
+    "split_sigma": 0.5,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.818756456317094,
+   "note": "round 2: min_nucleus_px=60"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 100,
+    "split_sigma": 0.5,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8170628288286146,
+   "note": "round 2: min_nucleus_px=100"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 41,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 150,
+    "split_sigma": 0.5,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8123823781333169,
+   "note": "round 2: min_nucleus_px=150"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 31,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 60,
+    "split_sigma": 0.5,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8158265716460191,
+   "note": "round 2: background_size=31"
+  },
+  {
+   "params": {
+    "sigma": 0.7,
+    "background_size": 61,
+    "thr_factor": 0.8,
+    "min_nucleus_px": 60,
+    "split_sigma": 0.5,
+    "h": 1.0,
+    "intensity_weight": 0.4,
+    "intensity_sigma": 1.0
+   },
+   "objective": 0.8127817527335248,
+   "note": "round 2: background_size=61"
+  }
+ ],
+ "earlier_log": "Run 1 (crashed with an out-of-memory error in the last grid item of round 1; its log is kept verbatim, the later run resumed from the best point it had reached):\nstart 0.7986\nround 1 thr_factor=0.6: 0.7501\nround 1 thr_factor=0.7: 0.7846\nround 1 thr_factor=0.9: 0.7919\nround 1 thr_factor=1.0: 0.7661\nround 1 sigma=0.7: 0.8084\n  -> new best 0.8084 {'sigma': 0.7, 'background_size': 41, 'thr_factor': 0.8, 'min_nucleus_px': 60, 'split_sigma': 1.0, 'h': 0.5, 'intensity_weight': 0.0, 'intensity_sigma': 2.0}\nround 1 sigma=1.0: 0.7986\nround 1 sigma=1.5: 0.7751\nround 1 sigma=2.0: 0.7510\nround 1 split_sigma=0.5: 0.7900\nround 1 split_sigma=1.5: 0.8101\n  -> new best 0.8101 {'sigma': 0.7, 'background_size': 41, 'thr_factor': 0.8, 'min_nucleus_px': 60, 'split_sigma': 1.5, 'h': 0.5, 'intensity_weight': 0.0, 'intensity_sigma': 2.0}\nround 1 split_sigma=2.0: 0.8100\nround 1 h=0.25: 0.8019\nround 1 h=1.0: 0.8115\n  -> new best 0.8115 {'sigma': 0.7, 'background_size': 41, 'thr_factor': 0.8, 'min_nucleus_px': 60, 'split_sigma': 1.5, 'h': 1.0, 'intensity_weight': 0.0, 'intensity_sigma': 2.0}\nround 1 h=1.5: 0.8072\nround 1 h=2.0: 0.8003\nround 1 intensity_weight=0.2: 0.8140\n  -> new best 0.814 {'sigma': 0.7, 'background_size': 41, 'thr_factor': 0.8, 'min_nucleus_px': 60, 'split_sigma': 1.5, 'h': 1.0, 'intensity_weight': 0.2, 'intensity_sigma': 2.0}\nround 1 intensity_weight=0.4: 0.8155\n  -> new best 0.8155 {'sigma': 0.7, 'background_size': 41, 'thr_factor': 0.8, 'min_nucleus_px': 60, 'split_sigma': 1.5, 'h': 1.0, 'intensity_weight': 0.4, 'intensity_sigma': 2.0}\nround 1 intensity_weight=0.7: 0.8162\n  -> new best 0.8162 {'sigma': 0.7, 'background_size': 41, 'thr_factor': 0.8, 'min_nucleus_px': 60, 'split_sigma': 1.5, 'h': 1.0, 'intensity_weight': 0.7, 'intensity_sigma': 2.0}\nround 1 intensity_weight=1.0: 0.8153\nround 1 intensity_sigma=1.0: 0.8174\n  -> new best 0.8174 {'sigma': 0.7, 'background_size': 41, 'thr_factor': 0.8, 'min_nucleus_px': 60, 'split_sigma': 1.5, 'h': 1.0, 'intensity_weight': 0.7, 'intensity_sigma': 1.0}\nround 1 intensity_sigma=2.0: 0.8162\nround 1 intensity_sigma=3.0: 0.8134\nround 1 min_nucleus_px=30: 0.8175\n  -> new best 0.8175 {'sigma': 0.7, 'background_size': 41, 'thr_factor': 0.8, 'min_nucleus_px': 30, 'split_sigma': 1.5, 'h': 1.0, 'intensity_weight': 0.7, 'intensity_sigma': 1.0}\nround 1 min_nucleus_px=60: 0.8174\nround 1 min_nucleus_px=100: 0.8156\nround 1 min_nucleus_px=150: 0.8105\nTraceback (most recent call last):\n  File \"C:\\dev\\wt3\\v2\\scripts\\eval_foci_pipeline_v2.py\", line 293, in <module>\n    main()\n    ~~~~^^\n  File \"C:\\dev\\wt3\\v2\\scripts\\eval_foci_pipeline_v2.py\", line 289, in main\n    tune(d) if a.tune else final(d)\n    ~~~~^^^\n  File \"C:\\dev\\wt3\\v2\\scripts\\eval_foci_pipeline_v2.py\", line 228, in tune\n    s = score(cand)\n  File \"C:\\dev\\wt3\\v2\\scripts\\eval_foci_pipeline_v2.py\", line 216, in score\n    return objective(evaluate(train, \"v2\", p))\n                     ~~~~~~~~^^^^^^^^^^^^^^^^\n  File \"C:\\dev\\wt3\\v2\\scripts\\eval_foci_pipeline_v2.py\", line 131, in evaluate\n    lab, n_est = run_pipeline(version, im, p2)\n                 ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^\n  File \"C:\\dev\\wt3\\v2\\scripts\\eval_foci_pipeline_v2.py\", line 123, in run_pipeline\n    lab = V2.segment_nuclei_v2(d, p2)\n  File \"C:\\dev\\wt3\\v2\\src\\telomere_lab\\foci\\segment_v2.py\", line 147, in segment_nuclei_v2\n    if not mask.any():\n        ^^^^^^^^^^^^^^\n  File \"C:\\dev\\wt3\\v2\\src\\telomere_lab\\foci\\segment_v2.py\", line 74, in quantised_surface\n    if m2 > 0:\n    \nnumpy._core._exceptions._ArrayMemoryError: Unable to allocate 2.76 MiB for an array with shape (520, 696) and data type float64\n"
+}

@@ -106,9 +106,9 @@
           <select id="mode"><option value="auto">Automatic (GPU if it passes its self-test)</option><option value="gpu">GPU only</option><option value="reference">CPU reference only</option></select></div>
         <div class="field"><label for="pool">Worker pool size</label><select id="pool"></select></div>
         <div class="field"><label for="pipeline">Nucleus pipeline</label>
-          <select id="pipeline" aria-describedby="pipelineNote"><option value="v1">v1 (default)</option><option value="v2">v2 (splits touching nuclei, experimental)</option></select></div>
+          <select id="pipeline" aria-describedby="pipelineNote"><option value="v1">v1 (previous: touching nuclei counted by area)</option><option value="v2" selected>v2 (default: splits touching nuclei)</option></select></div>
       </div>
-      <p class="note" id="pipelineNote">v1 counts touching nuclei by area. v2 separates them (distance-transform watershed, CPU only). Only the nucleus step differs; the foci counting step is identical and remains unvalidated, so a better nucleus count is not evidence of more accurate foci counts.</p>
+      <p class="note" id="pipelineNote">v1 counts touching nuclei by area. v2 separates them (distance-transform watershed, CPU only; on the BBBC039 test split nucleus F1 at IoU 0.5 is 0.91 vs 0.50 and the count error drops from -17% to -10%, but that is one cell line and stain). Only the nucleus step differs; the foci counting step is identical and remains unvalidated, so a better nucleus count is not evidence of more accurate foci counts.</p>
       <p class="note">Each worker holds one image pair in memory while it runs; use 1 for very large images.</p>
       <div class="rules">
         <div class="field"><label for="paramPreset">Preset</label>

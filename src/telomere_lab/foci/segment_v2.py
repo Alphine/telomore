@@ -5,7 +5,7 @@ background opening subtracted -> Otsu on *log* intensity), so touching nuclei sh
 object is about 1.7x too big on BBBC039 (foreground Dice 0.75).  v2 changes two things and keeps the foci stage
 of v1 untouched:
 
-1. Foreground: Gaussian ``sigma`` (default 1) -> background opening subtracted -> *linear* Otsu on the positive
+1. Foreground: Gaussian ``sigma`` (default 0.7) -> background opening subtracted -> *linear* Otsu on the positive
    values, scaled by ``thr_factor`` -> one binary opening -> fill holes.
 2. Split: exact Euclidean distance transform of the (zero-padded) mask, Gaussian-smoothed (``split_sigma``),
    optionally plus a fraction (``intensity_weight``) of the smoothed DNA intensity, quantised to 1/32 px.
@@ -35,14 +35,14 @@ Q_SCALE = 32.0  # surface quantisation: 1/32 px
 
 @dataclass(frozen=True)
 class NucleusV2Params:
-    sigma: float = 1.0               # Gaussian sigma of the DNA channel before thresholding
+    sigma: float = 0.7               # Gaussian sigma of the DNA channel before thresholding
     background_size: int = 41        # grey-opening window (odd), flattens uneven illumination
     thr_factor: float = 0.8          # multiplier on the linear Otsu threshold
     min_nucleus_px: int = 60         # objects smaller than this are dropped (after the split)
-    split_sigma: float = 1.0         # Gaussian sigma of the distance map (0 = none)
-    h: float = 0.5                   # minimum dynamics (px of smoothed distance) of a separate nucleus
-    intensity_weight: float = 0.0    # weight of the smoothed DNA intensity in the split surface (0 = distance only)
-    intensity_sigma: float = 2.0     # Gaussian sigma of that intensity term
+    split_sigma: float = 0.5         # Gaussian sigma of the distance map (0 = none)
+    h: float = 1.0                   # minimum dynamics (px of smoothed distance) of a separate nucleus
+    intensity_weight: float = 0.4    # weight of the smoothed DNA intensity in the split surface (0 = distance only)
+    intensity_sigma: float = 1.0     # Gaussian sigma of that intensity term
 
 
 def v2_params_dict(p: NucleusV2Params) -> Dict[str, float]:

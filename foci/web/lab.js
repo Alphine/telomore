@@ -78,7 +78,8 @@
     S.defaultsBy = { v1: S.defaults };
     var hasV2 = Array.isArray(Eng.pipelines) && Eng.pipelines.indexOf("v2") >= 0;
     if (hasV2) { try { S.defaultsBy.v2 = Eng.defaultParams("v2"); } catch (e) { S.defaultsBy.v2 = null; } }
-    if (!S.defaultsBy.v2) $("pipeline").querySelector('option[value="v2"]').disabled = true;
+    if (!S.defaultsBy.v2) { $("pipeline").querySelector('option[value="v2"]').disabled = true; $("pipeline").value = "v1"; }
+    else { S.pipeline = "v2"; S.defaults = S.defaultsBy.v2; $("pipeline").value = "v2"; }   // v2 is the page default (BBBC039 test split, docs/EXPERIMENT_PROTOCOL.md 15.5)
     if (!S.defaults) { $("engineMissing").hidden = false; showBadge("Analysis engine failed to start", "none"); return; }
     S.engineVersion = Eng.version || null;
     try { S.caps = await Eng.capabilities(); } catch (e) { S.caps = null; }

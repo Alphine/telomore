@@ -1269,6 +1269,50 @@ zip outside the repo, then
 `experiments/reports/foci_raw16.json`); tests: `tests/test_foci_raw16.py` (the OME-Zarr reader test needs zarr and is
 skipped without it).
 
+## 15.5 Experiment N — Foci Lab nucleus pipeline v2 (watershed split of touching nuclei) vs v1 on BBBC039
+
+### Question
+v1 labels connected components of a loose mask, so touching nuclei share one object and are only *counted* by area
+(`round(area / median area)`). On BBBC039 it under-counts and its objects are far too big (foreground Dice 0.75). Does a
+distance-transform watershed (pipeline "v2", `src/telomere_lab/foci/segment_v2.py`) fix that?
+
+### Data and protocol
+BBBC039 (U2OS, Hoechst, widefield, 520x696, 12-bit, CC0; ~23,000 annotated nuclei), official split 100 train / 50 validation / 50 test.
+**All nine v2 parameters were tuned on the 100 training images only** (coordinate descent over a fixed grid, objective = mean F1 over
+images and IoU 0.5..0.9; trace in `experiments/reports/foci_pipeline_v2_tuning.json`; the first tuning run died with an
+out-of-memory error in its last grid item, its log is kept verbatim in that file and the second run resumed from the best point it had
+reached). The parameters were then frozen as the defaults of `NucleusV2Params`; `--final` refuses to run otherwise. The test split was
+evaluated once (v1 and v2 side by side); the validation split is a secondary check and nothing was chosen on it. v1 was never tuned
+(its published defaults). Matching: predicted object to ground-truth nucleus with IoU strictly greater than t; F1 = 2TP/(2TP+FP+FN),
+averaged over images. 95% CIs are percentile bootstrap intervals over images (2000 resamples, seed 0; paired for differences).
+Inputs are the raw 12-bit values (the browser engine normalises to 0..255 first; the algorithm is scale-free apart from float rounding, but
+this exact configuration was not scored on normalised data).
+
+### Result (test split, n = 50 images, 5,720 ground-truth nuclei)
+| IoU | v1 F1 [95% CI] | v2 F1 [95% CI] |
+|---|---|---|
+| 0.5 | 0.501 [0.455, 0.546] | 0.913 [0.883, 0.932] |
+| 0.6 | 0.212 [0.181, 0.245] | 0.895 [0.862, 0.916] |
+| 0.7 | 0.015 [0.010, 0.022] | 0.876 [0.840, 0.900] |
+| 0.8 | 0.000 [0.000, 0.001] | 0.829 [0.793, 0.857] |
+| 0.9 | 0.000 [0.000, 0.000] | 0.648 [0.609, 0.681] |
+
+Nuclei per image (ground truth 114.4): v1 94.9 (bias -19.5 [-23.6, -15.7] = -17.1% [-19.6, -14.8]); v2 103.4 (bias -11.0 [-13.4, -9.0] = -9.6% [-11.7, -8.0]).
+Paired differences v2 - v1: mean F1 over IoU 0.5..0.9 +0.686 [+0.657, +0.708]; F1@0.5 +0.412 [+0.369, +0.456]; count MAE -8.5 nuclei/image [-11.2, -5.8].
+Validation split (secondary): F1@0.5 0.479 -> 0.906, count bias -8.6% [-20.7, +16.3] -> -5.0% [-9.2, +3.1]. Ablations on the test split (mean F1): tight foreground without splitting 0.738;
+distance-only split (no intensity term) 0.829; full v2 0.832, i.e. most of the gain is the tighter foreground plus the split, the intensity term adds about 0.003.
+Files: `experiments/reports/foci_pipeline_v2.json`, `scripts/eval_foci_pipeline_v2.py` (needs BBBC039 zips outside the repo; `--tune`, `--final`).
+
+### Interpretation and limits
+* v2 is clearly better than v1 at segmenting these nuclei, at every IoU threshold, with non-overlapping CIs and a paired CI far from zero.
+* It still **under-counts by about 10%** on the test split, so it does not meet the "count bias within +-5%" bar of `foci/docs/research/benchmark-protocol.md`; the
+  nuclear branch is therefore **not** declared validated. Remaining errors are mostly merged clusters and dim/small nuclei.
+* One cell line, one stain, one microscope. Nothing here was measured on the 8-bit IDR 53BP1 fields the site shows, or on other users' images.
+* **This says nothing about the accuracy of foci counts.** The foci stage is byte-for-byte the v1 stage; foci remain unvalidated (Experiments L, L2). Nuclei are the
+  denominator of foci per nucleus and the unit of the per-nucleus table, so better nuclei change those, but no claim about foci accuracy follows.
+* Default: the Lab page selects v2; the Python and engine APIs default to `v1` (existing callers and the v1 golden fixtures are unchanged; pass `pipeline: 'v2'`).
+* The JS engine reproduces v2 label for label in CPU reference mode (`foci/tests/engine-v2.test.mjs`, 21 fixtures + 42 sweeps). v2 is CPU-only; GPU mode runs v1 filters only.
+
 ## 16. Performance (scripts/benchmark.py, same machine)
 
 | Measurement | Value |

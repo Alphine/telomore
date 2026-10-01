@@ -936,3 +936,83 @@ process and resets on restart.
 * Run ids and artifact names are restricted to a single safe path segment
   before touching the filesystem (400 otherwise).
 * Jobs are owner-only; the in-memory store is single-process.
+
+## Plate endpoint (`plate.php`)
+
+Plate mode of the Foci Lab site (`foci/web/screen.html`, see `foci/docs/SCREEN_MODE.md`) lets a visitor's browser fetch
+all wells of one idr0010 plate through the cache proxy. Three PHP files under `foci/web/api/` serve it; `plate.php` and
+`plates.php` never contact IDR. All three accept `GET` and `HEAD` only (405 with `Allow: GET, HEAD` otherwise).
+
+### `GET /api/plates.php`
+
+```
+{"plates":[{"plate":"5-12","wells":384}, ... ,{"plate":"7-14","wells":384}, ...],"n":148}
+```
+
+Imaged plates only (148; the annotation also lists `153-29`, which has no images and is absent), natural order of the plate
+name, `Cache-Control: public, max-age=86400`, `ETag` (`If-None-Match` gives 304).
+
+### `GET /api/plate.php?plate=<Plate>`
+
+```
+{"plate":"7-14",
+ "wells":[{"well":"A1","plate_well":"7-14_A1","image_id":1922019}, {"well":"B1", ...}, ...],
+ "n":384,"rows":12,"cols":32,
+ "quota":{"requests_per_plate":768,"cached_responses_per_min":1200,"uncached_responses_per_min":60,
+          "uncached_responses_per_day":2000,"note":"per client address; ..."}}
+```
+
+* Built only from `data/well_index.json`. `plate` must match `^[0-9]{1,4}(-[0-9]{1,4})?$` (`102`, `10-34`, `100-27`);
+  anything else (arrays, NUL, newline, `../`, unicode, repeated parts) is `400`; a valid name that is not in the index
+  (for example `153-29`, `999`) is `404`. Errors are `text/plain`, `Cache-Control: no-store` (404: `max-age=3600`).
+* `wells` is ordered column by column (A1, B1, ..., L1, A2, ...). `well` is the unpadded name (`A1`, never `A01`).
+  **`rows` and `cols` are the extent of the plate's wells: every idr0010 plate is 12 x 32 (A-L, 1-32), not 16 x 24.**
+* `quota` repeats the limits below (values of the running configuration); `requests_per_plate` is two images per well.
+* `Cache-Control: public, max-age=3600`, `ETag`, 304 on `If-None-Match`.
+
+### `well.php`: limits for bulk use
+
+Contract of the images is unchanged (section "`well.php`" above). New: response headers, limits, and statuses.
+
+| Header | Meaning |
+|---|---|
+| `X-Foci-Cache: HIT` / `MISS` | served from the cache / fetched from IDR for this request |
+| `X-Foci-Quota: responses=N; misses-minute=N; misses-day=N` | tokens this client has left after the request |
+| `ETag: "<imageid>.<variant>.<bytes>"` | cached images; `If-None-Match` (strong, weak, list or `*`) gives 304 (counts as a cache hit). `info` has a content ETag |
+| `Retry-After: <seconds>` | on 429 and 503 (integer, 1 to 86400) |
+
+| Status | Cause |
+|---|---|
+| 429 | this client exceeded the cached-response allowance, or the uncached-response allowance (per minute or per day) |
+| 503 | the site-wide guard towards IDR is saturated (request rate or simultaneous fetches), IDR itself answered 429/503, or a same-image fetch is taking very long. A 503 never charges the client's uncached allowance |
+
+Client key: `REMOTE_ADDR` hashed (SHA-256, truncated); IPv6 addresses are keyed by their /64. `X-Forwarded-For` is ignored
+unless `REMOTE_ADDR` is listed in `FOCI_TRUSTED_PROXIES` (then the first untrusted address from the right is used; the walk
+stops at an unparsable entry).
+
+| Setting (env var / key in `focilab_config.php`) | Default | Meaning |
+|---|---|---|
+| `FOCI_HIT_PER_MIN` / `hit_per_min` | 1200 | responses per client per minute (token bucket, burst = same); every response spends one |
+| `FOCI_MISS_PER_MIN` / `miss_per_min` | 60 | responses that need IDR, per client per minute |
+| `FOCI_MISS_PER_DAY` / `miss_per_day` | 2000 | same, per client per day (token bucket that refills continuously) |
+| `FOCI_IDR_RATE` / `idr_rate` | 3 | IDR requests per second, whole site (a first-time well uses up to 3, then 1 per further channel) |
+| `FOCI_IDR_BURST` / `idr_burst` | 6 | IDR token bucket capacity |
+| `FOCI_IDR_CONCURRENCY` / `idr_concurrency` | 3 | simultaneous IDR fetches, whole site (file locks, released even if a process dies) |
+| `FOCI_IDR_WAIT_MS` / `idr_wait_ms` | 2500 | longest wait for an IDR token before answering 503 |
+| `FOCI_CACHE_MAX_BYTES` / `cache_max_bytes` | 1500000000 | soft cache cap; `0` disables the guard |
+| `FOCI_CLEANUP_PROB` / `cleanup_prob` | 0.02 | chance that a miss runs the LRU cleanup after the response is sent |
+| `FOCI_EVICT_GRACE_S` / `evict_grace_s` | 120 | files modified this recently are never evicted |
+| `FOCI_TRUSTED_PROXIES` / `trusted_proxies` | empty | comma-separated proxy addresses whose `X-Forwarded-For` is honoured |
+| `FOCI_CACHE_DIR` | `<parent of document root>/focilab_cache` | absolute cache location (needed for the cron script, which has no document root) |
+
+Order of precedence: environment variable, then `../focilab_config.php` (a PHP file returning an array, kept next to the
+cache directory and outside the web root), then the default. Numbers are clamped to fixed ranges; garbage falls back to the
+default. Reasons for the defaults are in `foci/docs/SCREEN_MODE.md`.
+
+State lives in the cache directory (outside the web root): `_rl/` one small file per client (tokens and a timestamp, updated
+under `flock`; a timestamp in the future is treated as now, so clock jumps cannot freeze or flood a client), `_idr/` the
+site-wide rate bucket and the fetch slots, `_locks/` 64 lock files that make concurrent misses for one image queue up so IDR
+is asked once, `idr_cookies.txt` (refreshed hourly under a lock, replaced atomically, never evicted). Eviction deletes
+least-recently-used `<imageid>.<variant>` files (mtime, refreshed by hits) down to 90 % of the cap; `.tmp` files older than
+15 minutes and limiter files older than two days are removed in the same pass. `php api/cache_gc.php` does the same from
+cron. Web access to `api/_*.php`, `cache_gc.php` and `config.php` is refused by `.htaccess` (and they do nothing when called).

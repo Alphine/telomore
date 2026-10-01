@@ -65,13 +65,26 @@ test("429 with Retry-After stops ALL workers for that long, then the task is ret
   assert.equal(starts.filter(([i]) => i === 0).length, 2);          // retried exactly once
 });
 
-test("Retry-After is clamped to [1 s, maxRetryAfterMs]; a missing header backs off exponentially", async () => {
+test("Retry-After is at least 1 s; a missing header backs off exponentially", async () => {
   const clock = makeClock(), events = []; let n = 0;
-  const tasks = mk(1, async () => { n++; if (n === 1) throw err(503, { retryAfter: 0 }); if (n === 2) throw err(503, { retryAfter: 99999 }); if (n === 3) throw err(503); if (n === 4) throw err(429); });
-  const s = S.createScheduler({ concurrency: 1, tasks, sleep: clock.sleep, now: clock.now, maxRetryAfterMs: 60000, onEvent: (e) => events.push(e) });
+  const tasks = mk(1, async () => { n++; if (n === 1) throw err(503, { retryAfter: 0 }); if (n === 2) throw err(503, { retryAfter: 60 }); if (n === 3) throw err(503); if (n === 4) throw err(429); });
+  const s = S.createScheduler({ concurrency: 1, tasks, sleep: clock.sleep, now: clock.now, maxRetryAfterMs: 120000, onEvent: (e) => events.push(e) });
   await clock.settle(s.start());
   const waits = events.filter((e) => e.type === "throttled").map((e) => e.waitMs);
-  assert.deepEqual(waits, [1000, 60000, 20000, 40000]);             // 0 -> 1 s; huge -> cap; no header -> 5 s * 2^(streak-1), streak 3 and 4
+  assert.deepEqual(waits, [1000, 60000, 20000, 40000]);             // 0 -> 1 s; as asked; no header -> 5 s * 2^(streak-1), streak 3 and 4
+});
+
+test("a very long Retry-After (daily allowance spent) stops the run at once instead of polling; resume works", async () => {
+  const clock = makeClock(), events = []; let refuse = true, calls = 0;
+  const tasks = mk(4, async () => { calls++; if (refuse) throw err(429, { retryAfter: 40000 }); });
+  const s = S.createScheduler({ concurrency: 3, tasks, sleep: clock.sleep, now: clock.now, maxRetryAfterMs: 120000, onEvent: (e) => events.push(e) });
+  const t0 = clock.now();
+  const r = await clock.settle(s.start());
+  assert.equal(r.status, "busy"); assert.ok(calls <= 3); assert.equal(r.pending, 4);
+  assert.equal(events.find((e) => e.type === "busy").retryAfterMs, 40000000);
+  assert.ok(clock.now() - t0 < 5000, "did not wait");
+  refuse = false;
+  assert.equal((await clock.settle(s.start())).status, "done");
 });
 
 test("a server that keeps refusing ends the run as 'busy' (never retries forever); pending work is kept and resumable", async () => {

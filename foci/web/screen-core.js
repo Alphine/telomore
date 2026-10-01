@@ -281,8 +281,9 @@
 
   /**
    * Runs tasks {id, run({signal, attempt})} with at most `concurrency` in flight.
-   *  - an error with status 429/503 is "throttled": ALL workers wait for Retry-After (capped), the task goes back to the
-   *    queue; after `maxThrottleStreak` throttles in a row with no success the run stops with status "busy";
+   *  - an error with status 429/503 is "throttled": ALL workers wait for Retry-After, the task goes back to the queue;
+   *    a Retry-After longer than `maxRetryAfterMs`, or `maxThrottleStreak` throttles in a row with no success, stops the run
+   *    with status "busy" (nothing is lost; start() resumes);
    *  - other 5xx / network errors (no status) retry with exponential backoff up to `maxAttempts`, then the task fails;
    *  - other 4xx, and errors with .fatal, fail the task at once; .name === "AbortError" puts it back (stop/cancel);
    *  - pause() stops taking new tasks and lets running ones finish; cancel() also aborts running ones;
@@ -335,7 +336,14 @@
             if (st === 429 || st === 503) {
               streak++;
               var ra = e.retryAfter != null && isFinite(e.retryAfter) ? e.retryAfter * 1000 : Math.min(o.maxRetryAfterMs, o.defaultRetryAfterMs * Math.pow(2, Math.min(streak - 1, 5)));
-              var ms = Math.max(1000, Math.min(o.maxRetryAfterMs, ra));
+              if (ra > o.maxRetryAfterMs) {           // the server asks for a long pause (e.g. the daily allowance is spent): do not poll, stop and say when
+                attempts.set(id, attempt - 1); queue.unshift(id);
+                stopReason = "busy"; runState = "stopping"; napCtrl.abort();
+                emit("throttled", { id: id, status: st, waitMs: ra, streak: streak });
+                emit("busy", { streak: streak, retryAfterMs: ra });
+                break;
+              }
+              var ms = Math.max(1000, ra);
               blockedUntil = Math.max(blockedUntil, o.now() + ms);
               attempts.set(id, attempt - 1);       // throttling is not the task's fault; the streak limit bounds the total
               queue.unshift(id);

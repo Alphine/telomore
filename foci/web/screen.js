@@ -263,10 +263,11 @@
     S.params = params; S.mode = $("modeSel").value;
     $("progressBox").hidden = false;
     try { await ensureAuthors(); } catch (e) { setMsg($("progressText"), "Could not load the authors' table: " + (e.message || e), "err"); return; }
+    if (S.pool) { try { S.pool.terminate(); } catch (e) { /* ignore */ } S.pool = null; }
     try {
       S.pool = S.engine.createPool(Math.max(1, Math.min(3, (navigator.hardwareConcurrency || 2) - 1)));
     } catch (e) { setMsg($("progressText"), "Could not start the engine: " + (e.message || e), "err"); return; }
-    S.gpuLost = false; S.capHit = false; S.startedUtc = S.startedUtc || new Date().toISOString(); S.startedAt = Date.now();
+    S.gpuLost = false; S.capHit = false; S.busyAfterMs = 0; S.startedUtc = S.startedUtc || new Date().toISOString(); S.startedAt = Date.now();
     var c0 = counts(); S.resumedFrom = c0.ok + c0.failed;
     S.sched = C.createScheduler({ concurrency: 3, tasks: makeTasks(), minGapMs: 60, onEvent: onSchedEvent });
     S.running = true; setRunButtons("running"); refreshGo(); renderAll(true);
@@ -282,7 +283,8 @@
   function onSchedEvent(ev) {
     if (ev.type === "failed" && ev.error && ev.error.capReached && S.sched) { S.capHit = true; S.sched.pause(); }
     if (ev.type === "failed") { S.results[ev.id] = { error: (ev.error && (ev.error.code || ev.error.message) || "error").toString().slice(0, 120) }; scheduleRender(); }
-    else if (ev.type === "throttled") { S.stats.throttled++; S.waitUntil = Date.now() + ev.waitMs; }
+    else if (ev.type === "throttled") { S.stats.throttled++; S.waitUntil = Date.now() + Math.min(ev.waitMs, 3600000); }
+    else if (ev.type === "busy") { S.busyAfterMs = ev.retryAfterMs || 0; }
     else if (ev.type === "done") scheduleRender();
   }
   function setRunButtons(state, r) {
@@ -316,7 +318,10 @@
     else if (status === "paused" && S.capHit) { line += " — paused: this tab's cap of " + SESSION_CAP + " image requests is used up. Reload the page to start a new session."; kind = "err"; }
     else if (status === "paused") line += S.gpuLost ? " — paused: the GPU was lost. Choose 'CPU reference' and press Resume." : " — paused.";
     else if (status === "cancelled") line += " — cancelled; results so far are kept and you can resume.";
-    else if (status === "busy") { line += " — stopped: the server kept asking us to slow down. Try again later; nothing is lost."; kind = "err"; }
+    else if (status === "busy") {
+      var again = S.busyAfterMs ? "the server asks for about " + (S.busyAfterMs >= 5400000 ? Math.round(S.busyAfterMs / 3600000) + " h" : Math.max(1, Math.round(S.busyAfterMs / 60000)) + " min") + " of rest" : "the server kept asking us to slow down";
+      line += " — stopped: " + again + ". Press Resume later; nothing is lost."; kind = "err";
+    }
     setMsg(t, line, kind);
   }
   setInterval(function () { if (S.running) progressText("running"); }, 1000);

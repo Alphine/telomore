@@ -16,6 +16,10 @@ import { InterpretPanel } from '../../components/InterpretPanel'
 import { MetricRow } from '../../components/MetricRow'
 import { ModelConfigForm } from '../../components/ModelConfigForm'
 import { NumberInput } from '../../components/NumberInput'
+import { DemoForm } from '../../components/DemoForm'
+import { useDemoScenario } from '../../demo/context'
+import { DEMO_JOB_PREFIX } from '../../demo/replay'
+import type { EvolveRequest } from '../../api/types'
 import { PageHeader } from '../../components/PageHeader'
 import { PhasesControl } from '../../components/PhasesControl'
 import { ProgressBar } from '../../components/ProgressBar'
@@ -90,6 +94,21 @@ export function Evolve() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result])
 
+  // Demo mode: show the cached scenario (request fills the locked form, the job result is replayed locally).
+  const demoSc = useDemoScenario<EvolveRequest, unknown>()
+  useEffect(() => {
+    const req = demoSc?.request
+    if (!demoSc || !req || !bounds) return
+    if (req.model) setBase({ ...bounds.demo, ...req.model })
+    const evolution = { ...bounds.evolution_default, ...req.evolution }
+    setEvo(toForm(evolution))
+    setWeights(evolution.weights)
+    setNotes(req.notes ?? '')
+    setLive([])
+    setNTotal(evolution.generations)
+    setJobId(DEMO_JOB_PREFIX + demoSc.id)
+  }, [demoSc, bounds, setBase, setEvo, setWeights, setNotes, setLive, setNTotal, setJobId])
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     if (!form || !w || !baseline) return
@@ -161,7 +180,7 @@ export function Evolve() {
       {!bounds && !boundsError && <p className="prose-muted">Loading parameter bounds…</p>}
 
       {bounds && form && w && baseline && (
-        <form onSubmit={onSubmit} className="space-y-6">
+        <DemoForm onSubmit={onSubmit} className="space-y-6">
           <p className="prose-muted">
             Baseline (fixed genes come from here): stress {baseline.stress_level.toFixed(2)} · maintenance{' '}
             {baseline.maintenance_rate.toFixed(2)} · repair {baseline.repair_rate.toFixed(2)} · shortening{' '}
@@ -393,7 +412,7 @@ export function Evolve() {
               </button>
             )}
           </div>
-        </form>
+        </DemoForm>
       )}
 
       {/* ---------------------------------------------------- live progress */}

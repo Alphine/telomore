@@ -52,12 +52,54 @@ export class ApiError extends Error {
         .filter(Boolean)
       if (msgs.length) return msgs.join('; ')
     }
+    if (detail && typeof detail === 'object' && (detail as { code?: unknown }).code === 'pro_required') {
+      return 'This feature needs a Pro account. Request Pro access from your account page.'
+    }
     if (detail && typeof detail === 'object' && 'message' in detail) {
       const m = (detail as { message?: unknown }).message
       if (typeof m === 'string') return m
     }
     return `Request failed with status ${status}`
   }
+}
+
+/** True for a 403 whose body is {detail:{code:'pro_required'}} (docs/ADMIN.md). */
+export function isProRequired(err: unknown): boolean {
+  if (!(err instanceof ApiError) || err.status !== 403) return false
+  const d = err.detail
+  return !!d && typeof d === 'object' && (d as { code?: unknown }).code === 'pro_required'
+}
+
+export const PRO_REQUIRED_EVENT = 'tel:pro-required'
+
+// ---- demo-mode hooks (see src/demo/replay.ts) -------------------------------
+// In demo mode no compute call may reach the live API. `demoHooks.replay`
+// serves the cached scenario for the few GETs a page makes on its own
+// (job polling, ledger, genome); anything else on a compute path is refused
+// locally with a 403 `demo_mode` error before any network traffic.
+export const demoHooks: {
+  active: boolean
+  replay: ((method: string, path: string) => { hit: true; value: unknown } | { hit: false }) | null
+} = { active: false, replay: null }
+
+const COMPUTE_PREFIXES = [
+  '/simulate',
+  '/evolve',
+  '/pareto',
+  '/sensitivity',
+  '/gxe',
+  '/active-learning',
+  '/compare',
+  '/jobs',
+  '/experiments',
+  '/sequence',
+  '/llm',
+  '/benchmark',
+  '/meta/chip-to-params',
+]
+
+function isComputePath(path: string): boolean {
+  return COMPUTE_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`) || path.startsWith(`${p}?`))
 }
 
 export interface RequestOptions {
@@ -69,6 +111,14 @@ export interface RequestOptions {
 }
 
 export async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+  if (demoHooks.active && isComputePath(path)) {
+    const hit = demoHooks.replay?.(opts.method ?? 'GET', path)
+    if (hit?.hit) return hit.value as T
+    throw new ApiError(403, {
+      code: 'demo_mode',
+      message: 'Demo mode shows precomputed examples only. Request Pro access to run live compute.',
+    })
+  }
   const headers: Record<string, string> = { Accept: 'application/json' }
   const token = opts.token === undefined ? getToken() : opts.token
   if (token) headers.Authorization = `Bearer ${token}`
@@ -105,7 +155,9 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
       data && typeof data === 'object' && 'detail' in data
         ? (data as { detail: unknown }).detail
         : data
-    throw new ApiError(res.status, detail)
+    const err = new ApiError(res.status, detail)
+    if (isProRequired(err) && typeof window !== 'undefined') window.dispatchEvent(new Event(PRO_REQUIRED_EVENT))
+    throw err
   }
   return data as T
 }
@@ -119,6 +171,7 @@ export async function requestBlob(path: string): Promise<Blob> {
   const headers: Record<string, string> = {}
   const token = getToken()
   if (token) headers.Authorization = `Bearer ${token}`
+  if (demoHooks.active) throw new ApiError(403, { code: 'demo_mode', message: 'Downloads are unavailable in demo mode.' })
   const res = await fetch(`${API_BASE}${path}`, { headers })
   if (!res.ok) {
     let detail: unknown = null

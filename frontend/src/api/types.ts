@@ -50,11 +50,30 @@ export interface MessageResponse {
   message: string
 }
 
+export type Plan = 'free' | 'pro'
+
+export type AccessRequestStatus = 'pending' | 'approved' | 'rejected'
+
+export interface AccessRequest {
+  id: number
+  message: string
+  status: AccessRequestStatus
+  created_at: string
+  decided_at?: string | null
+  decision_note?: string | null
+}
+
 export interface UserResponse {
   id: number
   username: string
   email: string
   is_verified: boolean
+  /** Product tier (docs/ADMIN.md). Absent on an older backend -> treated as 'free'. */
+  plan?: Plan
+  is_admin?: boolean
+  plan_expires_at?: string | null
+  /** The user's open access request, if any (an object, or just true on a minimal backend). */
+  pending_request?: AccessRequest | boolean | null
 }
 
 export interface HealthResponse {

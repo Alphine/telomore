@@ -3,7 +3,9 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 
 import App from './App.tsx'
+import { AccessProvider } from './access/AccessProvider.tsx'
 import { AuthProvider } from './auth/AuthContext.tsx'
+import { ToastProvider } from './components/ui/Toast.tsx'
 import { applyInitialThemeClass } from './theme/context'
 import { ThemeProvider } from './theme/ThemeProvider'
 import './index.css'
@@ -15,12 +17,16 @@ applyInitialThemeClass()
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
-      {/* basename follows Vite's `base` so the app also works under /telomore/ */}
-      <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '') || undefined}>
-        <AuthProvider>
-          <App />
-        </AuthProvider>
-      </BrowserRouter>
+      <ToastProvider>
+        {/* basename follows Vite's `base` so the app also works under /telomore/ */}
+        <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '') || undefined}>
+          <AuthProvider>
+            <AccessProvider>
+              <App />
+            </AccessProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </ToastProvider>
     </ThemeProvider>
   </StrictMode>,
 )

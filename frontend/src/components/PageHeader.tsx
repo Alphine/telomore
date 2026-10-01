@@ -1,3 +1,4 @@
+import { ModePanel } from '../demo/ModePanel'
 import { Disclaimer } from './Callout'
 import type { Feature } from '../features'
 
@@ -15,6 +16,7 @@ export function PageHeader({ feature }: { feature: Feature }) {
         <p className="prose-muted mt-2 max-w-2xl">{feature.description}</p>
       </div>
       <Disclaimer />
+      <ModePanel />
     </>
   )
 }

@@ -1,7 +1,7 @@
 // Port of app/pages/07_ActiveLearning.py on top of the job-polling contract
 // (POST /api/active-learning -> GET /api/jobs/{id}). No Stop button: the API
 // has no cooperative cancellation for the GP-refit loop (docs/API.md).
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 
 import { ApiError } from '../../api/client'
@@ -14,6 +14,10 @@ import { Callout } from '../../components/Callout'
 import { CheckboxGroup } from '../../components/CheckboxGroup'
 import { MetricRow } from '../../components/MetricRow'
 import { NumberInput } from '../../components/NumberInput'
+import { DemoForm } from '../../components/DemoForm'
+import { useDemoScenario } from '../../demo/context'
+import { DEMO_JOB_PREFIX } from '../../demo/replay'
+import type { ActiveLearningRequest } from '../../api/types'
 import { PageHeader } from '../../components/PageHeader'
 import { PhasesControl } from '../../components/PhasesControl'
 import { ProgressBar } from '../../components/ProgressBar'
@@ -110,6 +114,38 @@ export function ActiveLearning() {
   const result = job?.status === 'completed' ? job.result : null
   const records = result?.records ?? live
 
+  // Demo mode: show the cached scenario (request fills the locked form, the job result is replayed locally).
+  const demoSc = useDemoScenario<ActiveLearningRequest, unknown>()
+  useEffect(() => {
+    const req = demoSc?.request
+    if (!demoSc || !req || !bounds) return
+    if (req.model) setBase({ ...bounds.demo, ...req.model })
+    const al = req.active_learning ?? {}
+    const seeds = al.eval_seeds ?? [1, 2, 3]
+    const cfg: ActiveLearningConfig = {
+      n_initial: al.n_initial ?? DEFAULTS.n_initial,
+      n_iterations: al.n_iterations ?? DEFAULTS.n_iterations,
+      eval_seeds: seeds,
+      free_genes: al.free_genes ?? ['stress_level', 'maintenance_rate', 'repair_rate'],
+      seed: al.seed ?? DEFAULTS.seed,
+      xi: al.xi ?? DEFAULTS.xi,
+      candidate_pool_size: al.candidate_pool_size ?? 500,
+      schedule_phases: al.schedule_phases ?? 1,
+      weights: al.weights ?? bounds.fitness_weights_default,
+    }
+    setFreeGenes(cfg.free_genes)
+    setNInitial(cfg.n_initial)
+    setNIterations(cfg.n_iterations)
+    setXi(cfg.xi)
+    setSeed(cfg.seed)
+    setSeedsText(seeds.join(', '))
+    setSchedulePhases(cfg.schedule_phases)
+    setSubmitted(cfg)
+    setNotes(req.notes ?? '')
+    setLive([])
+    setJobId(DEMO_JOB_PREFIX + demoSc.id)
+  }, [demoSc, bounds, setBase, setFreeGenes, setNInitial, setNIterations, setXi, setSeed, setSeedsText, setSchedulePhases, setSubmitted, setNotes, setLive, setJobId])
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     if (!bounds || !baseline) return
@@ -180,7 +216,7 @@ export function ActiveLearning() {
       {!bounds && !boundsError && <p className="prose-muted">Loading parameter bounds…</p>}
 
       {bounds && baseline && (
-        <form onSubmit={onSubmit} className="space-y-6">
+        <DemoForm onSubmit={onSubmit} className="space-y-6">
           <BaselineSummary bounds={bounds} value={baseline} onChange={setBase} disabled={isActive} idPrefix="al-base" />
 
           <section className="card space-y-4 p-5">
@@ -292,7 +328,7 @@ export function ActiveLearning() {
               </span>
             )}
           </div>
-        </form>
+        </DemoForm>
       )}
 
       {/* ---------------------------------------------------- live progress */}

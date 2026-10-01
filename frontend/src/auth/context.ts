@@ -14,6 +14,8 @@ export interface AuthState {
   status: AuthStatus
   login: (username: string, password: string) => Promise<LoginOutcome>
   logout: () => void
+  /** Re-read /auth/me (after an access request or an admin plan change). */
+  refresh: () => Promise<void>
 }
 
 export const AuthContext = createContext<AuthState | null>(null)

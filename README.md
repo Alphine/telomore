@@ -91,13 +91,15 @@ python scripts/benchmark_optimizers.py                                          
 python -m pytest
 ```
 
+Tests (counted 2026-10-01): 639 pytest, 251 Vitest (`cd frontend && npx vitest run`)
+and 259 Node tests for Foci Lab (`node --test "foci/tests/*.test.mjs"`), 1,149 in total.
+
 ## Accounts / login
 
-Every functional page — **Simulate, Evolve, Pareto, Sensitivity, Active
-Learning, Compare, Experiments** — requires a logged-in account; the
-**Home** page stays public (it's the marketing/overview page, feature cards
-and page links included — only clicking through to a feature page hits the
-login gate). Auth is self-serve username + password (no OAuth) on the
+Live compute needs a **Pro** account granted by an admin (see
+[Access model](#access-model-demo-pro-admin)). Everybody else, including
+anonymous visitors, can open every feature page in **demo mode**, driven by
+precomputed scenarios. The **Home** page stays public. Auth is self-serve username + password (no OAuth) on the
 `/register` and `/login` pages; the API issues a 7-day JWT
 (`docs/API.md`).
 
@@ -150,10 +152,25 @@ On the **Experiments** page, the reproducibility ledger is split into an
 underlying JSONL ledger itself is unchanged — the accounts database only
 tracks which run IDs belong to which user.
 
+## Access model (demo, Pro, admin)
+
+| Visitor | What they get |
+|---|---|
+| anonymous / free account | every feature page with a scenario picker and **cached results** (static JSON in `frontend/public/demo-cache/`, labelled "Precomputed example - not live compute"); no run button |
+| Pro (granted by an admin) | the normal live pages calling the API on Railway, plus a Live/Demo switch |
+| admin | Pro, plus the dashboard at `/admin`: users, plans, access requests, usage statistics and log (CSV export), audit log |
+
+Free users request Pro from `/account`; an admin approves or rejects. Usage
+logging is minimal (route, status, duration, salted IP hash; no request bodies,
+no raw IPs; 90-day retention). Details: [`docs/ADMIN.md`](docs/ADMIN.md),
+[`docs/DEMO_CACHE.md`](docs/DEMO_CACHE.md),
+[`frontend/FRONTEND_MODES.md`](frontend/FRONTEND_MODES.md). Rebuild the cache
+with `python scripts/build_demo_cache.py` after any model change.
+
 ## App pages (React routes)
 
-The landing page (`/`) and the auth pages are public; every route below is
-behind the login gate.
+The landing page (`/`) and the auth pages are public. Every route below is
+reachable in demo mode; live runs need Pro.
 
 | Route | Page | Purpose |
 |---|---|---|
@@ -180,6 +197,26 @@ behind the login gate.
 **https://studylab.id/foci/** explores a published genome-wide siRNA screen of 53BP1 DNA-damage foci
 (IDR idr0010, Doil et al. 2009, CC BY 4.0): 17,536 genes, the original images, and Experiment L, an
 honest negative result on automated foci counting. See `foci/README.md`.
+
+**Browser compute.** Foci Lab can analyse your own images, or a whole IDR plate,
+*inside your browser tab*. The engine is plain JavaScript (a CPU reference path
+that is bit-exact with the Python counter, plus optional WebGPU for the filters
+with automatic CPU fallback). Your images are never uploaded and the server never
+runs your analysis; the local page forbids network access through a
+Content-Security-Policy and a test. Two modes: **Lab** (your PNG / TIFF /
+OME-TIFF / ZIP files, [`foci/docs/LAB_MODE.md`](foci/docs/LAB_MODE.md)) and
+**Plate** (an idr0010 plate with a heatmap,
+[`foci/docs/SCREEN_MODE.md`](foci/docs/SCREEN_MODE.md)). Engine:
+[`foci/docs/ENGINE.md`](foci/docs/ENGINE.md); design and evidence:
+[`docs/FOCI_BROWSER_COMPUTE.md`](docs/FOCI_BROWSER_COMPUTE.md). The counter is
+**unvalidated**.
+
+**A pairing observation.** In idr0010 the image of a well agrees with the
+authors' cell counts only when the image grid is numbered column-major and joined
+by `Well Number`, not by well name. Three independent checks support this
+strongly; IDR has **not** confirmed it and it may be a convention we missed
+([`docs/IDR_PAIRING_REPORT.md`](docs/IDR_PAIRING_REPORT.md)). Plate mode shows
+both pairings.
 
 ## For scientists
 
@@ -261,8 +298,7 @@ over *protocols* rather than constants; the intervention cost is charged on
 the time-averaged dose. Unscheduled configs behave exactly as before.
 Semantics: [`docs/MODEL.md` §2.1](docs/MODEL.md); first real run:
 Experiment E in [`docs/EXPERIMENT_PROTOCOL.md`](docs/EXPERIMENT_PROTOCOL.md).
-(Python core + CLI only so far; the React forms do not expose schedules yet —
-`docs/ROADMAP.md`.)
+(Available in the Python core, the API and the web forms.)
 
 ## Fitness (the AI's objective)
 
@@ -346,7 +382,8 @@ Dockerfile      multi-stage image (node build of frontend/ -> python:3.13-slim r
   (SDD §22 Level 3). It is not a validation against data, and the
   in-process adapter remains a stub by design.
 * The companion Foci Lab's automated foci counter is unvalidated: it does
-  not reproduce the published counts (Experiment L).
+  not reproduce the published counts (Experiments L, L2). The image-to-annotation
+  pairing in idr0010 is strongly supported but unconfirmed by IDR.
 * No bring-your-own-data import or parameter fitting yet (planned,
   `docs/ROADMAP.md`).
 * The optimiser optimises the chosen objective, nothing else.

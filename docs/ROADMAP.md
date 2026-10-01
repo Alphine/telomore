@@ -6,20 +6,44 @@ personal project ("private lab"). This file is a decision log, not a
 committed spec — entries are dated and should be revisited as the project
 evolves. Build sessions going forward may use Claude Fable 5.1.
 
-## Status as of 2026-09-10
+## Status as of 2026-10-01
 
-Live at `telomore-production.up.railway.app` (Railway project
-`earnest-vibrancy`, services `telomore` + `Postgres`). React frontend
-(`frontend/`) + FastAPI backend (`backend/`) + Python science package
-(`src/telomere_lab/`), deployed as one Docker image (`Dockerfile`,
-`railway.json`); 158 pytest + 76 Vitest tests passing. Features shipped:
-core simulator (with optional piecewise-constant intervention schedules —
-core, API and React UI, 2026-09-10), GA, NSGA-II Pareto, sensitivity analysis (OAT + tornado),
-multi-seed fitness, optimizer benchmark (GA/NSGA-II/random search),
-surrogate-model active learning (GP + Expected Improvement), reference-model
-comparison (`anais-rat/telomeres`), user accounts (Postgres + bcrypt, JWT),
-email verification + forgot-password (Resend, dev-mode fallback), landing
-page, WebGL particle visualization of the culture on Simulate.
+Two public sites. **Telomere Lab** is a static React build at
+`https://studylab.id/telomore/` (Hostinger) whose API is the FastAPI backend on
+Railway (`telomore-production.up.railway.app`, project `earnest-vibrancy`,
+services `telomore` + `Postgres`; one Docker image, `Dockerfile`, `railway.json`).
+**Foci Lab** is a separate static site at `https://studylab.id/foci/`; the domain
+root is a landing page for both (`deploy/landing/`).
+
+**Test counts (master, 2026-10-01):** 639 pytest tests
+(`python -m pytest tests --collect-only -q`), 251 Vitest tests in 53 files
+(`cd frontend && npx vitest run`), 259 Node tests for the Foci Lab engine and
+page logic (`node --test "foci/tests/*.test.mjs"`): **1,149 in total**. These
+supersede older figures quoted in earlier entries of this file (158 / 76 etc.),
+which are kept as history.
+
+Shipped, in the order they matter for a visitor:
+
+- **Access model (Pro / free / admin) and demo cache.** Compute endpoints on
+  Railway require a PRO plan granted by an admin (`docs/ADMIN.md`). Anonymous
+  and free visitors see every feature through a **precomputed demo cache**:
+  static JSON built by `scripts/build_demo_cache.py` from the real API, served
+  from the static host (`docs/DEMO_CACHE.md`), replayed in the browser with no
+  call to the engine (`frontend/FRONTEND_MODES.md`). Pro users run live and can
+  flip a Live/Demo switch. Free users can request Pro on `/account` (one pending
+  request, 3 per 24 h); an admin approves or rejects.
+- **Admin dashboard** (`/admin/*`, lazy chunk, 404 for non-admins): users, plan
+  and expiry, access requests, usage statistics, usage log with CSV export, and
+  an audit log of every mutating admin action. Usage logging is minimal by
+  design (route template, status, duration, salted IP hash; no bodies or raw IPs;
+  90-day retention). The only way to become admin is the
+  `TELOMERE_ADMIN_USERS` environment variable.
+- **Telomere Lab science** as before: simulator with schedules, sub-clones,
+  genome stability, stochastic senescence; GA, NSGA-II, active learning,
+  sensitivity, G x E; ledger; LLM interpreter and protocol proposer (BYOK);
+  3D telomere cell view; toy Genome Explorer; experiments A-M plus L2 in
+  `docs/EXPERIMENT_PROTOCOL.md`.
+- **Foci Lab with browser compute** (below).
 
 ## Completed: Streamlit → React migration (2026-09-09 → 2026-09-10)
 
@@ -827,7 +851,7 @@ with volcano/rank plots and enrichment tests validated against scipy, a two-chan
 DepMap; licences verified), a public image-analysis page backed by `POST /api/foci/analyze` with size, concurrency and
 rate limits, and Experiment L2 on raw data (bit depth ruled out; image-to-annotation pairing unresolved).
 
-**Deferred (planned, not done):**
+**Deferred (planned, not done), as of 2026-09-30:**
 
 - Bring-your-own-data CSV import and parameter fitting.
 - Assay layer: simulated TRF, Q-FISH and qPCR readouts.
@@ -836,3 +860,78 @@ rate limits, and Experiment L2 on raw data (bit depth ruled out; image-to-annota
 - Notebook tutorial.
 - TelNet, GWAS and GEO integrations.
 - Raw 16-bit redo of Experiment L (Foci Lab counter).
+
+## Access model, demo cache and admin dashboard (DONE 2026-10-01)
+
+Why: the Railway backend should not be an open compute service. Decision: free
+and anonymous visitors get a complete, honest look at every feature from
+precomputed example runs (fixed seeds, labelled "Precomputed example - not live
+compute"); only admin-approved Pro accounts spend CPU.
+
+- Backend: plan check on the compute routes (`403 pro_required`), access
+  requests, admin router, usage middleware, audit log (`docs/ADMIN.md`).
+- Cache: nine feature folders under `frontend/public/demo-cache/` (about 1 MB),
+  idempotent build, a determinism test that re-runs one scenario per feature live
+  (`docs/DEMO_CACHE.md`). **Rebuild whenever the model, optimizer or a response
+  shape changes.**
+- Frontend: `FeatureGate`, `DemoProvider`, `replay.ts`, `DemoForm`, `/account`,
+  `/admin/*`, and a mock API for development (`frontend/FRONTEND_MODES.md`).
+
+## Foci Lab: browser compute (DONE 2026-10-01)
+
+Principle: the user's images are read and analysed in the user's own browser; the
+server never receives pixels and never runs user compute. Design and evidence:
+`docs/FOCI_BROWSER_COMPUTE.md`.
+
+- **Engine** (`foci/web/engine/`, `foci/docs/ENGINE.md`): the 53BP1 counter of
+  `src/telomere_lab/foci/segment.py` re-implemented in plain JavaScript; a CPU
+  reference path bit-exact with the Python golden fixtures; an optional WebGPU
+  path for the filters only, with a boot-time self-test and automatic CPU
+  fallback; a worker pool; hard size and memory guards.
+- **Lab mode** (`foci/web/lab.html`, `foci/docs/LAB_MODE.md`): drop PNG, TIFF,
+  OME-TIFF, JPEG or ZIP files, pair channels, tune parameters, run, export CSV and
+  a provenance JSON with in-browser SHA-256 hashes. The privacy promise is
+  enforced by a CSP with `connect-src 'none'` and a test that fails if any network
+  primitive appears in the page or reader code.
+- **Plate mode** (`foci/web/screen.html`, `foci/docs/SCREEN_MODE.md`): pick one of
+  the 148 imaged idr0010 plates; the browser fetches the wells through the caching
+  proxy under strict politeness limits, analyses them locally and shows a 12 x 32
+  heatmap, a per-well table and the agreement with the authors' numbers under both
+  well pairings.
+- The counter stays labelled **unvalidated**: speed does not make it more accurate
+  (baseline on the BBBC039 test split: object F1@0.5 = 0.50).
+
+## The idr0010 pairing finding (2026-10-01, unconfirmed by IDR)
+
+Experiment L2 (`docs/EXPERIMENT_PROTOCOL.md` 15.4) found that joining the IDR image
+of a well to the annotation row with the same well name does not agree with the
+authors' own cell counts, whereas joining by `Well Number` with the image grid
+numbered column-major does. Three independent readouts point the same way (106
+cached wells, Spearman 0.16 -> 0.71; lethal KIF11 controls, 0.83 vs -0.19; plate
+7-14 in the browser engine, nuclei vs cells 0.07 -> 0.56). We classify this as
+**strongly supported, not confirmed**: it may be a documented convention we
+missed. Only IDR or the authors can confirm. A neutral report ready to send is in
+`docs/IDR_PAIRING_REPORT.md` (nothing has been sent). Until confirmed, Foci Lab
+shows both pairings side by side. Bit depth (the data are 12-bit, not 16-bit) was
+ruled out as the cause of Experiment L's failure.
+
+## Pending
+
+- **Pipeline v2** (Foci Lab counter/analysis pipeline): in progress. Not described
+  or claimed here until it lands and is benchmarked against the pre-registered
+  protocol in `docs/FOCI_BROWSER_COMPUTE.md` section 9.
+- **Owner to-dos** (not doable by the build agents):
+  - decide whether to send `docs/IDR_PAIRING_REPORT.md` to idr-help and the
+    idr0010 authors;
+  - Zenodo/GitHub release and the `TODO(owner)` fields in `CITATION.cff` and
+    `.zenodo.json` (`docs/CITING_AND_REPRODUCING.md`);
+  - deploy the static builds with `deploy_studylab.bat`; rebuild the demo cache
+    after any model change;
+  - set `TELOMERE_ADMIN_USERS` on Railway; check `REMOTE_ADDR` /
+    `FOCI_TRUSTED_PROXIES` on the Hostinger host (`foci/docs/SCREEN_MODE.md`);
+  - contact EBI before advertising plate mode widely
+    (`docs/FOCI_BROWSER_COMPUTE.md` section 5);
+  - record and submit the Kaggle video (`docs/VIDEO_SCRIPT.md`).
+- Still deferred from 2026-09-30: bring-your-own-data import and fitting, assay
+  layer, Sobol sensitivity, wheel-safe paths, notebook tutorial, TelNet/GWAS/GEO
+  integrations.

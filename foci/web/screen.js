@@ -27,11 +27,19 @@
   function setMsg(node, text, kind) { node.hidden = !text; node.textContent = text || ""; node.className = "sc-msg" + (kind ? " " + kind : ""); }
 
   // -------------------------------------------------------------------------------------------- state
+  // Pairing of images and annotation rows: "colmajor" (default; empirically inferred, unconfirmed by IDR) or "name"
+  // (as originally built). The choice is shared with the main page (localStorage foci-pairing, or ?pairing=).
+  function storedPair() {
+    var p = null;
+    try { p = new URLSearchParams(location.search).get("pairing"); } catch (e) { /* no URL API */ }
+    if (!p) { try { p = localStorage.getItem("foci-pairing"); } catch (e) { /* storage blocked */ } }
+    return p === "name" ? "name" : "colmajor";
+  }
   var S = {
     plates: [], info: null, plate: "", results: Object.create(null), table: [], authors: null, controls: null, csvText: null,
     engine: null, caps: null, pool: null, sched: null, running: false, params: null, mode: "auto",
     startedUtc: null, startedAt: 0, waitUntil: 0, stats: { hit: 0, miss: 0, fetched: 0, throttled: 0 }, engineVersion: null, backends: Object.create(null),
-    pair: "name", metric: "fpc", scatter: "foci", sort: { key: "well", dir: 1 }, sel: null, heatBuilt: false, pickToken: 0, renderTimer: 0, gpuLost: false,
+    pair: storedPair(), metric: "fpc", scatter: "foci", sort: { key: "well", dir: 1 }, sel: null, heatBuilt: false, pickToken: 0, renderTimer: 0, gpuLost: false,
   };
   var budget = C.createBudget(SESSION_CAP, {
     get: function () { var v = parseInt(sessionStorage.getItem("foci-screen-requests"), 10); return isFinite(v) ? v : 0; },
@@ -400,7 +408,7 @@
       e.mark.textContent = c.control === "p" ? "P" : c.control === "n" ? "N" : "";
       e.xf.setAttribute("display", c.status === "failed" ? "" : "none");
       var desc = "Well " + c.well + ": " + (c.exists ? (isFinite(c.value) ? mlabel + " " + fmt(c.value, 2) : c.status === "failed" ? "analysis failed" : "no value yet") : "no image") +
-        (c.qcRemoved ? ", authors removed it (pairing " + (S.pair === "name" ? "A" : "B") + ")" : "") + (c.control ? (c.control === "p" ? ", positive control" : ", negative control") : "");
+        (c.qcRemoved ? ", authors removed it (pairing " + (S.pair === "name" ? "by IDR name" : "column-major") + ")" : "") + (c.control ? (c.control === "p" ? ", positive control" : ", negative control") : "");
       e.rect.setAttribute("aria-label", desc);
     });
     renderLegend(m);
@@ -435,7 +443,7 @@
     if (t.status === "ok") { row("Nuclei", fmt(t.nuclei, 0)); row("Foci", fmt(t.foci, 0)); row("Foci per cell", fmt(t.fpc, 3)); }
     C.PAIRINGS.forEach(function (p) {
       var a = t.pair[p];
-      row("Pairing " + (p === "name" ? "A (by name)" : "B (column-major)"), "annotation " + a.well + " · " + a.kind + (a.qc ? " · QC " + a.qc : "") + " · cells " + (a.cells == null ? "–" : a.cells) + " · foci/cell " + (a.fpc == null ? "–" : fmt(a.fpc, 3)));
+      row("Pairing: " + (p === "name" ? "by IDR name" : "column-major (inferred)"), "annotation " + a.well + " · " + a.kind + (a.qc ? " · QC " + a.qc : "") + " · cells " + (a.cells == null ? "–" : a.cells) + " · foci/cell " + (a.fpc == null ? "–" : fmt(a.fpc, 3)));
     });
     box.appendChild(dl);
     if (t.status === "ok" && S.engine && !S.running) {
@@ -489,7 +497,7 @@
     var host = $("compare"); clear(host);
     C.PAIRINGS.forEach(function (p) {
       var cmp = C.comparePairing(S.table, p), card = el("div", { "class": "card sc-cmp" });
-      card.appendChild(el("h3", null, p === "name" ? "Pairing A: image of well W with annotation row W" : "Pairing B: image at (row r, column c) with Well Number c × " + S.info.rows + " + r + 1"));
+      card.appendChild(el("h3", null, p === "name" ? "Pairing: by IDR name (image of well W with annotation row W, as originally built)" : "Pairing: column-major (inferred) (image at row r, column c with Well Number c × " + S.info.rows + " + r + 1)"));
       card.appendChild(rhoLine("Our foci per cell vs authors' foci per cell", cmp.foci));
       card.appendChild(rhoLine("Our nucleus count vs authors' cell count", cmp.nuclei));
       var sc = S.scatter === "foci" ? cmp.foci.points : cmp.nuclei.points;
@@ -498,7 +506,7 @@
       card.appendChild(el("p", { "class": "note" }, "Not compared: " + k.notAnalysed + " not analysed or failed, " + k.control + " controls, " + k.qcRemoved + " removed by the authors' QC, " + k.noAuthorValue + " with no authors' row."));
       host.appendChild(card);
     });
-    host.appendChild(el("p", { "class": "note sc-span" }, "Neither pairing is asserted to be correct (see the notice at the top). Agreement is a rank correlation only; it does not calibrate our counts to the authors' definition of a focus."));
+    host.appendChild(el("p", { "class": "note sc-span" }, "The column-major pairing is empirically inferred and unconfirmed by IDR or the authors (see the notice at the top); the by-name pairing is shown for comparison. Agreement is a rank correlation only; it does not calibrate our counts to the authors' definition of a focus."));
   }
 
   // ---- table
@@ -521,8 +529,8 @@
     var tbl = $("tbl"); clear(tbl);
     var thead = el("thead"), g = el("tr", { "class": "grp" });
     g.appendChild(el("th", { colspan: "4" }, "Our result (in your browser)"));
-    g.appendChild(el("th", { colspan: "4" }, "Pairing A: by well name"));
-    g.appendChild(el("th", { colspan: "4" }, "Pairing B: by Well Number, column-major"));
+    g.appendChild(el("th", { colspan: "4" }, "Pairing: by IDR name"));
+    g.appendChild(el("th", { colspan: "4" }, "Pairing: column-major (inferred)"));
     thead.appendChild(g);
     var h = el("tr");
     ALLCOLS.forEach(function (c) {
@@ -584,7 +592,8 @@
     startRun();
   });
   $("metricSel").addEventListener("change", function () { S.metric = $("metricSel").value; if (S.info) renderHeat(); });
-  document.querySelectorAll('input[name="pairSel"]').forEach(function (r) { r.addEventListener("change", function () { if (r.checked) { S.pair = r.value; if (S.info) { renderHeat(); if (S.sel) fillDetail($("detail"), S.sel, true); } } }); });
+  document.querySelectorAll('input[name="pairSel"]').forEach(function (r) { r.checked = r.value === S.pair; });
+  document.querySelectorAll('input[name="pairSel"]').forEach(function (r) { r.addEventListener("change", function () { if (r.checked) { S.pair = r.value; try { localStorage.setItem("foci-pairing", r.value); } catch (e) { /* storage blocked */ } if (S.info) { renderHeat(); if (S.sel) fillDetail($("detail"), S.sel, true); } } }); });
   document.querySelectorAll('input[name="scSel"]').forEach(function (r) { r.addEventListener("change", function () { if (r.checked) { S.scatter = r.value; if (S.info) renderCompare(); } }); });
   $("csvBtn").addEventListener("click", function () { if (S.info) download("foci_plate_" + S.plate + "_wells.csv", "text/csv;charset=utf-8", "﻿" + C.exportCsv(S.plate, S.table)); });
   $("provBtn").addEventListener("click", function () { if (S.info) download("foci_plate_" + S.plate + "_provenance.json", "application/json", JSON.stringify(currentProvenance(), null, 2) + "\n"); });

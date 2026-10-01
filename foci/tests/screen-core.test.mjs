@@ -197,7 +197,7 @@ test("CSV export has both pairings and round-trips through the parser; provenanc
   const prov = S.buildProvenance({ generatedUtc: "2026-10-01T00:00:00Z", plate: "9-9", rows: 12, cols: 32, nWells: 384, analysed: 1, failed: 0, pending: 383, engineVersion: "e-1", backends: ["cpu"], mode: "auto",
     params: { k: 1 }, comparisons: [S.comparePairing(table, "name"), S.comparePairing(table, "colmajor")] });
   assert.equal(prov.engine.version, "e-1"); assert.deepEqual(prov.params, { k: 1 }); assert.equal(prov.plate, "9-9");
-  assert.match(prov.pairing_status, /UNRESOLVED/); assert.deepEqual(Object.keys(prov.pairings), ["name", "colmajor"]);
+  assert.match(prov.pairing_status, /unconfirmed/); assert.equal(prov.default_pairing, "colmajor"); assert.deepEqual(Object.keys(prov.pairings), ["name", "colmajor"]);
   assert.equal(prov.pairings.name.foci_per_cell_vs_authors_fpc.spearman, null);
   assert.match(prov.attribution, /CC BY 4.0/);
   JSON.parse(JSON.stringify(prov));

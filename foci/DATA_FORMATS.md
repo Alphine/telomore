@@ -35,7 +35,7 @@ One row per sample well, grouped by the gene symbol used in genes.json (keys sor
 | fpc | number or null | raw foci per cell (authors) |
 | cells | integer or null | cell count |
 | qc | `"pass"` or `"remove"` | authors' quality-control call. `remove` wells are shown for transparency; they never enter a gene's counts, statistics or rank, and a gene with only removed wells has no genes.json row |
-| imaged | boolean | an IDR image exists (`well_index.json`) |
+| imaged | boolean | an IDR image exists (`well_index.json` / `well_index_byname.json`; both pairings have the same imaged set) |
 | sense, antisense | string | siRNA sequences from the table (may be empty) |
 
 ## symbols.json (HGNC)

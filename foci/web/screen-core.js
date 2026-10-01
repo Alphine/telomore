@@ -126,7 +126,8 @@
    *   "colmajor" -- the annotation row whose Well Number is c * nRows + r + 1 (the image grid numbered column by
    *                 column: A1, B1, ..., L1, A2, ...). The annotation's Well Number itself is row-major over nCols
    *                 columns (A1 = 1, A2 = 2, ..., A32 = 32, B1 = 33): docs/EXPERIMENT_PROTOCOL.md 15.4.
-   * Which rule is right is UNRESOLVED; this function just implements each.
+   * The column-major rule is the site default: empirically inferred, unconfirmed by IDR or the authors. This function
+   * just implements each.
    */
   var PAIRINGS = ["name", "colmajor"];
   function annotationWellNumber(pairing, r, c, nRows, nCols) {
@@ -437,7 +438,8 @@
       wells: { analysed: p.analysed, failed: p.failed, pending: p.pending },
       engine: { version: p.engineVersion || null, backends_used: p.backends || [], requested_mode: p.mode || null, capabilities: p.capabilities || null },
       params: p.params == null ? null : p.params,
-      pairing_status: "UNRESOLVED: which annotation row belongs to which image is an open question (docs/EXPERIMENT_PROTOCOL.md 15.4); both rules are reported and neither is asserted.",
+      pairing_status: "Empirically inferred, unconfirmed by IDR or the authors (docs/EXPERIMENT_PROTOCOL.md 15.4): the column-major rule is the default, the by-name rule is the original pairing; both are reported.",
+      default_pairing: "colmajor",
       pairings: cmp,
       sources: {
         images: "IDR idr0010 screen 1351 via the Foci Lab cache proxy (api/well.php), 8-bit display rendering, dna and 53BP1 channels",

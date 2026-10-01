@@ -5,6 +5,10 @@ RewriteEngine On
 # (.txt is NOT blocked: data/downloads/README_DATA.txt must be downloadable)
 RewriteRule \.(py|sh|md|log|tmp)$ - [F,L]
 
+# API internals: never directly reachable (the endpoints are well.php, plate.php, plates.php)
+RewriteRule ^api/(_[^/]*|cache_gc|config)\.php$ - [F,L]
+RewriteRule ^api/[^/]*\.(json|lock|cfg|ini)$ - [F,L]
+
 <IfModule mod_deflate.c>
   AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
 </IfModule>
@@ -28,5 +32,12 @@ RewriteRule \.(py|sh|md|log|tmp)$ - [F,L]
 <IfModule mod_headers.c>
   <FilesMatch "^analyze\.html$">
     Header set Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src https://telomore-production.up.railway.app; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
+  </FilesMatch>
+</IfModule>
+
+# Plate mode: same-origin only (the meta tag in screen.html says the same; the header adds frame-ancestors).
+<IfModule mod_headers.c>
+  <FilesMatch "^screen\.html$">
+    Header set Content-Security-Policy "default-src 'none'; script-src 'self'; worker-src 'self' blob:; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
   </FilesMatch>
 </IfModule>

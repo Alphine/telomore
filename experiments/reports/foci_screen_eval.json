@@ -1,0 +1,230 @@
+{
+ "experiment": "Foci Lab plate mode: engine accuracy on plate 7-14",
+ "generated_utc": "2026-09-30T23:54:00.145Z",
+ "engine": {
+  "name": "python telomere_lab.foci.count_foci",
+  "version": "telomere_lab.foci @ git 8b008d6 (master base of this branch)",
+  "backend": "python-cpu",
+  "params": {
+   "nucleus_sigma": 2,
+   "background_size": 41,
+   "min_nucleus_px": 150,
+   "foci_sigma": 1,
+   "tophat_size": 7,
+   "min_height": 12,
+   "peak_window": 5
+  }
+ },
+ "images": "8-bit renders of 7-14 emulated from the S-BIAD885 zarr window (see eval_foci_screen_prepare.py)",
+ "pairing_status": "UNRESOLVED (docs/EXPERIMENT_PROTOCOL.md 15.4): both pairings are reported; neither is asserted to be correct",
+ "pairings": {
+  "name": "image of well W with the annotation row named W",
+  "colmajor": "annotation Well Number n is the image at column (n-1) div 12, row (n-1) mod 12 (column-major grid, 12 rows)"
+ },
+ "bootstrap": {
+  "resamples": 2000,
+  "seed": 0,
+  "interval": "95% percentile, wells resampled (AUC: stratified)"
+ },
+ "evaluation": {
+  "full_annotation": {
+   "name": {
+    "pairing": "name",
+    "wells": {
+     "eligible": 304,
+     "analysed": 304,
+     "dropped_no_nuclei_or_missing_image": [],
+     "n_increased_damage": 19
+    },
+    "foci_per_cell_vs_authors": {
+     "n": 304,
+     "spearman": -0.0053,
+     "spearman_ci95": [
+      -0.1254,
+      0.111
+     ],
+     "pearson": -0.0339
+    },
+    "nuclei_vs_authors_cell_count": {
+     "n": 304,
+     "spearman": 0.0669,
+     "spearman_ci95": [
+      -0.0458,
+      0.1686
+     ],
+     "pearson": 0.0533
+    },
+    "median_foci_per_cell": {
+     "ours": 4.32,
+     "authors": 2.0082
+    },
+    "auc_increased_damage": {
+     "ours_foci_per_cell": {
+      "n_pos": 19,
+      "n_neg": 285,
+      "auc": 0.5003,
+      "auc_ci95": [
+       0.3706,
+       0.6325
+      ]
+     },
+     "authors_foci_per_cell_ceiling": {
+      "n_pos": 19,
+      "n_neg": 285,
+      "auc": 0.9282,
+      "auc_ci95": [
+       0.8282,
+       0.9976
+      ]
+     }
+    }
+   },
+   "colmajor": {
+    "pairing": "colmajor",
+    "wells": {
+     "eligible": 304,
+     "analysed": 304,
+     "dropped_no_nuclei_or_missing_image": [],
+     "n_increased_damage": 19
+    },
+    "foci_per_cell_vs_authors": {
+     "n": 304,
+     "spearman": 0.3027,
+     "spearman_ci95": [
+      0.1895,
+      0.4058
+     ],
+     "pearson": 0.4496
+    },
+    "nuclei_vs_authors_cell_count": {
+     "n": 304,
+     "spearman": 0.5575,
+     "spearman_ci95": [
+      0.4511,
+      0.6507
+     ],
+     "pearson": 0.5625
+    },
+    "median_foci_per_cell": {
+     "ours": 4.4543,
+     "authors": 2.0082
+    },
+    "auc_increased_damage": {
+     "ours_foci_per_cell": {
+      "n_pos": 19,
+      "n_neg": 285,
+      "auc": 0.6789,
+      "auc_ci95": [
+       0.5263,
+       0.8379
+      ]
+     },
+     "authors_foci_per_cell_ceiling": {
+      "n_pos": 19,
+      "n_neg": 285,
+      "auc": 0.9282,
+      "auc_ci95": [
+       0.8282,
+       0.9976
+      ]
+     }
+    }
+   }
+  },
+  "page_data_foci_wells_csv": {
+   "name": {
+    "pairing": "name",
+    "wells": {
+     "eligible": 296,
+     "analysed": 296,
+     "dropped_no_nuclei_or_missing_image": [],
+     "n_increased_damage": 0
+    },
+    "foci_per_cell_vs_authors": {
+     "n": 296,
+     "spearman": 0.0148,
+     "spearman_ci95": [
+      -0.1071,
+      0.1343
+     ],
+     "pearson": -0.0275
+    },
+    "nuclei_vs_authors_cell_count": {
+     "n": 296,
+     "spearman": 0.0662,
+     "spearman_ci95": [
+      -0.0503,
+      0.1814
+     ],
+     "pearson": 0.0492
+    },
+    "median_foci_per_cell": {
+     "ours": 4.3147,
+     "authors": 2.008
+    }
+   },
+   "colmajor": {
+    "pairing": "colmajor",
+    "wells": {
+     "eligible": 296,
+     "analysed": 296,
+     "dropped_no_nuclei_or_missing_image": [],
+     "n_increased_damage": 0
+    },
+    "foci_per_cell_vs_authors": {
+     "n": 296,
+     "spearman": 0.3284,
+     "spearman_ci95": [
+      0.2181,
+      0.4308
+     ],
+     "pearson": 0.4655
+    },
+    "nuclei_vs_authors_cell_count": {
+     "n": 296,
+     "spearman": 0.5569,
+     "spearman_ci95": [
+      0.4553,
+      0.6453
+     ],
+     "pearson": 0.563
+    },
+    "median_foci_per_cell": {
+     "ours": 4.4497,
+     "authors": 2.008
+    }
+   }
+  }
+ },
+ "experiment_l2_reference": {
+  "source": "experiments/reports/foci_raw16.json, arm legacy_8bit_default (Python count_foci, default parameters, 8-bit render)",
+  "name_pairing": {
+   "foci_per_cell_spearman": -0.0053,
+   "foci_per_cell_spearman_ci95": [
+    -0.1225,
+    0.1095
+   ],
+   "nuclei_vs_cells_spearman": 0.0669,
+   "auc_increased_damage": 0.5003,
+   "auc_ci95": [
+    0.364,
+    0.6399
+   ],
+   "n": 304
+  },
+  "colmajor_pairing": {
+   "foci_per_cell_spearman": 0.3027,
+   "foci_per_cell_spearman_ci95": [
+    0.1906,
+    0.4082
+   ],
+   "nuclei_vs_cells_spearman": 0.5575,
+   "auc_increased_damage": 0.6789,
+   "auc_ci95": [
+    0.5165,
+    0.8303
+   ],
+   "n": 304
+  }
+ }
+}

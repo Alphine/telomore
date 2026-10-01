@@ -43,6 +43,7 @@ class SegmentationResult:
     n_nuclei: int
     n_foci: int
     foci_per_nucleus: List[int] = field(default_factory=list)  # per nuclear object
+    pipeline_version: str = "v1"  # which nucleus pipeline produced this ("v1" here; "v2" in segment_v2.py)
 
     @property
     def foci_per_cell(self) -> float:

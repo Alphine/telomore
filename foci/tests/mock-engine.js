@@ -40,7 +40,7 @@
     for (i2 = 0; i2 < w * h; i2++) { var g = mx ? (dna.data[i2] / mx) * 255 : 0; ov[4 * i2] = g * 0.3; ov[4 * i2 + 1] = g * 0.5; ov[4 * i2 + 2] = g; ov[4 * i2 + 3] = 255; }
     pts.forEach(function (p) { var k = (p.y * w + p.x) * 4; ov[k] = 255; ov[k + 1] = 176; ov[k + 2] = 32; });
     return {
-      version: "mock-0.1", backend: opts.webgpu ? "gpu" : "reference", timing_ms: { total: 5 }, image: { width: w, height: h },
+      version: "mock-0.1", pipeline_version: "v1", backend: opts.webgpu ? "gpu" : "reference", timing_ms: { total: 5 }, image: { width: w, height: h },
       normalisation: { dna: "mock", foci: "mock", bit_depth: [dna.bitDepth, foci.bitDepth] },
       nuclei: { count: objs.length, objects: objs }, foci: { count: pts.length, per_cell: objs.map(function (o) { return o.foci; }), points: pts },
       params: input.params, warnings: pts.length > 50 ? ["mock: many foci"] : [], overlay: { width: w, height: h, data: ov }

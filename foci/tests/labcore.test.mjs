@@ -108,14 +108,15 @@ test("summarise handles per-object counts and missing fields", async () => {
 test("CSV builders: header, row counts, injection guard, quoting, numbers", async () => {
   const recs = [await makeRecord("=cmd|'/c calc'!A0", "ctrl, \"x\"", "+1", 1), await makeRecord("b\nc", "treated", "", 2)];
   const csv = Core.perNucleusCsv(recs), nuc = csv.split("\r\n");
-  assert.equal(nuc[0], "image,condition,replicate,nucleus_id,area_px,area_um2,centroid_x_px,centroid_y_px,foci");
+  assert.equal(nuc[0], "image,condition,replicate,nucleus_id,area_px,area_um2,centroid_x_px,centroid_y_px,foci,pipeline_version");
   const total = recs.reduce((a, r) => a + r.result.nuclei.objects.length, 0);
   assert.equal(nuc.length - 2, total);                          // header + rows + trailing empty after the last CRLF
   assert.ok(nuc[1].startsWith("'=cmd|'/c calc'!A0,\"ctrl, \"\"x\"\"\",'+1,"), nuc[1]);
   assert.ok(!csv.includes("b\nc"));
   const img = Core.perImageCsv(recs).split("\r\n");
   assert.equal(img.length, 4);
-  assert.equal(img[0].split(",").length, 20);
+  assert.equal(img[0].split(",").length, 21);
+  assert.ok(/,pipeline_version$/.test(img[0]));
   assert.equal(Core.csvCell(1 / 3), "0.3333333333"); assert.equal(Core.csvCell(NaN), ""); assert.equal(Core.csvCell(null), ""); assert.equal(Core.csvCell(-5), "-5");
   assert.equal(Core.csvCell("-x"), "'-x"); assert.equal(Core.csvCell("\tx"), "'\tx");
   const first = recs[0].result.nuclei.objects[0];

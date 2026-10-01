@@ -15,9 +15,17 @@
     foci_sigma:      { label: "Foci smoothing sigma (px)", min: 0.3, max: 5, step: 0.1, int: false, odd: false, help: "Gaussian blur of the foci channel before spot detection." },
     tophat_size:     { label: "Top-hat size (px, odd)", min: 3, max: 51, step: 2, int: true, odd: true, help: "Spots smaller than this are foci; larger structures count as background." },
     min_height:      { label: "Foci minimum height (grey levels 0-255)", min: 0.5, max: 255, step: 0.5, int: false, odd: false, help: "How far a spot must rise above local background after normalisation to 0-255." },
-    peak_window:     { label: "Peak window (px, odd)", min: 3, max: 31, step: 2, int: true, odd: true, help: "One focus per window of this size; lower it to split touching foci." }
+    peak_window:     { label: "Peak window (px, odd)", min: 3, max: 31, step: 2, int: true, odd: true, help: "One focus per window of this size; lower it to split touching foci." },
+    // pipeline v2 (nucleus split) only
+    sigma:            { label: "Nucleus smoothing sigma (px)", min: 0.1, max: 10, step: 0.1, int: false, odd: false, help: "Gaussian blur of the nuclear channel before thresholding (v2)." },
+    thr_factor:       { label: "Threshold factor", min: 0.1, max: 3, step: 0.05, int: false, odd: false, help: "Multiplies the automatic (Otsu) nucleus threshold; lower makes nuclei larger (v2)." },
+    split_sigma:      { label: "Split smoothing (px)", min: 0, max: 10, step: 0.25, int: false, odd: false, help: "Blur of the distance map used to find nucleus centres; 0 = none (v2)." },
+    h:                { label: "Split depth h (px)", min: 0, max: 1000, step: 0.25, int: false, odd: false, help: "A dip in the distance map must be deeper than this to separate two nuclei; larger = fewer splits (v2)." },
+    intensity_weight: { label: "Intensity weight in split", min: 0, max: 10, step: 0.1, int: false, odd: false, help: "Mixes smoothed DNA brightness into the split surface; 0 = shape only (v2)." },
+    intensity_sigma:  { label: "Intensity smoothing (px)", min: 0.1, max: 10, step: 0.1, int: false, odd: false, help: "Blur of the DNA channel for that brightness term (v2)." }
   };
-  var PARAM_ORDER = ["nucleus_sigma", "background_size", "min_nucleus_px", "foci_sigma", "tophat_size", "min_height", "peak_window"];
+  var PARAM_ORDER = ["nucleus_sigma", "sigma", "background_size", "thr_factor", "min_nucleus_px", "split_sigma", "h", "intensity_weight", "intensity_sigma",
+    "foci_sigma", "tophat_size", "min_height", "peak_window"];
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; });
@@ -51,15 +59,15 @@
     var raw = {}, unknown = [];
     Object.keys(src).forEach(function (k) {
       if (Object.prototype.hasOwnProperty.call(defaults, k) && (typeof src[k] === "number" || typeof src[k] === "string")) raw[k] = src[k];
-      else if (k !== "schema" && k !== "engine_version" && k !== "saved_at" && k !== "note") unknown.push(cleanLabel(k, 40));
+      else if (k !== "schema" && k !== "engine_version" && k !== "saved_at" && k !== "note" && k !== "pipeline") unknown.push(cleanLabel(k, 40));
     });
     if (!Object.keys(raw).length) return { ok: false, error: "No known parameters found in that file." };
     var v = validateParams(raw, defaults);
     return { ok: v.ok, errors: v.errors, clean: v.clean, provided: Object.keys(raw).length, unknown: unknown, error: v.ok ? null : Object.keys(v.errors).map(function (k) { return v.errors[k]; }).join(" ") };
   }
 
-  function paramsToJSON(params, engineVersion) {
-    return JSON.stringify({ schema: "foci-lab-params/1", engine_version: engineVersion || null, saved_at: new Date().toISOString(), params: params }, null, 2);
+  function paramsToJSON(params, engineVersion, pipeline) {
+    return JSON.stringify({ schema: "foci-lab-params/1", engine_version: engineVersion || null, pipeline: pipeline || "v1", saved_at: new Date().toISOString(), params: params }, null, 2);
   }
 
   // Presets are relative to whatever the engine currently reports as defaults (no invented numbers).
@@ -204,25 +212,26 @@
   function toCsv(header, rows) {
     return header.join(",") + "\r\n" + rows.map(function (r) { return r.map(csvCell).join(","); }).join("\r\n") + (rows.length ? "\r\n" : "");
   }
+  function pipelineOf(r) { return (r.result && r.result.pipeline_version) || null; }
   // records: done records only
   function perNucleusCsv(records) {
     var rows = [];
     records.forEach(function (r) {
       var objs = (r.result && r.result.nuclei && r.result.nuclei.objects) || [], px = r.pixelSizeUm;
       objs.forEach(function (o) {
-        rows.push([r.name, r.condition, r.replicate, o.id, o.area_px, px ? o.area_px * px * px : null, o.cx, o.cy, o.foci]);
+        rows.push([r.name, r.condition, r.replicate, o.id, o.area_px, px ? o.area_px * px * px : null, o.cx, o.cy, o.foci, pipelineOf(r)]);
       });
     });
-    return toCsv(["image", "condition", "replicate", "nucleus_id", "area_px", "area_um2", "centroid_x_px", "centroid_y_px", "foci"], rows);
+    return toCsv(["image", "condition", "replicate", "nucleus_id", "area_px", "area_um2", "centroid_x_px", "centroid_y_px", "foci", "pipeline_version"], rows);
   }
   function perImageCsv(records) {
     var rows = records.map(function (r) {
       var s = r.summary || {};
       return [r.name, r.condition, r.replicate, r.nuclei && r.nuclei.file.name, r.nuclei && r.nuclei.channel.name, r.foci && r.foci.file.name, r.foci && r.foci.channel.name,
-        r.width, r.height, r.pixelSizeUm, r.status, s.nuclei, s.foci, s.fociPerNucleus, s.median, s.pctWithFoci, r.backend, r.engineVersion, r.timing_ms, (r.warnings || []).join(" | ") || (r.error || "")];
+        r.width, r.height, r.pixelSizeUm, r.status, s.nuclei, s.foci, s.fociPerNucleus, s.median, s.pctWithFoci, r.backend, r.engineVersion, r.timing_ms, (r.warnings || []).join(" | ") || (r.error || ""), pipelineOf(r)];
     });
     return toCsv(["image", "condition", "replicate", "nuclei_file", "nuclei_channel", "foci_file", "foci_channel", "width_px", "height_px", "pixel_size_um", "status",
-      "nuclei", "foci_total", "foci_per_nucleus", "median_foci_per_nucleus", "pct_nuclei_with_foci", "backend", "engine_version", "time_ms", "warnings_or_error"], rows);
+      "nuclei", "foci_total", "foci_per_nucleus", "median_foci_per_nucleus", "pct_nuclei_with_foci", "backend", "engine_version", "time_ms", "warnings_or_error", "pipeline_version"], rows);
   }
 
   // ------------------------------------------------------------ conditions
@@ -280,7 +289,7 @@
         nuclei: r.nuclei ? { file: fileEntry(r.nuclei.file), channel_index: r.nuclei.channel.index, channel_name: r.nuclei.channel.name, bit_depth: r.nuclei.channel.bitDepth } : null,
         foci: r.foci ? { file: fileEntry(r.foci.file), channel_index: r.foci.channel.index, channel_name: r.foci.channel.name, bit_depth: r.foci.channel.bitDepth } : null,
         width_px: r.width || null, height_px: r.height || null, pixel_size_um: r.pixelSizeUm || null,
-        backend: r.backend || null, engine_version: r.engineVersion || null, time_ms: r.timing_ms == null ? null : r.timing_ms,
+        backend: r.backend || null, engine_version: r.engineVersion || null, pipeline_version: pipelineOf(r), time_ms: r.timing_ms == null ? null : r.timing_ms,
         normalisation: r.result ? r.result.normalisation || null : null,
         parameters_used: r.result && r.result.params ? r.result.params : null,
         counts: r.summary ? { nuclei: r.summary.nuclei, foci: r.summary.foci } : null,
@@ -292,12 +301,13 @@
       generated_at: (ctx.now || new Date()).toISOString(),
       page: { name: "Foci Lab browser lab", version: ctx.pageVersion, io_version: ctx.ioVersion, url: ctx.pageUrl || null },
       privacy: "Computed entirely in this browser tab. No image or result was uploaded. File identity is given by SHA-256 of the file bytes, computed in the browser.",
-      engine: { version: ctx.engineVersion || null, mode_requested: ctx.mode, backends_used: Array.from(new Set(recs.map(function (r) { return r.backend; }).filter(Boolean))), capabilities: ctx.capabilities || null, worker_pool_size: ctx.poolSize || null },
+      engine: { version: ctx.engineVersion || null, pipeline_version: ctx.pipeline || null, mode_requested: ctx.mode, backends_used: Array.from(new Set(recs.map(function (r) { return r.backend; }).filter(Boolean))), capabilities: ctx.capabilities || null, worker_pool_size: ctx.poolSize || null },
       parameters: ctx.params, parameter_defaults: ctx.defaults,
       environment: { user_agent: ctx.userAgent || null, hardware_concurrency: ctx.hardwareConcurrency || null },
       images: recs,
       caveats: [
         "Classical, exploratory counter; NOT validated against manual counts (Experiments L and L2).",
+        "Pipeline v2 only changes how touching nuclei are separated; the foci counting step is identical and still unvalidated. A better nucleus count is not evidence of a more accurate focus count.",
         "53BP1 and gamma-H2AX foci mark DNA double-strand breaks anywhere in the genome; they are not telomere-specific.",
         "Tune parameters on your own positive and negative controls before trusting a number.",
         "Images from one well or dish are technical, not independent, replicates."

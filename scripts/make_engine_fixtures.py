@@ -18,6 +18,13 @@ is still what segment.py produces.
     python scripts/make_engine_fixtures.py --check          # verify the committed manifest (no writes)
     python scripts/make_engine_fixtures.py --dump DIR ID    # raw float32/int32 intermediates of one case (debugging)
 
+    python scripts/make_engine_fixtures.py --v2             # regenerate the pipeline-v2 fixtures (foci/tests/fixtures/engine_golden_v2)
+    python scripts/make_engine_fixtures.py --v2 --check     # verify them (no writes; needs no BBBC039 data)
+
+The v2 fixtures are separate (the manifest.json of engine_golden is untouched): synthetic/IDR cases are re-used from engine_golden by
+relative path, and a handful of small BBBC039 crops (CC0, training split, 12-bit) are stored next to the v2 manifest.
+Regenerating the crops needs the BBBC039 zips (BBBC039_DIR or --bbbc DIR); checking does not.
+
 Synthetic images come from numpy.random.default_rng(seed); the PNGs on disk, not the generator, are the
 authoritative inputs (a future numpy may draw a different stream, which only matters when regenerating).
 The IDR images are from idr0010 (Doil et al., Cell 2009), CC BY 4.0, the same data the site shows.
@@ -45,8 +52,10 @@ sys.path.insert(0, str(ROOT))
 
 from telomere_lab.foci import segment as S  # noqa: E402
 from telomere_lab.foci.segment import FociParams, count_foci  # noqa: E402
+from telomere_lab.foci import segment_v2 as V2  # noqa: E402
 
 OUT = ROOT / "foci" / "tests" / "fixtures" / "engine_golden"
+OUT2 = ROOT / "foci" / "tests" / "fixtures" / "engine_golden_v2"
 CACHE = ROOT / ".cache" / "idr0010" / "img"
 FORMAT = 1
 
@@ -349,11 +358,149 @@ def dump(case_id: str, outdir: str) -> None:
     print("wrote", sorted(arrays), "to", outdir, "shape", dna.shape)
 
 
+# ------------------------------------------------------------------- pipeline v2 fixtures
+
+V2_NUCLEUS_KEYS = set(dataclasses.asdict(V2.NucleusV2Params()))
+BBBC_CROPS = [  # (index into the sorted training list, y0, y1, x0, x1): 12-bit crops with touching nuclei
+    (3, 0, 200, 0, 260), (17, 150, 350, 100, 360), (31, 300, 500, 400, 660), (44, 0, 200, 380, 640), (58, 200, 400, 0, 260), (72, 320, 520, 200, 460),
+]
+V2_KEEP = ["syn_seed1_8bit", "syn_uneven_illumination", "syn_saturated", "syn_16bit", "syn_12bit", "syn_dense_touching", "syn_60x60_one_nucleus",
+           "syn_empty_noise", "syn_empty_zero", "syn_constant_200", "syn_tiny_5x7", "syn_tiny_1x40", "syn_tiny_1x1", "syn_blocks_with_hole"]
+
+
+def reference_v2(dna_raw: np.ndarray, foc_raw: np.ndarray, overrides: Dict[str, Any], with_intermediates: bool = True) -> Dict[str, Any]:
+    dna, dinfo = load_signal(dna_raw, "DNA")
+    foc, finfo = load_signal(foc_raw, "Foci")
+    p2 = V2.NucleusV2Params(**{k: v for k, v in overrides.items() if k in V2_NUCLEUS_KEYS})
+    p = FociParams(**{k: v for k, v in overrides.items() if k not in V2_NUCLEUS_KEYS})
+    res = V2.count_foci_v2(dna, foc, p, p2)
+    nuclei = res.nuclei
+    n_obj = int(nuclei.max())
+    ys, xs = np.nonzero(res.foci)
+    th = sm = None
+    if n_obj:
+        sm = ndi.gaussian_filter(foc.astype(np.float32), p.foci_sigma)
+        th = ndi.white_tophat(sm, size=p.tophat_size)
+    sizes = np.bincount(nuclei.ravel(), minlength=n_obj + 1)[1:]
+    out: Dict[str, Any] = {
+        "pipeline_version": res.pipeline_version,
+        "normalisation": {"dna": _norm_info(dinfo), "foci": _norm_info(finfo)},
+        "n_objects": n_obj, "n_nuclei": int(res.n_nuclei), "n_foci": int(res.n_foci),
+        "foci_per_object": [int(v) for v in res.foci_per_nucleus],
+        "object_area": [int(v) for v in sizes], "nuclei_in_object": [1] * n_obj,
+        "peaks": [[int(x), int(y), _f32_repr(th[y, x]), int(nuclei[y, x])] for y, x in zip(ys, xs)],
+    }
+    if with_intermediates:
+        smooth = ndi.gaussian_filter(dna.astype(np.float32), p2.sigma)
+        flat = smooth - ndi.grey_opening(smooth, size=p2.background_size)
+        otsu = V2._linear_otsu(flat)
+        out["threshold"] = float(otsu)
+        out["threshold32"] = _f32_repr(np.float32(otsu * p2.thr_factor))
+        out["hashes"] = {"norm_dna": _sha(dna), "norm_foci": _sha(foc), "flat": _sha(flat), "labels": _sha(nuclei.astype(np.int32)),
+                         "overlay_rgb": _sha(S.overlay_rgb(dna, foc, res))}
+        mask = V2.v2_foreground(dna, p2)
+        if mask.any():
+            out["hashes"]["surface"] = _sha(V2.quantised_surface(dna, mask, p2).astype(np.int32))
+        if th is not None:
+            out["hashes"]["smooth_foci"] = _sha(sm)
+            out["hashes"]["th"] = _sha(th)
+    return out
+
+
+def _bbbc_crops(bbbc: Optional[str]) -> List[Dict[str, Any]]:
+    import io
+    import zipfile
+    d = Path(bbbc or os.environ.get("BBBC039_DIR", "."))
+    if not (d / "images.zip").is_file():
+        raise SystemExit("regenerating the v2 crops needs BBBC039 (images.zip, metadata.zip): set BBBC039_DIR or pass --bbbc DIR")
+    cs = []
+    with zipfile.ZipFile(d / "images.zip") as iz, zipfile.ZipFile(d / "metadata.zip") as mz:
+        name = next(n for n in mz.namelist() if n.endswith("training.txt") and "__MACOSX" not in n)
+        train = sorted(l.strip().replace(".png", "") for l in mz.read(name).decode().splitlines() if l.strip())
+        for i, (k, y0, y1, x0, x1) in enumerate(BBBC_CROPS):
+            use, other = train[k], train[(k + 37) % len(train)]
+            im = np.array(Image.open(io.BytesIO(iz.read(f"images/{use}.tif"))))
+            im2 = np.array(Image.open(io.BytesIO(iz.read(f"images/{other}.tif"))))
+            cs.append({"id": f"bbbc_crop{i}", "kind": "bbbc039",
+                       "note": f"BBBC039 training image {use}, crop y{y0}:{y1} x{x0}:{x1}; the foci channel is the same crop of {other} (an arbitrary second image)",
+                       "dna": np.ascontiguousarray(im[y0:y1, x0:x1]), "foci": np.ascontiguousarray(im2[y0:y1, x0:x1]), "bit_depth": 12, "params": {}})
+    return cs
+
+
+def v2_variants() -> List[Dict[str, Any]]:
+    return [{"h": 0.0}, {"h": 0.25}, {"h": 1.5}, {"h": 1000.0}, {"split_sigma": 0.0}, {"split_sigma": 2.0}, {"intensity_weight": 0.5},
+            {"intensity_weight": 1.0, "intensity_sigma": 3.0}, {"thr_factor": 0.6}, {"thr_factor": 1.2}, {"sigma": 2.0}, {"min_nucleus_px": 200},
+            {"background_size": 21}, {"min_height": 8.0, "peak_window": 7}]
+
+
+def build_v2(write: bool = True, bbbc: Optional[str] = None) -> Dict[str, Any]:
+    entries: List[Dict[str, Any]] = []
+    images: Dict[str, Tuple[np.ndarray, np.ndarray]] = {}
+    if write:
+        v1 = json.loads((OUT / "manifest.json").read_text(encoding="utf-8"))
+        keep = V2_KEEP + [next(c["id"] for c in v1["cases"] if c["kind"] == "idr0010" and not c["id"].endswith("_crop"))]
+        OUT2.mkdir(parents=True, exist_ok=True)
+        for old in OUT2.glob("*.png"):
+            old.unlink()
+        for cid in keep:
+            e = next(c for c in v1["cases"] if c["id"] == cid)
+            # nucleus parameters of the v1 case that v2 also has (min_nucleus_px, background_size) carry over; nucleus_sigma does not exist in v2
+            params = {k: v for k, v in e["params"].items() if k in ("min_nucleus_px", "background_size", "foci_sigma")}
+            entries.append({"id": cid, "kind": e["kind"], "note": e["note"], "width": e["width"], "height": e["height"], "bit_depth": e["bit_depth"],
+                            "files": {k: "../engine_golden/" + e["files"][k] for k in ("dna", "foci")}, "params": params})
+            images[cid] = read_case_images(e, OUT)
+        for c in _bbbc_crops(bbbc):
+            h, w = c["dna"].shape
+            files = {k: png_name(c["id"], k) for k in ("dna", "foci")}
+            for k in ("dna", "foci"):
+                Image.fromarray(c[k]).save(OUT2 / files[k], format="PNG", optimize=True)
+            entries.append({"id": c["id"], "kind": c["kind"], "note": c["note"], "width": w, "height": h, "bit_depth": c["bit_depth"], "files": files, "params": {}})
+            images[c["id"]] = (c["dna"], c["foci"])
+    else:  # check mode: the case list and the stored PNGs are the committed ones
+        entries = json.loads((OUT2 / "manifest.json").read_text(encoding="utf-8"))["cases"]
+        for e in entries:
+            images[e["id"]] = tuple(np.array(Image.open(OUT2 / e["files"][k])) for k in ("dna", "foci"))  # type: ignore[assignment]
+    for e in entries:
+        e["python"] = reference_v2(*images[e["id"]], e["params"])
+    sweeps = []
+    for cid in ("bbbc_crop0", "bbbc_crop2", "syn_dense_touching"):
+        for v in v2_variants():
+            sweeps.append({"case": cid, "params": v, "python": reference_v2(*images[cid], v, with_intermediates=False)})
+    manifest = {"format": FORMAT, "pipeline": "v2", "generator": "scripts/make_engine_fixtures.py --v2", "env": env_info(),
+                "default_params": dataclasses.asdict(V2.NucleusV2Params()), "foci_params": dataclasses.asdict(FociParams()), "cases": entries, "sweeps": sweeps}
+    if write:
+        with open(OUT2 / "manifest.json", "w", encoding="utf-8", newline="\n") as fh:
+            json.dump(manifest, fh, separators=(",", ":"))
+            fh.write("\n")
+    return manifest
+
+
+def check_v2() -> List[str]:
+    m = json.loads((OUT2 / "manifest.json").read_text(encoding="utf-8"))
+    again = build_v2(write=False)
+    bad = [e["id"] for e, r in zip(m["cases"], again["cases"]) if e["python"] != r["python"]]
+    bad += [f"sweep:{s['case']}:{s['params']}" for s, r in zip(m["sweeps"], again["sweeps"]) if s["python"] != r["python"]]
+    if len(m["sweeps"]) != len(again["sweeps"]):
+        bad.append("sweep count")
+    return bad
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--check", action="store_true", help="verify the committed manifest against the current reference (no writes)")
     ap.add_argument("--dump", nargs=2, metavar=("DIR", "CASE_ID"), help="write raw intermediates of one case")
+    ap.add_argument("--v2", action="store_true", help="pipeline-v2 fixtures instead of the v1 ones")
+    ap.add_argument("--bbbc", help="folder with BBBC039 images.zip / metadata.zip (only to regenerate the v2 crops)")
     a = ap.parse_args()
+    if a.v2:
+        if a.check:
+            bad = check_v2()
+            print("DRIFT in:" if bad else "v2 manifest matches the current reference", *bad, sep="\n  " if bad else " ")
+            sys.exit(1 if bad else 0)
+        m = build_v2(True, a.bbbc)
+        size = sum(f.stat().st_size for f in OUT2.iterdir())
+        print(f"wrote {len(m['cases'])} v2 cases + {len(m['sweeps'])} sweeps to {OUT2} ({size / 1e6:.2f} MB)")
+        return
     if a.dump:
         dump(a.dump[1], a.dump[0])
         return

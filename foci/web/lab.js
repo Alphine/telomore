@@ -74,6 +74,12 @@
       return;
     }
     try { S.defaults = Eng.defaultParams(); } catch (e) { S.defaults = null; }
+    S.pipeline = "v1";
+    S.defaultsBy = { v1: S.defaults };
+    var hasV2 = Array.isArray(Eng.pipelines) && Eng.pipelines.indexOf("v2") >= 0;
+    if (hasV2) { try { S.defaultsBy.v2 = Eng.defaultParams("v2"); } catch (e) { S.defaultsBy.v2 = null; } }
+    if (!S.defaultsBy.v2) { $("pipeline").querySelector('option[value="v2"]').disabled = true; $("pipeline").value = "v1"; }
+    else { S.pipeline = "v2"; S.defaults = S.defaultsBy.v2; $("pipeline").value = "v2"; }   // v2 is the page default (BBBC039 test split, docs/EXPERIMENT_PROTOCOL.md 15.5)
     if (!S.defaults) { $("engineMissing").hidden = false; showBadge("Analysis engine failed to start", "none"); return; }
     S.engineVersion = Eng.version || null;
     try { S.caps = await Eng.capabilities(); } catch (e) { S.caps = null; }
@@ -88,6 +94,12 @@
     sel.value = String(Math.min(2, n));
     updateButtons();
   }
+
+  $("pipeline").addEventListener("change", function () {
+    var v = this.value === "v2" && S.defaultsBy && S.defaultsBy.v2 ? "v2" : "v1";
+    S.pipeline = v; S.defaults = S.defaultsBy[v];
+    $("paramPreset").value = "defaults"; buildParamGrid(); readParams(); updateButtons();
+  });
 
   function buildParamGrid() {
     var grid = $("paramGrid"), keys = Core.PARAM_ORDER.filter(function (k) { return k in S.defaults; });
@@ -120,7 +132,7 @@
   $("resetParams").addEventListener("click", function () { if (!S.defaults) return; $("paramPreset").value = "defaults"; setParamInputs(S.defaults); });
   $("exportParams").addEventListener("click", function () {
     var p = readParams(); if (!p) return;
-    download("foci-lab-parameters-" + stamp() + ".json", Core.paramsToJSON(p, S.engineVersion), "application/json");
+    download("foci-lab-parameters-" + stamp() + ".json", Core.paramsToJSON(p, S.engineVersion, S.pipeline), "application/json");
   });
   $("importParamsBtn").addEventListener("click", function () { $("importParams").click(); });
   $("importParams").addEventListener("change", async function () {
@@ -454,7 +466,7 @@
     $("cancelBtn").hidden = !S.running;
     ["pickFiles", "pickFolder", "repair", "addSet", "bulkApply"].forEach(function (id) { $(id).disabled = S.running || (id === "addSet" && !S.files.some(function (f) { return f.status === "ok"; })); });
     $("clearFiles").disabled = S.running || !S.files.length;
-    $("mode").disabled = $("pool").disabled = S.running;
+    $("mode").disabled = $("pool").disabled = $("pipeline").disabled = S.running;
   }
 
   function raceAbort(p, signal) {
@@ -508,7 +520,7 @@
       s.readWarnings = (nres.warnings || []).concat(nf === ff ? [] : (fres.warnings || [])).filter(function (w, i, a) { return a.indexOf(w) === i; });
       s.status = "running"; s.msg = "Analysing…"; refreshSet(s);
       var t0 = performance.now();
-      var res = await raceAbort(pool.analyze({ dna: chanInput(dna), foci: chanInput(foci), params: params }, { mode: $("mode").value, overlay: true, signal: signal }), signal);
+      var res = await raceAbort(pool.analyze({ dna: chanInput(dna), foci: chanInput(foci), params: params }, { mode: $("mode").value, pipeline: S.pipeline, overlay: true, signal: signal }), signal);
       dna = foci = nres = fres = null;
       if (res.overlay && res.overlay.data) { s.overlayBlob = await makeOverlayBlob(res.overlay); }
       delete res.overlay;
@@ -556,7 +568,7 @@
     } catch (e) { say("The run stopped unexpectedly: " + errMsg(e), "err"); }
     todo.forEach(function (s) { if (s.status === "queued" || s.status === "reading" || s.status === "running") { s.status = "cancelled"; s.msg = "Cancelled."; refreshSet(s); } });
     var ok = todo.filter(function (s) { return s.status === "done"; }).length, bad = todo.filter(function (s) { return s.status === "error"; }).length, can = todo.filter(function (s) { return s.status === "cancelled"; }).length;
-    S.lastRun = { startedAt: startedAt, finishedAt: new Date(), mode: $("mode").value, poolSize: size, params: params, ids: todo.map(function (s) { return s.id; }) };
+    S.lastRun = { startedAt: startedAt, finishedAt: new Date(), mode: $("mode").value, pipeline: S.pipeline, poolSize: size, params: params, ids: todo.map(function (s) { return s.id; }) };
     S.running = false; S.ac = null;
     $("progWrap").hidden = true;
     say((signal.aborted ? "Cancelled. " : "") + ok + " analysed" + (bad ? ", " + bad + " failed" : "") + (can ? ", " + can + " cancelled" : "") + " in " + ((performance.now() - t0) / 1000).toFixed(1) + " s.", bad || signal.aborted ? "err" : "ok");
@@ -625,6 +637,7 @@
     var dl = $("used"); clear(dl);
     function kv(k, v) { dl.appendChild(h("dt", { text: k })); dl.appendChild(h("dd", { text: v })); }
     kv("Backend", (s.backend || "?") + " · engine " + (s.engineVersion || "?"));
+    kv("Nucleus pipeline", r.pipeline_version || "v1");
     kv("Image", s.width + " × " + s.height + " px" + (s.pixelSizeUm ? " · " + fmtNum(s.pixelSizeUm, 4) + " µm/px" : ""));
     Object.keys(r.params || {}).forEach(function (k) { kv(k, String(r.params[k])); });
     if (r.normalisation != null) kv("Normalisation", typeof r.normalisation === "string" ? r.normalisation : JSON.stringify(r.normalisation));
@@ -710,7 +723,7 @@
   $("expImg").addEventListener("click", function () { download("foci-lab-per-image-" + stamp() + ".csv", BOM + Core.perImageCsv(attempted().map(recordOf)), "text/csv;charset=utf-8"); });
   $("expProv").addEventListener("click", function () {
     var lr = S.lastRun || {}, recs = attempted().map(recordOf);
-    var prov = Core.buildProvenance({ pageVersion: Core.LAB_VERSION, ioVersion: IO.version, pageUrl: location.origin + location.pathname, engineVersion: S.engineVersion, mode: lr.mode, poolSize: lr.poolSize,
+    var prov = Core.buildProvenance({ pageVersion: Core.LAB_VERSION, ioVersion: IO.version, pageUrl: location.origin + location.pathname, engineVersion: S.engineVersion, mode: lr.mode, pipeline: lr.pipeline, poolSize: lr.poolSize,
       capabilities: S.caps, params: lr.params || null, defaults: S.defaults, userAgent: navigator.userAgent, hardwareConcurrency: navigator.hardwareConcurrency, records: recs });
     prov.run = { started_at: lr.startedAt ? lr.startedAt.toISOString() : null, finished_at: lr.finishedAt ? lr.finishedAt.toISOString() : null };
     download("foci-lab-provenance-" + stamp() + ".json", JSON.stringify(prov, null, 2), "application/json");

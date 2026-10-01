@@ -20,6 +20,7 @@ This page is the **reader, page and UX** half. The analysis itself is `window.Fo
    shows both channels with a display-stretched preview and an intensity histogram, and two selectors let you
    choose the nuclei channel and the foci channel by hand. Condition (for example `control`, `treated`) and an
    optional replicate label can be set per set or in bulk.
+2b. **Nucleus pipeline** selector (v1 / v2, default v2): v2 splits touching nuclei (CPU only; see ENGINE.md "Pipeline v2"). The choice is passed as `opts.pipeline`, switches the parameter set, and is recorded as `pipeline_version` in every result, both CSVs (last column) and the provenance JSON.
 3. **Parameters**: the seven engine parameters with bounds, presets (engine defaults; minimum height x2 or x0.5
    relative to whatever the engine reports), reset, and **export / import as JSON**.
 4. **Run**: per-set status, overall progress, **Cancel** (AbortController; the worker pool is terminated), a worker

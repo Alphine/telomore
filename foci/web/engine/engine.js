@@ -18,7 +18,7 @@
 (function (root) {
   'use strict';
 
-  var VERSION = '1.0.0';
+  var VERSION = '1.1.0';
   var IS_NODE = typeof process !== 'undefined' && !!(process.versions && process.versions.node);
   var SCRIPT_URL = (function () {
     try {
@@ -66,20 +66,46 @@
     peak_window: { int: true, odd: true, lo: 3, hi: 31 },
   };
 
-  function defaultParams() {
-    var o = {};
-    for (var k in DEFAULTS) o[k] = DEFAULTS[k];
+  // Pipeline "v2" (segment_v2.py, NucleusV2Params): the nucleus parameters differ, the four foci parameters are shared.
+  var DEFAULTS_V2 = Object.freeze(Object.assign({
+    sigma: 0.7,
+    background_size: 41,
+    thr_factor: 0.8,
+    min_nucleus_px: 60,
+    split_sigma: 0.5,
+    h: 1.0,
+    intensity_weight: 0.4,
+    intensity_sigma: 1.0,
+  }, { foci_sigma: 1.0, tophat_size: 7, min_height: 12.0, peak_window: 5 }));
+  var SPECS_V2 = {
+    sigma: { int: false, odd: false, lo: 0.1, hi: 10 },
+    background_size: SPECS.background_size,
+    thr_factor: { int: false, odd: false, lo: 0.1, hi: 3 },
+    min_nucleus_px: { int: true, odd: false, lo: 1, hi: 100000 },
+    split_sigma: { int: false, odd: false, lo: 0, hi: 10 },
+    h: { int: false, odd: false, lo: 0, hi: 1000 },
+    intensity_weight: { int: false, odd: false, lo: 0, hi: 10 },
+    intensity_sigma: { int: false, odd: false, lo: 0.1, hi: 10 },
+    foci_sigma: SPECS.foci_sigma,
+    tophat_size: SPECS.tophat_size,
+    min_height: SPECS.min_height,
+    peak_window: SPECS.peak_window,
+  };
+
+  function defaultParams(pipeline) {
+    var o = {}, src = pipeline === 'v2' ? DEFAULTS_V2 : DEFAULTS;
+    for (var k in src) o[k] = src[k];
     return o;
   }
 
-  function resolveParams(partial) {
-    var p = defaultParams();
+  function resolveParams(partial, pipeline) {
+    var p = defaultParams(pipeline), specs = pipeline === 'v2' ? SPECS_V2 : SPECS;
     if (partial === undefined || partial === null) return p;
     if (typeof partial !== 'object' || Array.isArray(partial)) throw fail('bad_input', 'params must be an object');
     Object.keys(partial).forEach(function (k) {
-      if (!Object.prototype.hasOwnProperty.call(SPECS, k)) throw fail('bad_input', 'unknown parameter: ' + k);
+      if (!Object.prototype.hasOwnProperty.call(specs, k)) throw fail('bad_input', 'unknown parameter' + (pipeline === 'v2' ? ' for pipeline v2' : '') + ': ' + k);
       var v = partial[k];
-      var s = SPECS[k];
+      var s = specs[k];
       if (typeof v !== 'number' || !isFinite(v)) throw fail('bad_input', k + ' must be a finite number');
       if (s.int && Math.floor(v) !== v) throw fail('bad_input', k + ' must be a whole number');
       if (s.odd && v % 2 === 0) throw fail('bad_input', k + ' must be an odd number');
@@ -119,10 +145,11 @@
     }
   }
 
-  function memoryEstimate(w, h, overlay) {
+  function memoryEstimate(w, h, overlay, pipeline) {
     // Float32 A + B (8), normalisation sort copy transient (4), masks/scratch (3), labels (4), stack worst case (4),
     // peak mask (1), + overlay RGBA (4) and a re-normalised channel (4).
     var perPx = 8 + 4 + 3 + 4 + 4 + 1 + (overlay ? 8 : 0);
+    if (pipeline === 'v2') perPx += 8 + 8 + 4 + 8 + 4 + 4;     // + v2: distance planes (Float64), surface, copy of the DNA, order, parents
     return w * h * perPx;
   }
 
@@ -390,11 +417,11 @@
    * float64 Otsu; expm1 -> Python float -> compared against float32 data as a float32.
    * `scratch` (Float32Array, same length) is overwritten. Returns diagnostics incl. the float32 threshold.
    */
-  function logOtsu(flat, scratch) {
+  function logOtsu(flat, scratch, linear) {
     var n = flat.length, i, cnt = 0, vmin = Infinity, vmax = -Infinity;
     for (i = 0; i < n; i++) {
       var x = flat[i];
-      var v = x > 0 ? F(Math.log1p(x)) : 0;     // np.clip(flat, 0, None) then float32 log1p
+      var v = x > 0 ? (linear ? x : F(Math.log1p(x))) : 0;     // np.clip(flat, 0, None) then float32 log1p (linear: flat[flat > 0] as is)
       scratch[i] = v;
       if (v > 0) { cnt++; if (v < vmin) vmin = v; if (v > vmax) vmax = v; }
     }
@@ -438,6 +465,7 @@
       if (between > best) { best = between; bi = k; }
     }
     var logThr = centers[bi];
+    if (linear) return { threshold: logThr, threshold32: F(logThr), log_threshold: null, positive_pixels: cnt, degenerate: false };
     var thr = Math.expm1(logThr);
     return { threshold: thr, threshold32: F(thr), log_threshold: logThr, positive_pixels: cnt, degenerate: false };
   }
@@ -549,6 +577,164 @@
     return out;
   }
 
+  // ----------------------------------------------------------------- pipeline v2 (nucleus split)
+  // Mirrors src/telomere_lab/foci/segment_v2.py step by step (read its docstring first). Everything that decides a
+  // label is integer arithmetic or IEEE double on float32 inputs, in the same order as Python, so labels match exactly.
+
+  var Q_SCALE = 32;
+
+  // ndi.distance_transform_edt(np.pad(mask, 1)) as float32: exact Euclidean distance to the nearest background pixel
+  function edtPadded(mask, w, h) {
+    var W = w + 2, H = h + 2, f = new Float64Array(W * H), x, y, d;
+    var BIG = 1e9;
+    // row pass: squared horizontal distance to the nearest background pixel of the row (the pad guarantees one)
+    for (y = 1; y <= h; y++) {
+      var row = y * W, mrow = (y - 1) * w - 1;
+      d = BIG;
+      for (x = 0; x < W; x++) {
+        d = (x === 0 || x === W - 1 || !mask[mrow + x]) ? 0 : d + 1;
+        f[row + x] = d;
+      }
+      d = BIG;
+      for (x = W - 1; x >= 0; x--) {
+        d = (x === 0 || x === W - 1 || !mask[mrow + x]) ? 0 : d + 1;
+        if (d < f[row + x]) f[row + x] = d;
+      }
+      for (x = 0; x < W; x++) f[row + x] *= f[row + x];
+    }
+    // column pass: exact lower envelope of parabolas (Felzenszwalb & Huttenlocher); intersections are compared as fractions
+    var v = new Int32Array(H), zn = new Float64Array(H), zd = new Float64Array(H), g = new Float64Array(H), out = new Float32Array(w * h);
+    for (x = 1; x <= w; x++) {
+      for (y = 0; y < H; y++) g[y] = (y === 0 || y === H - 1) ? 0 : f[y * W + x];
+      var k = 0, q;
+      v[0] = 0;
+      for (q = 1; q < H; q++) {
+        for (;;) {
+          var pp = v[k], num = (g[q] + q * q) - (g[pp] + pp * pp), den = 2 * (q - pp);
+          if (k > 0 && num * zd[k] <= zn[k] * den) { k--; continue; }
+          k++; v[k] = q; zn[k] = num; zd[k] = den;
+          break;
+        }
+      }
+      var top = k, j = 0;
+      for (y = 1; y <= h; y++) {
+        while (j < top && zn[j + 1] < y * zd[j + 1]) j++;
+        d = (y - v[j]) * (y - v[j]) + g[v[j]];
+        out[(y - 1) * w + x - 1] = F(Math.sqrt(d));
+      }
+    }
+    return out;
+  }
+
+  // flood_with_dynamics(): single decreasing-level pass, 4-connected, raster order within a level; a basin whose peak is
+  // less than hq above the level where it meets a higher basin is merged into it. Returns int32 labels 1..n in raster
+  // order of each region's first pixel (0 outside the mask).
+  function floodWithDynamics(q, mask, w, h, hq) {
+    var N = w * h, i, cnt = 0;
+    var qmin = Infinity, qmax = -Infinity;
+    for (i = 0; i < N; i++) if (mask[i]) { cnt++; if (q[i] < qmin) qmin = q[i]; if (q[i] > qmax) qmax = q[i]; }
+    var out = new Int32Array(N);
+    if (cnt === 0) return out;
+    // order = mask pixels by decreasing q, ties in raster order (counting sort)
+    var nb = qmax - qmin + 1, start = new Int32Array(nb + 1), order = new Int32Array(cnt);
+    for (i = 0; i < N; i++) if (mask[i]) start[qmax - q[i] + 1]++;
+    for (i = 0; i < nb; i++) start[i + 1] += start[i];
+    for (i = 0; i < N; i++) if (mask[i]) order[start[qmax - q[i]]++] = i;
+    var lab = new Int32Array(N).fill(-1), parent = [], peak = [];
+    function find(r) {
+      while (parent[r] !== r) { parent[r] = parent[parent[r]]; r = parent[r]; }
+      return r;
+    }
+    var roots = [];
+    for (var oi = 0; oi < cnt; oi++) {
+      i = order[oi];
+      var x = i % w, qi = q[i], nbr, r, t;
+      roots.length = 0;
+      for (t = 0; t < 4; t++) {
+        if (t === 0) { if (i < w) continue; nbr = i - w; }
+        else if (t === 1) { if (x === 0) continue; nbr = i - 1; }
+        else if (t === 2) { if (x === w - 1) continue; nbr = i + 1; }
+        else { if (i >= (h - 1) * w) continue; nbr = i + w; }
+        if (lab[nbr] >= 0) {
+          r = find(lab[nbr]);
+          if (roots.indexOf(r) < 0) roots.push(r);
+        }
+      }
+      if (roots.length === 0) { r = parent.length; parent.push(r); peak.push(qi); }
+      else if (roots.length === 1) r = roots[0];
+      else {
+        roots.sort(function (a, b) { return (peak[b] - peak[a]) || (a - b); });
+        r = roots[0];
+        for (t = 1; t < roots.length; t++) if (peak[roots[t]] - qi < hq) parent[roots[t]] = r;
+      }
+      lab[i] = r;
+    }
+    var ids = new Int32Array(parent.length), n = 0;
+    for (i = 0; i < N; i++) {
+      if (!mask[i]) continue;
+      var rr = find(lab[i]);
+      if (!ids[rr]) ids[rr] = ++n;
+      out[i] = ids[rr];
+    }
+    return out;
+  }
+
+  // segment_nuclei_v2(): returns {labels, count, threshold, threshold32, degenerate, dmax}; `dnaNorm` (Float32Array) is not modified
+  async function segmentNucleiV2(dnaNorm, w, h, p, ctx) {
+    var N = w * h, i;
+    var keep = p.intensity_weight > 0 ? dnaNorm.slice() : null;
+    var flat = await cpuBackend.nucleiFlat(dnaNorm.slice(), w, h, { nucleus_sigma: p.sigma, background_size: p.background_size }, ctx);
+    if (ctx.dbg) ctx.dbg.flat = flat.slice();
+    var scratch = new Float32Array(N);
+    var ot = logOtsu(flat, scratch, true);
+    scratch = null;
+    await ctx.step('otsu');
+    var thr32 = F(ot.threshold * p.thr_factor);
+    var mask = new Uint8Array(N), any = false;
+    for (i = 0; i < N; i++) { mask[i] = flat[i] > thr32 ? 1 : 0; }
+    flat = null;
+    var tmp = new Uint8Array(N);
+    erode4(mask, tmp, w, h); dilate4(tmp, mask, w, h);                  // binary_opening(iterations=1)
+    tmp = null;
+    fillHoles(mask, w, h);
+    for (i = 0; i < N; i++) if (mask[i]) { any = true; break; }
+    await ctx.step('v2 mask');
+    var res = { labels: new Int32Array(N), count: 0, threshold: ot.threshold, threshold32: thr32, degenerate: ot.degenerate };
+    if (!any) return res;
+    var ds = edtPadded(mask, w, h);
+    await ctx.step('v2 distance');
+    if (p.split_sigma > 0) gaussian2d(ds, w, h, p.split_sigma);
+    var el = new Float64Array(N);
+    for (i = 0; i < N; i++) el[i] = ds[i];
+    if (p.intensity_weight > 0) {
+      gaussian2d(keep, w, h, p.intensity_sigma);
+      var m2 = -Infinity;
+      for (i = 0; i < N; i++) if (mask[i] && keep[i] > m2) m2 = keep[i];
+      if (m2 > 0) {
+        var dmax = -Infinity;
+        for (i = 0; i < N; i++) if (ds[i] > dmax) dmax = ds[i];
+        var wd = p.intensity_weight * dmax;
+        for (i = 0; i < N; i++) el[i] = el[i] + wd * (keep[i] / m2);
+      }
+    }
+    var q = new Int32Array(N);
+    for (i = 0; i < N; i++) q[i] = Math.floor(el[i] * Q_SCALE);
+    el = null; ds = null; keep = null;
+    if (ctx.dbg) ctx.dbg.surface = q.slice();
+    var hq = Math.floor(p.h * Q_SCALE + 0.5);
+    var lab = floodWithDynamics(q, mask, w, h, hq);
+    await ctx.step('v2 watershed');
+    var n = 0;
+    for (i = 0; i < N; i++) if (lab[i] > n) n = lab[i];
+    var sizes = new Int32Array(n + 1);
+    for (i = 0; i < N; i++) sizes[lab[i]]++;
+    var remap = new Int32Array(n + 1), kept = 0;
+    for (var l = 1; l <= n; l++) if (sizes[l] >= p.min_nucleus_px) remap[l] = ++kept;
+    for (i = 0; i < N; i++) lab[i] = remap[lab[i]];
+    res.labels = lab; res.count = kept;
+    return res;
+  }
+
   // ------------------------------------------------------------------ CPU backend
 
   var cpuBackend = {
@@ -642,33 +828,44 @@
     var normInfo = { dna: nd.info, foci: null };
 
     // ---- nuclei
-    var flat = await backend.nucleiFlat(nd.data, w, h, p, ctx);
-    nd = { info: nd.info };                      // nd.data was consumed (it is `flat` on the CPU path): let it be collected
-    if (ctx.dbg) ctx.dbg.flat = flat.slice();
-    var scratch = new Float32Array(N);
-    var ot = logOtsu(flat, scratch);
-    scratch = null;
-    if (ot.degenerate) warnings.push('DNA image: the intensity histogram is degenerate; the nucleus threshold fell back to 0.');
-    await ctx.step('otsu');
-    var mask = new Uint8Array(N), t32 = ot.threshold32;
-    for (i = 0; i < N; i++) mask[i] = flat[i] > t32 ? 1 : 0;
-    flat = null;
-    var tmpMask = new Uint8Array(N);
-    binaryOpening2(mask, tmpMask, w, h);
-    tmpMask = null;
-    await ctx.step('opening');
-    fillHoles(mask, w, h);
-    await ctx.step('fill holes');
-    var lab = labelAndFilter(mask, w, h, p.min_nucleus_px);
-    mask = null;
-    var labels = lab.labels, nObj = lab.count;
-    await ctx.step('label');
+    var v2 = opts.pipeline === 'v2', ot, labels, nObj;
+    if (v2) {
+      var sv = await segmentNucleiV2(nd.data, w, h, p, ctx);
+      nd = { info: nd.info };
+      ot = { threshold: sv.threshold, threshold32: sv.threshold32, log_threshold: null };
+      if (sv.degenerate) warnings.push('DNA image: the intensity histogram is degenerate; the nucleus threshold fell back to 0.');
+      labels = sv.labels; nObj = sv.count;
+    } else {
+      var flat = await backend.nucleiFlat(nd.data, w, h, p, ctx);
+      nd = { info: nd.info };                      // nd.data was consumed (it is `flat` on the CPU path): let it be collected
+      if (ctx.dbg) ctx.dbg.flat = flat.slice();
+      var scratch = new Float32Array(N);
+      ot = logOtsu(flat, scratch);
+      scratch = null;
+      if (ot.degenerate) warnings.push('DNA image: the intensity histogram is degenerate; the nucleus threshold fell back to 0.');
+      await ctx.step('otsu');
+      var mask = new Uint8Array(N), t32 = ot.threshold32;
+      for (i = 0; i < N; i++) mask[i] = flat[i] > t32 ? 1 : 0;
+      flat = null;
+      var tmpMask = new Uint8Array(N);
+      binaryOpening2(mask, tmpMask, w, h);
+      tmpMask = null;
+      await ctx.step('opening');
+      fillHoles(mask, w, h);
+      await ctx.step('fill holes');
+      var lab = labelAndFilter(mask, w, h, p.min_nucleus_px);
+      mask = null;
+      labels = lab.labels; nObj = lab.count;
+      await ctx.step('label');
+    }
     if (ctx.dbg) { ctx.dbg.mask_labels = labels; }
 
     var st = objectStats(labels, w, h, nObj);
     var areas = new Array(nObj);
     for (i = 0; i < nObj; i++) areas[i] = st.area[i + 1];
-    var est = estimateNuclei(areas);
+    var est;
+    if (v2) { est = new Array(nObj); for (i = 0; i < nObj; i++) est[i] = 1; }     // v2: one object = one nucleus
+    else est = estimateNuclei(areas);
     var nNuclei = 0;
     for (i = 0; i < est.length; i++) nNuclei += est[i];
 
@@ -701,12 +898,13 @@
 
     var res = {
       version: VERSION,
+      pipeline_version: v2 ? 'v2' : 'v1',
       backend: backend.name,
       image: { width: w, height: h },
       normalisation: normInfo,
       nuclei: { count: nNuclei, object_count: nObj, objects: objects },
       foci: { count: points.length, per_cell: nNuclei ? points.length / nNuclei : null, points: points },
-      thresholds: { nucleus: ot.threshold, nucleus_float32: ot.threshold32, nucleus_log: ot.log_threshold, min_height_float32: F(p.min_height) },
+      thresholds: { nucleus: ot.threshold, nucleus_float32: ot.threshold32, nucleus_log: v2 ? null : ot.log_threshold, min_height_float32: F(p.min_height) },
       params: p,
       warnings: warnings,
     };
@@ -1134,20 +1332,22 @@
     if (typeof maxPx !== 'number' || !(maxPx >= 1) || !isFinite(maxPx)) throw fail('bad_input', 'maxImagePixels must be a positive number');
     var maxMem = opts.maxMemoryBytes === undefined ? DEFAULT_MAX_MEMORY : opts.maxMemoryBytes;
     if (typeof maxMem !== 'number' || !(maxMem > 0)) throw fail('bad_input', 'maxMemoryBytes must be a positive number');
-    return { mode: mode, overlay: !!opts.overlay, signal: opts.signal || null, maxPx: maxPx, maxMem: maxMem, debug: !!opts.debug, batchSize: opts.batchSize > 0 ? opts.batchSize : 1 };
+    var pipeline = opts.pipeline === undefined ? 'v1' : opts.pipeline;
+    if (pipeline !== 'v1' && pipeline !== 'v2') throw fail('bad_input', "pipeline must be 'v1' or 'v2'");
+    return { pipeline: pipeline, mode: mode, overlay: !!opts.overlay, signal: opts.signal || null, maxPx: maxPx, maxMem: maxMem, debug: !!opts.debug, batchSize: opts.batchSize > 0 ? opts.batchSize : 1 };
   }
 
   async function analyze(input, opts) {
     var o = validateOpts(opts);
     if (o.signal && o.signal.aborted) throw fail('aborted', 'analysis aborted');
     if (!input || typeof input !== 'object') throw fail('bad_input', 'input must be an object {dna, foci, params?}');
-    var p = resolveParams(input.params);
+    var p = resolveParams(input.params, o.pipeline);
     var dc = checkChannel(input.dna, 'dna', o.maxPx);
     var fc = checkChannel(input.foci, 'foci', o.maxPx);
     if (dc.width !== fc.width || dc.height !== fc.height) {
       throw fail('bad_input', 'the two images differ in size: DNA ' + dc.width + 'x' + dc.height + ', foci ' + fc.width + 'x' + fc.height);
     }
-    var est = memoryEstimate(dc.width, dc.height, o.overlay);
+    var est = memoryEstimate(dc.width, dc.height, o.overlay, o.pipeline);
     if (est > o.maxMem) throw fail('too_large', 'estimated working memory ' + Math.round(est / 1e6) + ' MB exceeds the limit of ' + Math.round(o.maxMem / 1e6) + ' MB');
     scanValues(input.dna, 'dna');
     scanValues(input.foci, 'foci');
@@ -1155,7 +1355,10 @@
     var warnings = [];
     var px = dc.width * dc.height;
     var useGpu = false;
-    if (o.mode === 'gpu' || (o.mode === 'auto' && hasWebGPU() && (px >= AUTO_GPU_MIN_PIXELS || (o.batchSize >= AUTO_GPU_BATCH && px >= AUTO_GPU_MIN_BATCH_PIXELS)))) {
+    if (o.pipeline === 'v2') {
+      // v2's nucleus stage (distance transform + flood) is CPU-only and its filters would have to match it exactly: run it all on the reference path
+      if (o.mode === 'gpu') warnings.push("Pipeline v2 runs on the CPU reference path only; mode 'gpu' was ignored.");
+    } else if (o.mode === 'gpu' || (o.mode === 'auto' && hasWebGPU() && (px >= AUTO_GPU_MIN_PIXELS || (o.batchSize >= AUTO_GPU_BATCH && px >= AUTO_GPU_MIN_BATCH_PIXELS)))) {
       if (gpuState.lost) {
         if (o.mode === 'gpu') throw fail('gpu_lost', 'GPU device was lost (' + gpuState.lost.reason + ')');
         warnings.push('GPU device was lost earlier in this session; used the CPU reference path.');
@@ -1376,7 +1579,7 @@
         // validate eagerly so bad input never reaches (or hangs) a worker
         try {
           var vo = validateOpts(opts);
-          resolveParams(input && input.params);
+          resolveParams(input && input.params, vo.pipeline);
           if (!input || typeof input !== 'object') throw fail('bad_input', 'input must be an object {dna, foci, params?}');
           var a = checkChannel(input.dna, 'dna', vo.maxPx), b = checkChannel(input.foci, 'foci', vo.maxPx);
           if (a.width !== b.width || a.height !== b.height) throw fail('bad_input', 'the two images differ in size');
@@ -1384,7 +1587,7 @@
         var task = {
           id: nextId++, input: input, signal: signal, resolve: resolve, reject: reject, done: false, slot: null, timer: null,
           transfer: opts.transfer !== false,
-          opts: { mode: opts.mode, overlay: !!opts.overlay, maxImagePixels: opts.maxImagePixels, maxMemoryBytes: opts.maxMemoryBytes, batchSize: opts.batchSize, debug: !!opts.debug },
+          opts: { pipeline: opts.pipeline, mode: opts.mode, overlay: !!opts.overlay, maxImagePixels: opts.maxImagePixels, maxMemoryBytes: opts.maxMemoryBytes, batchSize: opts.batchSize, debug: !!opts.debug },
         };
         if (signal) {
           task.onAbort = function () {
@@ -1426,6 +1629,7 @@
 
   var E = {
     version: VERSION,
+    pipelines: ['v1', 'v2'],
     capabilities: capabilities,
     defaultParams: defaultParams,
     analyze: analyze,

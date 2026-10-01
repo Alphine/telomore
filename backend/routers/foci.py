@@ -66,6 +66,7 @@ def _analyse(image_id: int) -> Dict:
     Image.fromarray(overlay_rgb(dna, foc, res)).save(buf, format="JPEG", quality=85)
     return {
         "image_id": image_id,
+        "pipeline_version": res.pipeline_version,
         "nuclei": res.n_nuclei,
         "foci": res.n_foci,
         "foci_per_cell": None if res.n_nuclei == 0 else round(res.foci_per_cell, 3),
@@ -151,6 +152,7 @@ def _run_analysis(files, params: Dict[str, float], c) -> Dict:
     truncated = len(table) > up.MAX_TABLE_ROWS
     return {
         "validated": False,
+        "pipeline_version": res.pipeline_version,
         "nuclei": res.n_nuclei,
         "objects": len(table),
         "foci": res.n_foci,

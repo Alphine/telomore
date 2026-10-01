@@ -232,3 +232,11 @@ def run_job(job: Job, target: Callable[[Job], Dict[str, Any]]) -> None:
 
     thread = threading.Thread(target=_runner, daemon=True, name=f"job-{job.job_id[:8]}")
     thread.start()
+
+
+def counts() -> Dict[str, int]:
+    """Server-wide active job counts (admin dashboard)."""
+    with _LOCK:
+        running = sum(1 for j in _JOBS.values() if j.status == STATUS_RUNNING)
+        queued = sum(1 for j in _JOBS.values() if j.status == STATUS_PENDING)
+    return {"running": running, "queued": queued}

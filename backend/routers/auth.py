@@ -22,13 +22,15 @@ from __future__ import annotations
 
 import os
 
+from sqlalchemy import select
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from telomere_lab import db as _db
 from telomere_lab.email import send_email
 
 from .. import schemas as api_schemas
-from ..auth import create_access_token, get_current_user
+from ..auth import account_disabled_error, create_access_token, get_current_user
+from ..usage import iso
 from ..ratelimit import rate_limit
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -97,8 +99,13 @@ def login(body: api_schemas.LoginRequest) -> api_schemas.TokenResponse:
             status.HTTP_403_FORBIDDEN,
             "Please verify your email before logging in. Check your inbox for a verification link.",
         )
+    if user.is_disabled:
+        raise account_disabled_error()
+    user = _db.record_login(user.id) or user
+    if user.is_disabled:  # bootstrap never disables, but stay defensive
+        raise account_disabled_error()
     token = create_access_token(user)
-    return api_schemas.TokenResponse(access_token=token)
+    return api_schemas.TokenResponse(access_token=token, plan=_db.effective_plan(user), is_admin=user.is_admin)
 
 
 @router.post("/forgot-password", response_model=api_schemas.ForgotPasswordResponse,
@@ -140,5 +147,15 @@ def reset_password(body: api_schemas.ResetPasswordRequest) -> api_schemas.Messag
 
 @router.get("/me", response_model=api_schemas.UserResponse)
 def me(user: _db.User = Depends(get_current_user)) -> api_schemas.UserResponse:
-    return api_schemas.UserResponse(id=user.id, username=user.username, email=user.email,
-                                     is_verified=user.is_verified)
+    session = _db.get_session()
+    try:
+        pending = session.execute(
+            select(_db.AccessRequest.id).where(_db.AccessRequest.user_id == user.id,
+                                               _db.AccessRequest.status == "pending").limit(1)
+        ).first() is not None
+    finally:
+        session.close()
+    return api_schemas.UserResponse(
+        id=user.id, username=user.username, email=user.email, is_verified=user.is_verified,
+        plan=_db.effective_plan(user), is_admin=user.is_admin,
+        plan_expires_at=iso(user.plan_expires_at), pending_request=pending)

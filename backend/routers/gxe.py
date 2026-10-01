@@ -23,13 +23,13 @@ from telomere_lab.schemas import ConfigError, GxEConfig, ModelConfig
 from .. import jobs as job_store
 from .. import schemas as api_schemas
 from .. import limits
-from ..auth import get_current_user
+from ..auth import require_pro
 
 router = APIRouter(tags=["gxe"])
 
 
 @router.post("/gxe", response_model=api_schemas.JobStartResponse)
-def start_gxe(body: api_schemas.GxERequest, user: _db.User = Depends(get_current_user)
+def start_gxe(body: api_schemas.GxERequest, user: _db.User = Depends(require_pro)
               ) -> api_schemas.JobStartResponse:
     try:
         base_config = ModelConfig.from_dict(body.model.to_plain()).validate()

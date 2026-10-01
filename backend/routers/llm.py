@@ -21,7 +21,7 @@ from telomere_lab.experiments.registry import ExperimentRegistry
 
 from .. import llm as _llm
 from .. import schemas as api_schemas
-from ..auth import get_current_user
+from ..auth import get_current_user, require_pro
 from .experiments import _run_dir_or_404, _safe_segment
 
 router = APIRouter(prefix="/llm", tags=["llm"])
@@ -78,7 +78,7 @@ def _raise_http(exc: _llm.LLMError) -> None:
 
 @router.post("/interpret", response_model=api_schemas.LLMInterpretResponse)
 def interpret_run(body: api_schemas.LLMInterpretRequest, response: Response,
-                  user: _db.User = Depends(get_current_user)) -> api_schemas.LLMInterpretResponse:
+                  user: _db.User = Depends(require_pro)) -> api_schemas.LLMInterpretResponse:
     try:
         _llm.interpret_rate_limiter.check(user.id)
     except _llm.LLMRateLimited as exc:
@@ -111,7 +111,7 @@ def interpret_run(body: api_schemas.LLMInterpretRequest, response: Response,
 
 @router.post("/propose-protocol", response_model=api_schemas.LLMProposeResponse)
 def propose_protocol(body: api_schemas.LLMProposeRequest, response: Response,
-                     user: _db.User = Depends(get_current_user)) -> api_schemas.LLMProposeResponse:
+                     user: _db.User = Depends(require_pro)) -> api_schemas.LLMProposeResponse:
     """LLM Layer 2: propose a protocol, never run one.
 
     The response's ``config`` has already passed ``ModelConfig.validate()``

@@ -80,6 +80,8 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    plan: str = "free"
+    is_admin: bool = False
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -110,6 +112,10 @@ class UserResponse(BaseModel):
     username: str
     email: str
     is_verified: bool
+    plan: str = "free"
+    is_admin: bool = False
+    plan_expires_at: Optional[str] = None
+    pending_request: bool = False
 
 
 # --------------------------------------------------------------------------- #

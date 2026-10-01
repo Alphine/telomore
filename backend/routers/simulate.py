@@ -23,13 +23,13 @@ from telomere_lab.experiments.runner import run_simulation as _run_simulation
 
 from .. import schemas as api_schemas
 from .. import limits
-from ..auth import get_current_user
+from ..auth import require_pro
 
 router = APIRouter(tags=["simulate"])
 
 
 @router.post("/simulate", response_model=api_schemas.SimulateResponse)
-def simulate(body: api_schemas.SimulateRequest, user: _db.User = Depends(get_current_user)
+def simulate(body: api_schemas.SimulateRequest, user: _db.User = Depends(require_pro)
              ) -> api_schemas.SimulateResponse:
     try:
         config = ModelConfig.from_dict(body.config.to_plain()).validate()
@@ -49,7 +49,7 @@ def simulate(body: api_schemas.SimulateRequest, user: _db.User = Depends(get_cur
 
 
 @router.post("/simulate/ensemble", response_model=api_schemas.EnsembleResponse)
-def simulate_ensemble(body: api_schemas.EnsembleRequest, user: _db.User = Depends(get_current_user)
+def simulate_ensemble(body: api_schemas.EnsembleRequest, user: _db.User = Depends(require_pro)
                       ) -> api_schemas.EnsembleResponse:
     """Run ``simulate()`` unchanged once per seed and return the spread across
     seeds (ROADMAP.md candidate feature #2), instead of a single trajectory.

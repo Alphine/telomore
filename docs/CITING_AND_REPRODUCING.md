@@ -63,10 +63,20 @@ different hashes and are not interchangeable.
 | FastAPI backend `backend/` | Serves the package over HTTP. All compute runs here (deployed on Railway). |
 | https://studylab.id/telomore/ | Static React build of `frontend/`; every API call goes to the Railway backend. |
 | https://telomore-production.up.railway.app/ | The same app served by FastAPI itself. |
-| https://studylab.id/foci/ | Foci Lab: a separate static site with real 53BP1 microscopy from a published screen (IDR idr0010). It does not call the simulator; its automated counter is unvalidated (Experiment L). |
+| https://studylab.id/foci/ | Foci Lab: a separate static site with real 53BP1 microscopy from a published screen (IDR idr0010). It does not call the simulator. Its analysis runs in the visitor's browser (JavaScript engine, optional WebGPU); its automated counter is unvalidated (Experiments L, L2). |
 
 To reproduce or cite results, use the Python package and the ledger, not the
-websites.
+websites. Anonymous and free visitors of the Telomere Lab site see a
+**precomputed demo cache** (fixed-seed example runs built by
+`scripts/build_demo_cache.py`, see [`DEMO_CACHE.md`](DEMO_CACHE.md)); live
+computation needs a Pro account ([`ADMIN.md`](ADMIN.md)). Cached scenarios are
+examples, not new experiments. Foci Lab results can be reproduced from a
+downloaded provenance JSON (engine version, parameters, file hashes); the Python
+counter and the JavaScript engine are checked against each other by golden
+fixtures (`foci/docs/ENGINE.md`).
+
+Test counts at the time of writing (2026-10-01): 639 pytest, 251 Vitest, 259 Node
+(Foci Lab).
 
 ## Owner release checklist (not yet done)
 

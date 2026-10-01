@@ -1,0 +1,48 @@
+<!doctype html><meta charset=utf-8><title>WebGPU probe</title><pre id=o>running</pre>
+<script>
+const out=[];const log=s=>{out.push(s);document.getElementById('o').textContent=out.join('\n')};
+(async()=>{
+log('UA '+navigator.userAgent);log('secure '+isSecureContext+' coi '+self.crossOriginIsolated+' hc '+navigator.hardwareConcurrency+' devMem '+navigator.deviceMemory);
+log('navigator.gpu '+(!!navigator.gpu));
+try{
+const t=document.createElement('canvas');const gl=t.getContext('webgl2');log('webgl2 '+!!gl);
+if(gl){const e=gl.getExtension('WEBGL_debug_renderer_info');log('gl renderer '+(e?gl.getParameter(e.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER))+' MAX_TEXTURE_SIZE '+gl.getParameter(gl.MAX_TEXTURE_SIZE)+' float-render ext '+!!gl.getExtension('EXT_color_buffer_float'))}
+}catch(e){log('gl err '+e)}
+log('wasm simd '+WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,2,1,0,10,10,1,8,0,65,0,253,15,253,98,11])));
+log('SharedArrayBuffer '+(typeof SharedArrayBuffer));
+if(!navigator.gpu){log('NO WEBGPU');return}
+try{const ad=await navigator.gpu.requestAdapter();if(!ad){log('requestAdapter null');return}
+let info=ad.info||(ad.requestAdapterInfo&&await ad.requestAdapterInfo());
+log('adapter '+JSON.stringify({vendor:info&&info.vendor,arch:info&&info.architecture,device:info&&info.device,desc:info&&info.description}));
+log('fallback '+ad.isFallbackAdapter+' features '+[...ad.features].join(','));
+const L={};for(const k in ad.limits)L[k]=ad.limits[k];log('limits '+JSON.stringify(L));
+const dev=await ad.requestDevice();
+dev.lost.then(i=>log('DEVICE LOST '+i.reason));
+const N=1024,R=20,n=N*N;
+const src=new Float32Array(n);for(let i=0;i<n;i++)src[i]=Math.fround(Math.sin(i*0.001)*1000+(i%7));
+const mod=dev.createShaderModule({code:`
+@group(0)@binding(0) var<storage,read> a:array<f32>;
+@group(0)@binding(1) var<storage,read_write> b:array<f32>;
+@compute @workgroup_size(16,16)
+fn main(@builtin(global_invocation_id) g:vec3<u32>){
+ let N=1024u; if(g.x>=N||g.y>=N){return;}
+ var s=0.0; for(var k=-20;k<=20;k++){ var x=i32(g.x)+k; if(x<0){x=-x-1;} if(x>=1024){x=2047-x;} s+=a[g.y*N+u32(x)]; }
+ b[g.y*N+g.x]=s/41.0; }`});
+const pipe=dev.createComputePipeline({layout:'auto',compute:{module:mod,entryPoint:'main'}});
+const A=dev.createBuffer({size:n*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+const B=dev.createBuffer({size:n*4,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC});
+const RB=dev.createBuffer({size:n*4,usage:GPUBufferUsage.MAP_READ|GPUBufferUsage.COPY_DST});
+dev.queue.writeBuffer(A,0,src);
+const bg=dev.createBindGroup({layout:pipe.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:A}},{binding:1,resource:{buffer:B}}]});
+async function run(readback){const e=dev.createCommandEncoder();const p=e.beginComputePass();p.setPipeline(pipe);p.setBindGroup(0,bg);p.dispatchWorkgroups(64,64);p.end();if(readback)e.copyBufferToBuffer(B,0,RB,0,n*4);dev.queue.submit([e.finish()]);await dev.queue.onSubmittedWorkDone();}
+await run(false);
+let t0=performance.now();for(let i=0;i<R;i++)await run(false);const tg=(performance.now()-t0)/R;
+t0=performance.now();await run(true);await RB.mapAsync(GPUMapMode.READ);const res=new Float32Array(RB.getMappedRange().slice(0));RB.unmap();const tfull=performance.now()-t0;
+// JS f64 reference
+const ref=new Float64Array(n);function js(){for(let y=0;y<N;y++){for(let x=0;x<N;x++){let s=0;for(let k=-20;k<=20;k++){let xx=x+k;if(xx<0)xx=-xx-1;if(xx>=N)xx=2*N-1-xx;s+=src[y*N+xx]}ref[y*N+x]=s/41}}}
+js();t0=performance.now();for(let i=0;i<3;i++)js();const tj=(performance.now()-t0)/3;
+let md=0,mr=0;for(let i=0;i<n;i++){const d=Math.abs(res[i]-ref[i]);if(d>md)md=d;mr=Math.max(mr,d/(Math.abs(ref[i])+1e-9))}
+log(`box41 1024x1024 f32: GPU dispatch-only ${tg.toFixed(3)} ms/run (incl. submit wait), GPU+upload-free+readback ${tfull.toFixed(2)} ms, JS Float64 naive ${tj.toFixed(1)} ms; max abs err vs f64 ${md.toExponential(2)}, max rel ${mr.toExponential(2)}`);
+log('DONE');
+}catch(e){log('ERR '+e+' '+(e&&e.stack))}})();
+</script>

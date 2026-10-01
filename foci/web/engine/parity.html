@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Engine parity report</title>
+<style>
+  :root { --bg: #fff; --fg: #1a1a1a; --mute: #666; --ok: #0a6b2d; --bad: #b00020; --line: #ddd; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #151515; --fg: #e8e8e8; --mute: #999; --ok: #5bd28a; --bad: #ff7b8a; --line: #333; } }
+  body { background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, sans-serif; margin: 16px; max-width: 1200px; }
+  h1 { font-size: 18px; margin: 0 0 8px; }
+  p, li { color: var(--mute); }
+  button { font: inherit; padding: 6px 14px; }
+  input[type=text] { font: inherit; width: min(520px, 100%); }
+  table { border-collapse: collapse; width: 100%; margin-top: 12px; font-size: 12px; }
+  th, td { border-bottom: 1px solid var(--line); padding: 3px 6px; text-align: right; white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); font-weight: 600; }
+  pre { white-space: pre-wrap; }
+  .wrap { overflow-x: auto; }
+</style>
+</head>
+<body>
+<h1>Foci engine: parity report</h1>
+<p>Runs every golden fixture in <b>reference</b> mode (CPU, compared with the Python results: must be exactly equal) and in <b>gpu</b> mode
+(WebGPU, compared with the reference: max absolute differences of the filtered arrays and any count / peak mismatch). Nothing leaves this
+page; it only reads the fixture files below. Serve the repository root (for example <code>python -m http.server</code> from the repo root) and open
+<code>/foci/web/engine/parity.html</code>; the page cannot read local files from <code>file://</code>.</p>
+<p><label>Fixture folder (relative to this page): <input id="base" type="text" value="../../tests/fixtures/engine_golden/"></label>
+ <button id="run">Run parity</button></p>
+<pre id="caps">capabilities: (run to see)</pre>
+<div class="wrap"><table id="tbl" hidden>
+  <thead><tr><th>case</th><th>px</th><th>Python n/obj/foci</th><th>reference vs Python</th><th>gpu n/obj/foci</th><th>gpu vs reference</th>
+  <th>max |&Delta;| smooth DNA</th><th>flat</th><th>smooth foci</th><th>top-hat</th><th>ref ms</th><th>gpu ms</th></tr></thead>
+  <tbody></tbody>
+</table></div>
+<pre id="sum"></pre>
+<script src="engine.js"></script>
+<script src="dev/pngdecode.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  function td(tr, text, cls) { var c = document.createElement('td'); c.textContent = text; if (cls) c.className = cls; tr.appendChild(c); return c; }
+  function maxdiff(a, b) { if (!a || !b) return null; var m = 0; for (var i = 0; i < a.length; i++) { var d = Math.abs(a[i] - b[i]); if (d > m) m = d; } return m; }
+  function exactVsPython(res, py) {
+    if (res.nuclei.object_count !== py.n_objects || res.nuclei.count !== py.n_nuclei || res.foci.count !== py.n_foci) return false;
+    if (JSON.stringify(res.nuclei.objects.map(function (o) { return o.foci; })) !== JSON.stringify(py.foci_per_object)) return false;
+    if (res.foci.points.length !== py.peaks.length) return false;
+    for (var i = 0; i < py.peaks.length; i++) {
+      var p = res.foci.points[i], q = py.peaks[i];
+      if (p.x !== q[0] || p.y !== q[1] || p.object !== q[3] || Math.fround(q[2]) !== p.height) return false;
+    }
+    return true;
+  }
+  function samePeaks(a, b) {
+    if (a.foci.points.length !== b.foci.points.length) return false;
+    return a.foci.points.every(function (p, i) { var q = b.foci.points[i]; return p.x === q.x && p.y === q.y && p.object === q.object; });
+  }
+  async function load(base, name) {
+    var r = await fetch(base + name);
+    if (!r.ok) throw new Error(name + ': HTTP ' + r.status);
+    return new Uint8Array(await r.arrayBuffer());
+  }
+  async function run() {
+    var base = $('base').value, tbody = document.querySelector('#tbl tbody');
+    tbody.textContent = ''; $('tbl').hidden = false; $('sum').textContent = '';
+    var caps = await FociEngine.capabilities();
+    $('caps').textContent = 'capabilities: ' + JSON.stringify(caps, null, 1);
+    var man = JSON.parse(new TextDecoder().decode(await load(base, 'manifest.json')));
+    var haveGpu = caps.webgpu && caps.selfTest === 'passed';
+    var tot = { cases: 0, refExact: 0, gpuSame: 0, gpuRun: 0, worst: { smooth_dna: 0, flat: 0, smooth_foci: 0, th: 0 } }, refMs = 0, gpuMs = 0;
+    for (var c = 0; c < man.cases.length; c++) {
+      var e = man.cases[c], tr = document.createElement('tr');
+      tbody.appendChild(tr);
+      try {
+        var d = await FociPngDecode.decodePng(await load(base, e.files.dna)), f = await FociPngDecode.decodePng(await load(base, e.files.foci));
+        var mk = function () { return { dna: { data: d.data.slice(), width: d.width, height: d.height, bitDepth: e.bit_depth }, foci: { data: f.data.slice(), width: f.width, height: f.height, bitDepth: e.bit_depth }, params: e.params }; };
+        var ref = await FociEngine.analyze(mk(), { mode: 'reference', debug: true });
+        var py = e.python, ok = exactVsPython(ref, py);
+        tot.cases++; if (ok) tot.refExact++;
+        td(tr, e.id); td(tr, String(d.width * d.height)); td(tr, py.n_nuclei + '/' + py.n_objects + '/' + py.n_foci);
+        td(tr, ok ? 'exact' : 'MISMATCH', ok ? 'ok' : 'bad');
+        refMs += ref.timing_ms.total;
+        if (haveGpu) {
+          var gpu = await FociEngine.analyze(mk(), { mode: 'gpu', debug: true });
+          tot.gpuRun++;
+          var same = gpu.nuclei.count === ref.nuclei.count && gpu.nuclei.object_count === ref.nuclei.object_count && gpu.foci.count === ref.foci.count && samePeaks(ref, gpu);
+          if (same) tot.gpuSame++;
+          td(tr, gpu.nuclei.count + '/' + gpu.nuclei.object_count + '/' + gpu.foci.count);
+          td(tr, same ? 'same' : 'DIFFERENT', same ? 'ok' : 'bad');
+          ['smooth_dna', 'flat', 'smooth_foci', 'th'].forEach(function (k) {
+            var m = maxdiff(ref._debug[k], gpu._debug[k]);
+            if (m !== null && m > tot.worst[k]) tot.worst[k] = m;
+            td(tr, m === null ? '-' : m.toExponential(2));
+          });
+          td(tr, ref.timing_ms.total.toFixed(0)); td(tr, gpu.timing_ms.total.toFixed(0));
+          gpuMs += gpu.timing_ms.total;
+        } else {
+          for (var k = 0; k < 7; k++) td(tr, '-');
+          td(tr, ref.timing_ms.total.toFixed(0)); td(tr, '-');
+        }
+      } catch (err) {
+        td(tr, e.id); td(tr, 'ERROR: ' + (err && err.message), 'bad');
+      }
+    }
+    $('sum').textContent = 'reference exact vs Python: ' + tot.refExact + ' / ' + tot.cases +
+      (haveGpu ? '\ngpu identical to reference (counts, per-object, every peak): ' + tot.gpuSame + ' / ' + tot.gpuRun +
+        '\nworst max |difference| over all cases: ' + JSON.stringify(tot.worst) +
+        '\ntotal time  reference ' + refMs.toFixed(0) + ' ms,  gpu ' + gpuMs.toFixed(0) + ' ms'
+        : '\nGPU: not available or self-test ' + caps.selfTest + ' - GPU columns skipped (this is NOT a pass)');
+  }
+  $('run').addEventListener('click', function () { run().catch(function (e) { $('sum').textContent = 'ERROR: ' + (e && e.message); }); });
+})();
+</script>
+</body>
+</html>

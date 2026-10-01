@@ -14,6 +14,12 @@ RewriteRule ^(simulate|evolve|pareto|sensitivity|gxe|active-learning|compare|exp
 # never expose source-ish files
 RewriteRule \.(py|sh|md|log|tmp|bat)$ - [F,L]
 
+# The demo cache is static data, never an app route: a missing file must be a
+# real 404 (the client reports "HTTP 404"), not index.html with status 200.
+RewriteCond %{REQUEST_URI} ^/telomore/(demo-cache|assets)/
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ - [R=404,L]
+
 # React Router inside /telomore/: any path that is not a real file or folder
 # gets the app shell, so /telomore/simulate etc. work on reload
 RewriteCond %{REQUEST_URI} ^/telomore/
@@ -33,6 +39,17 @@ RewriteRule ^ /telomore/index.html [L]
   <FilesMatch "^index\.html$">
     Header set Cache-Control "no-cache"
   </FilesMatch>
+  # Vite bundles under /telomore/assets/ are content-hashed
+  SetEnvIf Request_URI "^/telomore/assets/" HASHED_ASSET
+  Header set Cache-Control "public, max-age=31536000, immutable" env=HASHED_ASSET
+  # demo cache: the index is the version manifest (always revalidate); every
+  # scenario file is requested as <file>.json?v=<sha> (frontend/src/demo/cache.ts),
+  # so a given URL never changes content
+  SetEnvIf Request_URI "^/telomore/demo-cache/index\.json$" DEMO_INDEX
+  SetEnvIf Request_URI "^/telomore/demo-cache/.+\.json$" DEMO_SCENARIO
+  SetEnvIf Request_URI "^/telomore/demo-cache/index\.json$" !DEMO_SCENARIO
+  Header set Cache-Control "public, max-age=31536000, immutable" env=DEMO_SCENARIO
+  Header set Cache-Control "no-cache" env=DEMO_INDEX
 </IfModule>
 <IfModule mod_expires.c>
   ExpiresActive On

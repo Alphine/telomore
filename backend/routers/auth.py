@@ -56,7 +56,17 @@ def register(body: api_schemas.RegisterRequest) -> api_schemas.RegisterResponse:
     except _db.DuplicateUsernameError:
         raise HTTPException(status.HTTP_409_CONFLICT, f"username {body.username!r} is already taken")
     except _db.DuplicateEmailError:
-        raise HTTPException(status.HTTP_409_CONFLICT, f"email {body.email!r} is already registered")
+        # Do not reveal which emails are registered: answer exactly like a fresh
+        # sign-up (the owner is told by email instead).
+        send_email(
+            body.email.strip().lower(),
+            "Telomere Evolution Lab sign-up attempt",
+            "<p>Someone tried to register a new account with this email address, but you already "
+            "have one. If it was you, log in or use the password reset link on the login page.</p>",
+        )
+        return api_schemas.RegisterResponse(
+            message=f"Account created. A verification email was sent to {body.email.strip().lower()}."
+        )
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc))
 

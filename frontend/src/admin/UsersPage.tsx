@@ -218,7 +218,7 @@ export default function UsersPage() {
                   {filtersActive ? 'Try a different search or clear the filters.' : 'Create the first account with the button above.'}
                 </EmptyState>
               ) : (
-                <div className={'overflow-x-auto transition-opacity ' + (q.loading ? 'opacity-60' : '')}>
+                <div tabIndex={0} role="region" aria-label="Users table (scrollable)" className={'overflow-x-auto transition-opacity ' + (q.loading ? 'opacity-60' : '')}>
                   <table className={TABLE}>
                     <caption className="sr-only">Users</caption>
                     <thead className="bg-slate-50 dark:bg-slate-900/60">

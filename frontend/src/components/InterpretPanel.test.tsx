@@ -84,7 +84,7 @@ describe('InterpretPanel', () => {
     // Markdown rendered as elements, raw HTML not executed/injected. Generous
     // timeout: MarkdownView is lazy-loaded (React.lazy), and the dynamic
     // import can take longer than the default 1s under a full parallel run.
-    const view = await screen.findByTestId('markdown-view', {}, { timeout: 5000 })
+    const view = await screen.findByTestId('markdown-view', {}, { timeout: 15000 })
     expect(view.querySelector('h3')).toHaveTextContent('Problem')
     expect(view.querySelector('strong')).toHaveTextContent('+0.625')
     expect(view.querySelector('script')).toBeNull()

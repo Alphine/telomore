@@ -5,7 +5,8 @@ Per client IP, per named bucket. The client IP is the first hop of
 that sets it), else the socket peer. CAVEAT: that header is client-controlled;
 if the app is ever exposed directly (no trusted proxy in front), an attacker
 can rotate it to dodge the limit -- set ``TELOMERE_TRUST_PROXY=0`` there to
-use the socket address only. State is per process (like the job store).
+use the socket address only, or ``TELOMERE_TRUSTED_HOPS=1`` (one trusted
+proxy appending to the header) to read the right-most, unforgeable entry. State is per process (like the job store).
 
 Env: ``TELOMERE_RATE_LIMIT=off`` disables all buckets (also switched off by
 ``TELOMERE_DISABLE_LIMITS=1``); per-bucket ``TELOMERE_RATE_LIMIT_<BUCKET>`` =
@@ -40,9 +41,17 @@ def client_ip(request: Request) -> str:
     if os.environ.get("TELOMERE_TRUST_PROXY", "1").strip().lower() not in ("0", "false", "no", "off"):
         fwd = request.headers.get("x-forwarded-for")
         if fwd:
-            first = fwd.split(",")[0].strip()
-            if first:
-                return first[:64]
+            parts = [p.strip() for p in fwd.split(",") if p.strip()]
+            if parts:
+                # TELOMERE_TRUSTED_HOPS=N: number of trusted proxies that append to
+                # X-Forwarded-For; the client is then the Nth entry from the right,
+                # which a caller cannot forge. 0 (default) = legacy first entry.
+                try:
+                    hops = int(os.environ.get("TELOMERE_TRUSTED_HOPS", "0"))
+                except ValueError:
+                    hops = 0
+                idx = -hops if 0 < hops <= len(parts) else 0
+                return parts[idx][:64]
     return request.client.host if request.client else "unknown"
 
 

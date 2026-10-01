@@ -28,6 +28,7 @@ if exist "%STAGE%" rmdir /s /q "%STAGE%"
 mkdir "%STAGE%\foci" "%STAGE%\telomore"
 xcopy /e /i /q /y "deploy\landing\*" "%STAGE%" >nul || goto gagal
 xcopy /e /i /q /y "frontend\dist\*" "%STAGE%\telomore" >nul || goto gagal
+if not exist "%STAGE%\telomore\demo-cache\index.json" (echo demo-cache\index.json tidak ikut build & goto gagal)
 xcopy /e /i /q /y "foci\web\*" "%STAGE%\foci" >nul || goto gagal
 copy /y "deploy\studylab.htaccess" "%STAGE%\.htaccess" >nul || goto gagal
 REM cache-busting: URL aset Foci Lab diberi hash isi (host menyimpan .js 7 hari)
@@ -39,7 +40,7 @@ echo === 3/4  Upload ...
 scp -P %PORT% "%PKG%" %HOST%:studylab_site.tar.gz || goto gagal
 
 echo === 4/4  Pasang dan cek ...
-ssh -p %PORT% %HOST% "set -e; D=~/domains/studylab.id; mkdir -p $D/focilab_cache; cd $D/public_html; find . -mindepth 1 -maxdepth 1 ! -name .well-known -exec rm -rf {} +; tar xzf ~/studylab_site.tar.gz; rm -f ~/studylab_site.tar.gz; find . -type d -exec chmod 755 {} +; find . -type f -exec chmod 644 {} +; echo; for p in / /telomore/ /telomore/simulate /telomore/demo.html /simulate /foci/ /foci/data/summary.json '/foci/api/well.php?w=99_D14'; do printf '%%s : ' $p; curl -s -o /dev/null -w '%%{http_code} %%{content_type}\n' https://studylab.id$p; done"
+ssh -p %PORT% %HOST% "set -e; D=~/domains/studylab.id; mkdir -p $D/focilab_cache; cd $D/public_html; find . -mindepth 1 -maxdepth 1 ! -name .well-known -exec rm -rf {} +; tar xzf ~/studylab_site.tar.gz; rm -f ~/studylab_site.tar.gz; find . -type d -exec chmod 755 {} +; find . -type f -exec chmod 644 {} +; echo; for p in / /telomore/ /telomore/simulate /telomore/demo.html /telomore/demo-cache/index.json /telomore/demo-cache/nope.json /simulate /foci/ /foci/data/summary.json '/foci/api/well.php?w=99_D14'; do printf '%%s : ' $p; curl -s -o /dev/null -w '%%{http_code} %%{content_type}\n' https://studylab.id$p; done"
 if errorlevel 1 goto gagal
 
 echo.

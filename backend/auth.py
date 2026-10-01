@@ -13,6 +13,8 @@ var once this API is actually deployed (see docs/API.md).
 from __future__ import annotations
 
 import datetime as _dt
+import hashlib
+import hmac
 import logging
 import os
 import secrets
@@ -44,11 +46,18 @@ if not _SECRET_KEY:
 _bearer_scheme = HTTPBearer(auto_error=False)
 
 
+def _pw_fingerprint(user: _db.User) -> str:
+    """Short digest of the password hash: changing the password (e.g. via the
+    reset flow) invalidates every token issued before it."""
+    return hashlib.sha256(("pwv:" + (user.password_hash or "")).encode("utf-8")).hexdigest()[:12]
+
+
 def create_access_token(user: _db.User) -> str:
     now = _dt.datetime.now(_dt.timezone.utc)
     payload = {
         "sub": str(user.id),
         "username": user.username,
+        "pwv": _pw_fingerprint(user),
         "iat": now,
         "exp": now + JWT_EXPIRES_IN,
     }
@@ -94,6 +103,9 @@ def get_current_user(
         session.close()
 
     if user is None:
+        raise _CREDENTIALS_ERROR
+    pwv = payload.get("pwv")  # absent on tokens minted before this claim existed (<= 7 days old)
+    if pwv is not None and not hmac.compare_digest(str(pwv), _pw_fingerprint(user)):
         raise _CREDENTIALS_ERROR
     if user.is_disabled:
         raise account_disabled_error()

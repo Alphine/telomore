@@ -17,7 +17,7 @@ import secrets
 from collections import defaultdict
 from typing import Any, Dict, List, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import and_, case, func, or_, select
@@ -33,6 +33,7 @@ router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(requir
 
 U = _db.User
 MAX_EXPORT_ROWS = 100000
+MAX_ID = 2**31 - 1  # Postgres INTEGER: larger values would raise a DB error (500) instead of 404/422
 
 
 # ------------------------------------------------------------------ helpers
@@ -63,6 +64,14 @@ def _parse_dt(value: Optional[str], name: str, end_of_day: bool = False) -> Opti
 
 def _paginate(page: int, page_size: int, total: int) -> Dict[str, Any]:
     return {"total": total, "page": page, "page_size": page_size, "pages": max(1, math.ceil(total / page_size))}
+
+
+def _csv_cell(value: Any) -> Any:
+    """Neutralise spreadsheet formula injection: text starting with = + - @ (or a
+    tab/CR) is prefixed with a single quote. Numbers/None pass through."""
+    if isinstance(value, str) and value[:1] in ("=", "+", "-", "@", chr(9), chr(13)):
+        return "'" + value
+    return value
 
 
 def _percentile(values: List[float], q: float) -> float:
@@ -224,8 +233,10 @@ def list_users(
     now = _db.utcnow()
     where = []
     if query:
-        like = f"%{query.strip().lower()}%"
-        where.append(or_(func.lower(U.username).like(like), func.lower(U.email).like(like)))
+        needle = query.strip().lower().replace(chr(92), chr(92) * 2).replace("%", chr(92) + "%").replace("_", chr(92) + "_")
+        like = f"%{needle}%"
+        where.append(or_(func.lower(U.username).like(like, escape=chr(92)),
+                         func.lower(U.email).like(like, escape=chr(92))))
     if plan == "pro":
         where.append(_pro_expr(now))
     elif plan == "free":
@@ -255,7 +266,7 @@ def list_users(
 
 
 @router.get("/users/{user_id}")
-def get_user(user_id: int) -> Dict[str, Any]:
+def get_user(user_id: int = Path(ge=1, le=MAX_ID)) -> Dict[str, Any]:
     db = _db.get_session()
     try:
         u = db.get(U, user_id)
@@ -283,7 +294,7 @@ class UserPatch(BaseModel):
 
 
 @router.patch("/users/{user_id}")
-def patch_user(user_id: int, body: UserPatch, admin: U = Depends(require_admin)) -> Dict[str, Any]:
+def patch_user(body: UserPatch, user_id: int = Path(ge=1, le=MAX_ID), admin: U = Depends(require_admin)) -> Dict[str, Any]:
     sent = body.model_fields_set
     db = _db.get_session()
     try:
@@ -413,13 +424,13 @@ def _decide(request_id: int, admin: U, approve: bool, note: Optional[str], plan_
 
 
 @router.post("/requests/{request_id}/approve")
-def approve_request(request_id: int, body: Optional[ApproveBody] = None, admin: U = Depends(require_admin)):
+def approve_request(body: Optional[ApproveBody] = None, admin: U = Depends(require_admin), request_id: int = Path(ge=1, le=MAX_ID)):
     body = body or ApproveBody()
     return _decide(request_id, admin, True, body.note, body.plan_days)
 
 
 @router.post("/requests/{request_id}/reject")
-def reject_request(request_id: int, body: Optional[RejectBody] = None, admin: U = Depends(require_admin)):
+def reject_request(body: Optional[RejectBody] = None, admin: U = Depends(require_admin), request_id: int = Path(ge=1, le=MAX_ID)):
     body = body or RejectBody()
     return _decide(request_id, admin, False, body.note, None)
 
@@ -441,7 +452,7 @@ def _usage_filters(from_, to, user_id, endpoint, status):
         s = status.strip().lower()
         if len(s) == 3 and s.endswith("xx") and s[0].isdigit():
             where.append(and_(E.status_code >= int(s[0]) * 100, E.status_code < int(s[0]) * 100 + 100))
-        elif s.isdigit():
+        elif s.isascii() and s.isdigit() and len(s) <= 3:
             where.append(E.status_code == int(s))
         else:
             raise HTTPException(422, "status must be a code like 200 or a class like 5xx")
@@ -452,7 +463,7 @@ def _usage_filters(from_, to, user_id, endpoint, status):
 def list_usage(
     from_: Optional[str] = Query(None, alias="from"),
     to: Optional[str] = None,
-    user_id: Optional[int] = None,
+    user_id: Optional[int] = Query(None, ge=1, le=MAX_ID),
     endpoint: Optional[str] = Query(None, max_length=200),
     status: Optional[str] = Query(None, max_length=8),
     page: int = Query(1, ge=1),
@@ -518,7 +529,7 @@ def usage_summary(days: int = Query(7, ge=1, le=90)) -> Dict[str, Any]:
 def export_usage(
     from_: Optional[str] = Query(None, alias="from"),
     to: Optional[str] = None,
-    user_id: Optional[int] = None,
+    user_id: Optional[int] = Query(None, ge=1, le=MAX_ID),
     endpoint: Optional[str] = Query(None, max_length=200),
     status: Optional[str] = Query(None, max_length=8),
     admin: U = Depends(require_admin),
@@ -537,8 +548,8 @@ def export_usage(
     w = csv.writer(buf)
     w.writerow(["id", "ts", "user_id", "endpoint", "method", "status_code", "duration_ms", "ip_hash", "req_bytes", "kind"])
     for e in rows:
-        w.writerow([e.id, iso(e.ts), e.user_id, e.endpoint, e.method, e.status_code, e.duration_ms,
-                    e.ip_hash, e.req_bytes, e.kind])
+        w.writerow([_csv_cell(c) for c in (e.id, iso(e.ts), e.user_id, e.endpoint, e.method, e.status_code,
+                                           e.duration_ms, e.ip_hash, e.req_bytes, e.kind)])
     return Response(buf.getvalue(), media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": 'attachment; filename="usage.csv"', "Cache-Control": "no-store"})
 
@@ -547,7 +558,7 @@ def export_usage(
 @router.get("/audit")
 def audit_log(
     action: Optional[str] = Query(None, max_length=40),
-    admin_id: Optional[int] = None,
+    admin_id: Optional[int] = Query(None, ge=1, le=MAX_ID),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
 ) -> Dict[str, Any]:

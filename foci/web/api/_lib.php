@@ -331,9 +331,15 @@ function maybe_cleanup(array $cfg): void {
 }
 
 // ---- the plate index (whitelist) --------------------------------------------------------------------
-/** @return array<string,int>|null plate_well => image id, from data/well_index.json only */
-function load_well_index(): ?array {
-    $raw = @file_get_contents(__DIR__ . '/../data/well_index.json');
+/**
+ * @return array<string,int>|null plate_well => image id, from the data/ index files only.
+ * $pairing 'colmajor' (default): key = the annotation row, image paired by its column-major Well Number
+ *   (empirically inferred, unconfirmed by IDR; docs/EXPERIMENT_PROTOCOL.md 15.4) -- data/well_index.json.
+ * $pairing 'name': key = the IDR well address, i.e. the IDR image grid and the by-name pairing as originally
+ *   built -- data/well_index_byname.json.
+ */
+function load_well_index(string $pairing = 'colmajor'): ?array {
+    $raw = @file_get_contents(__DIR__ . '/../data/' . ($pairing === 'name' ? 'well_index_byname.json' : 'well_index.json'));
     $idx = is_string($raw) ? json_decode($raw, true) : null;
     return is_array($idx) ? $idx : null;
 }

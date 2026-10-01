@@ -22,22 +22,29 @@ only hands out cached images and a few small JSON files.
 
 Every imaged idr0010 plate has **384 wells arranged A-L x 1-32** (12 rows, 32 columns), not the 16 x 24 grid of a standard
 384-well plate. `plate.php` therefore returns `rows: 12, cols: 32`, and the page draws what the server says. The image grid
-is numbered column by column (A1, B1, ..., L1, A2, ...) in the pairing B rule below, with **12** wells per column.
+is numbered column by column (A1, B1, ..., L1, A2, ...) in the column-major rule below, with **12** wells per column.
+`plate.php` / `plates.php` list the IDR image grid (`data/well_index_byname.json`: IDR well address -> image id); the
+screen page asks `well.php` for those addresses with `pair=name`, because in plate mode the image is chosen by its grid
+position and only the *annotation* side depends on the pairing.
 
-## The pairing question (unresolved, shown both ways)
+## The pairing (column-major by default; inferred, unconfirmed, selectable)
 
 The annotation table (`Well`, `Well Number`) and the IDR image grid do not number the wells the same way. Two rules for
 "which annotation row belongs to the image at row r, column c (zero-based)":
 
-* **A, by name:** annotation row whose `Well` is the image's well name (image A2 with row A2).
-* **B, column-major `Well Number`:** annotation row whose `Well Number` is `c * 12 + r + 1`; the annotation's own
+* **by IDR name** (the original pairing): annotation row whose `Well` is the image's well name (image A2 with row A2).
+* **column-major `Well Number`** (default): annotation row whose `Well Number` is `c * 12 + r + 1`; the annotation's own
   numbering is row-major over 32 columns (A1 = 1, A2 = 2, ..., A32 = 32, B1 = 33), so that row is named
   `letter(floor((n-1)/32)) + ((n-1) mod 32 + 1)`.
 
-Experiment L2 (`docs/EXPERIMENT_PROTOCOL.md` 15.4) found rule B agrees with the authors' cell counts on plate 7-14 (and
-on cached images of other plates), rule A does not. That is indirect evidence; nothing in the data or the curators' files
-shows which side carries the mislabel. **The page does not decide:** every comparison, heatmap mark and table column
-exists twice, labelled A and B, with a notice at the top of the page.
+Experiment L2 (`docs/EXPERIMENT_PROTOCOL.md` 15.4) found the column-major rule agrees with the authors' cell counts on
+plate 7-14 and on 106 cached images of other plates (nucleus count vs Cell Count, Spearman 0.71 against 0.16 by name),
+and the lethal KIF11 controls lose cells only at the column-major image. That is empirical, indirect evidence: **the
+pairing is inferred and unconfirmed by IDR or the authors**, and nothing in the data shows which side carries the
+mislabel. The page therefore makes it a visible setting ("Pairing: column-major (inferred)" / "Pairing: by IDR name (as
+originally built)", default column-major, remembered in the browser as `foci-pairing`, `?pairing=name` overrides) and
+every comparison, heatmap mark and table column is still shown for both, with a notice at the top of the page. The
+provenance JSON records `default_pairing` and a `pairing_status` that says "unconfirmed".
 
 ## Politeness and limits
 
@@ -114,7 +121,7 @@ of 8 wells of this plate (mean absolute difference < 0.002 grey levels). Reprodu
 **Result** (304 QC-passed non-control wells, 19 with the "increased DNA damage" phenotype, 2000-resample percentile
 bootstrap over wells, seed 0, own PRNG):
 
-| | by name (A) | column-major (B) | Experiment L2, same pipeline (A / B) |
+| | by IDR name | column-major (default) | Experiment L2, same pipeline (by name / column-major) |
 |---|---|---|---|
 | Spearman, foci per cell vs authors' | -0.005 (-0.125 to 0.111) | **0.303 (0.190 to 0.406)** | -0.005 / 0.303 |
 | Spearman, nuclei vs authors' cell count | 0.067 (-0.046 to 0.169) | **0.558 (0.451 to 0.651)** | 0.067 / 0.558 |
@@ -130,5 +137,5 @@ of foci per cell is 0.015 (A) and 0.328 (B), of nuclei 0.066 and 0.557. Full mac
 **What this shows and does not show.** One plate, one pipeline, 19 phenotype wells (wide intervals). Under rule B the
 pipeline ranks wells weakly-to-moderately like the authors' foci per cell (0.30) and fairly well for nucleus counts
 (0.56); under rule A it does not at all. The absolute level differs by a factor of two (4.4 vs 2.0 foci per cell), so
-only rank agreement is meaningful. This says nothing about which pairing is right, nothing about other plates, and it is
+only rank agreement is meaningful. This does not confirm the column-major pairing (it is a rank agreement, not proof; IDR and the authors have not confirmed it), says nothing about other plates, and it is
 not an accuracy claim against manual counts. The positive/negative control wells were not scored (L2: uninformative).

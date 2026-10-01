@@ -12,6 +12,18 @@
   var resolver = null, symbols = null, annotations = undefined, manifest = null, sirnaData = undefined, sirnaPromise = null;
   var esc = L.escHtml, fmt = L.fmt, fz = L.fz, fq = L.fq;
   var readyState = false, readyQ = [];
+  var PROTOCOL = "https://github.com/Alphine/telomore/blob/HEAD/docs/EXPERIMENT_PROTOCOL.md";
+
+  // ------------------------------------------------------------- pairing
+  // Which IDR image goes with which annotation row. Default column-major (empirically inferred, unconfirmed by IDR or the
+  // authors); "name" = the image of the IDR well with the same name, as the site was first built. ?pairing=name|colmajor
+  // overrides the stored choice.
+  var pairing = (function () {
+    var p = null;
+    try { p = new URLSearchParams(location.search).get("pairing"); } catch (e) { /* no URL API */ }
+    if (!p) { try { p = localStorage.getItem("foci-pairing"); } catch (e) { /* storage blocked */ } }
+    return L.normPairing(p);
+  })();
 
   // ---------------------------------------------------------------- theme
   var root = document.documentElement;
@@ -454,10 +466,18 @@
   }
 
   // ----------------------------------------------------------- well dialog
-  var dlg = $("wellDlg"), cur = null, curGene = null, viewer = null;
+  var dlg = $("wellDlg"), cur = null, curGene = null, curV = null, viewer = null;
+  function showWellMeta() {
+    var addr = L.imageAddress(cur, pairing);
+    $("wellMeta").innerHTML =
+      "<dt>gene</dt><dd>" + esc(curGene || "control") + "</dd><dt>foci / cell vs plate</dt><dd>" + (curV ? esc(fmt(curV)) + "×" : "–") + "</dd>" +
+      "<dt>annotation row</dt><dd>" + esc(cur) + "</dd><dt>image (IDR well)</dt><dd>" + esc(addr || "–") + "</dd>" +
+      '<dt>pairing</dt><dd title="' + esc(L.PAIRING_NOTE) + '">' + esc(L.PAIRING_LABEL[pairing]) + "</dd>";
+  }
   function initViewer() {
     if (viewer) return;
     viewer = window.FociViewer.create({
+      pairing: function () { return pairing; },
       panesEl: $("vwPanes"), channelsEl: $("vwChannels"), zoomInEl: $("vwIn"), zoomOutEl: $("vwOut"), resetEl: $("vwReset"),
       attribution: function () { return S.attribution; },
       onInfo: function (i, info) {
@@ -478,13 +498,12 @@
   function openWell(well, gene, v) {
     if (!window.FociViewer) return;
     initViewer();
-    cur = well; curGene = gene;
+    cur = well; curGene = gene; curV = v;
     $("wellTitle").textContent = well + (gene ? " · " + gene : "");
     viewer.clear();
     $("wellIdr").hidden = true;
     viewer.load(0, well, gene || "");
-    $("wellMeta").innerHTML =
-      "<dt>gene</dt><dd>" + esc(gene || "control") + "</dd><dt>foci / cell vs plate</dt><dd>" + (v ? esc(fmt(v)) + "×" : "–") + "</dd>";
+    showWellMeta();
     var btn = $("wellOutline");
     btn.disabled = false; btn.textContent = "Outline nuclei (live, Railway)";
     $("cmpGene").value = ""; fillCmpWells(null);
@@ -498,7 +517,7 @@
     if (!well || !viewer) return;
     btn.disabled = true; btn.textContent = "Analysing…";
     viewer.status(0, "Running the classical counter on the server (a few seconds)…");
-    fetch(RAILWAY + "/overlay?well=" + encodeURIComponent(well)).then(function (r) {
+    fetch(RAILWAY + "/overlay?well=" + encodeURIComponent(L.overlayKey(well, pairing))).then(function (r) {
       if (!r.ok) throw new Error("HTTP " + r.status);
       return r.json();
     }).then(function (d) {
@@ -566,15 +585,57 @@
     histogram($("hist"), null);
     texts();
 
-    var gal = $("gal");
-    (S.gallery || []).forEach(function (g) {
+    setupPairing();
+    renderGallery();
+
+    var Lx = S.experiment_l;
+    if (Lx) {
+      var N = Lx.nucleus_check;
+      scatter($("scatter"), Lx);
+      var PC = Lx.pairing_check, pcN = PC ? PC.name : null, pcC = PC ? PC.colmajor : null;
+      $("verdict").innerHTML =
+        "<h3>Result with images paired by IDR well name: no agreement</h3><p>On " + Lx.n_wells + " wells spanning the full range, our per-well foci per cell does not track the published values. " +
+        "This is the pairing Experiment L was run with (see the correction below).</p>" +
+        "<dl><dt>Spearman ρ</dt><dd>" + fmt(Lx.spearman, 3) + "</dd><dt>Pearson r</dt><dd>" + fmt(Lx.pearson, 3) + "</dd>" +
+        "<dt>nuclei count r</dt><dd>" + fmt(Lx.cells_pearson, 3) + "</dd>" +
+        "<dt>RNF168/MDC1/RNF8 wells: ours vs authors</dt><dd>" + fmt(Lx.median_ours_repair_kd) + " vs " + fmt(Lx.median_authors_repair_kd) + "</dd>" +
+        "<dt>proteasome wells: ours vs authors</dt><dd>" + fmt(Lx.median_ours_proteasome_kd) + " vs " + fmt(Lx.median_authors_proteasome_kd) + "</dd></dl>" +
+        '<p class="note caveat"><b>Correction (Experiment L2).</b> Experiment L joined each image to the annotation row of the <i>same IDR well name</i>. ' +
+        "A follow-up joined them by the annotation's <i>Well Number</i> with the image grid counted column by column (Well Number = column&times;12 + row + 1, 12 &times; 32 plates) " +
+        "and found far better agreement: our nucleus count against the authors' cell count on the same " + (pcN ? pcN.n : N.n_images) + " cached images has Spearman " +
+        (pcC ? fmt(pcC.nuclei_vs_cell_count_spearman, 2) : "0.71") + " with that pairing against " + (pcN ? fmt(pcN.nuclei_vs_cell_count_spearman, 2) : "0.16") +
+        " by name; the lethal KIF11 knockdowns lose cells only in the column-major image; on plate 7-14 (304 wells, browser engine) foci per cell reaches ρ 0.30 against −0.01 by name. " +
+        "The column-major pairing is therefore the default on this site now (gallery, well viewer, plate mode), with the by-name pairing one switch away. " +
+        "It is <b>empirically inferred and unconfirmed</b> by IDR or the authors, and <b>Experiment L itself was not re-run</b>: the scatter and numbers above remain the by-name result. " +
+        '<a href="' + PROTOCOL + '" rel="noopener">Protocol section 15.4</a>.</p>' +
+        "<p><b>What else we know:</b> IDR holds exactly one image per well, so the number of fields is not the explanation: on the " + N.n_images + " images we cached, our nucleus count has median " + fmt(N.median_ours, 0) +
+        " against the authors' cell count of " + fmt(N.median_authors, 0) + " (ratio " + fmt(N.median_ratio_of_medians) + "; per-well ratio 10th to 90th percentile " + fmt(N.ratio_p10) + " to " + fmt(N.ratio_p90) +
+        "), so the two count roughly the same nuclei. Bit depth is <b>not</b> the cause: on the raw data of plate 7-14 (the pixels are 12-bit) the same detector agrees equally well with the authors on raw values and on the 8-bit render. " +
+        "With the column-major pairing the same unmodified counter reaches ρ 0.30&ndash;0.47 there; what remains is a gap that the authors' unpublished focus definition, replicate noise or residual pairing errors could each explain.</p>" +
+        "<p><b>So:</b> every biological claim on this site uses the authors' own numbers. Our counter is an unvalidated illustration.</p>";
+    }
+  }
+
+  function pairNoteHtml() {
+    var Lx = S && S.experiment_l, pc = Lx && Lx.pairing_check;
+    var ev = pc ? " Evidence: our nucleus count against the authors' cell count on " + pc.name.n + " cached images has Spearman " + fmt(pc.colmajor.nuclei_vs_cell_count_spearman, 2) +
+      " with the column-major pairing and " + fmt(pc.name.nuclei_vs_cell_count_spearman, 2) + " by name." : "";
+    return "<b>Which image goes with which row.</b> The authors' table numbers a plate's wells row by row; the images of a plate look as if they were numbered column by column. " +
+      "<b>Column-major (inferred)</b>, the default, shows annotation row Well Number N with the image at IDR row (N&minus;1) mod 12, column (N&minus;1) div 12 (12 &times; 32 plates); " +
+      "<b>by IDR name</b> shows the image of the IDR well with the same name as the row, as this site was first built. The column-major pairing is empirically inferred and " +
+      "<b>unconfirmed by IDR or the authors</b>." + ev + ' <a href="' + PROTOCOL + '" rel="noopener">Protocol section 15.4</a>. The numbers beside every image are always the authors\' table.';
+  }
+  function renderGallery() {
+    var gal = $("gal"), items = (pairing === "name" ? (S.gallery_byname || S.gallery) : S.gallery) || [];
+    gal.innerHTML = "";
+    items.forEach(function (g) {
       var card = h("article", "shot");
-      var title = g.gene || "Negative control";
+      var title = g.gene || "Negative control", addr = L.imageAddress(g.well, pairing);
       card.innerHTML =
         '<div class="pic"><img loading="lazy" src="data/' + esc(g.raw) + '" alt="' + esc(title) + ' knockdown: DNA blue, 53BP1 green">' +
         '<button type="button" class="toggle" aria-pressed="false">Our outline</button></div>' +
-        '<div class="meta"><h3><span>' + esc(title) + '</span><span class="mono">' + esc(g.well) + "</span></h3><p>" + esc(g.desc) + "</p>" +
-        "<table><tr><td>authors: foci / cell</td><td>" + fmt(g.authors.fpc) + "</td></tr><tr><td>authors: vs plate</td><td>" + fmt(g.authors.norm) + "×</td></tr>" +
+        '<div class="meta"><h3><span>' + esc(title) + '</span><span class="mono" title="annotation row">' + esc(g.well) + "</span></h3><p>" + esc(g.desc) + "</p>" +
+        "<table><tr><td>image: IDR well</td><td>" + esc(addr || "–") + "</td></tr><tr><td>authors: foci / cell</td><td>" + fmt(g.authors.fpc) + "</td></tr><tr><td>authors: vs plate</td><td>" + fmt(g.authors.norm) + "×</td></tr>" +
         "<tr><td>ours (not validated)</td><td>" + fmt(g.ours.fpc) + "</td></tr></table></div>";
       var img = card.querySelector("img"), tg = card.querySelector(".toggle");
       tg.addEventListener("click", function () {
@@ -584,24 +645,34 @@
       });
       gal.appendChild(card);
     });
-
-    var Lx = S.experiment_l;
-    if (Lx) {
-      var N = Lx.nucleus_check;
-      scatter($("scatter"), Lx);
-      $("verdict").innerHTML =
-        "<h3>Result: no agreement</h3><p>On " + Lx.n_wells + " wells spanning the full range, our per-well foci per cell does not track the published values.</p>" +
-        "<dl><dt>Spearman ρ</dt><dd>" + fmt(Lx.spearman, 3) + "</dd><dt>Pearson r</dt><dd>" + fmt(Lx.pearson, 3) + "</dd>" +
-        "<dt>nuclei count r</dt><dd>" + fmt(Lx.cells_pearson, 3) + "</dd>" +
-        "<dt>RNF168/MDC1/RNF8 wells: ours vs authors</dt><dd>" + fmt(Lx.median_ours_repair_kd) + " vs " + fmt(Lx.median_authors_repair_kd) + "</dd>" +
-        "<dt>proteasome wells: ours vs authors</dt><dd>" + fmt(Lx.median_ours_proteasome_kd) + " vs " + fmt(Lx.median_authors_proteasome_kd) + "</dd></dl>" +
-        "<p><b>Why, as far as we can tell (not tested):</b> IDR holds exactly one image per well, so the number of fields is not the explanation: on the " + N.n_images + " images we cached, our nucleus count has median " + fmt(N.median_ours, 0) +
-        " against the authors' cell count of " + fmt(N.median_authors, 0) + " (ratio " + fmt(N.median_ratio_of_medians) + "; per-well ratio 10th to 90th percentile " + fmt(N.ratio_p10) + " to " + fmt(N.ratio_p90) +
-        "), so the two count roughly the same nuclei. Bit depth is <b>not</b> the cause: a follow-up on the raw data of one plate (Experiment L2, plate 7-14, 304 wells; the pixels are 12-bit) found the same detector agrees equally well with the authors on raw values and on the 8-bit render. " +
-        "What we can say: (1) our numbers here pair each image with the annotation row of the same IDR well name, and that pairing is <b>very probably wrong</b> &mdash; pairing by the annotation's well number in column-major order (Well Number = column&times;12 + row + 1) fits the authors' own cell counts far better (Spearman 0.71 against 0.16 on 106 wells; lethal KIF11 wells lose cells only at the column-major image), and with that pairing the same unmodified counter reaches ρ 0.30&ndash;0.47; (2) The authors' focus definition is unpublished, so a different definition is not excluded. Only IDR or the authors can say how array position, well number and image were linked.</p>" +
-        "<p><b>Consequence:</b> the image shown next to a well's numbers may belong to another well; the numbers themselves are the authors' table, unchanged. Treat images as illustrations of the screen, not as the evidence for a particular gene's value.</p>" +
-        "<p><b>So:</b> every biological claim on this site uses the authors' own numbers. Our counter is an unvalidated illustration.</p>";
+    var all = (S.gallery_byname || []).length, miss = Math.max(0, all - items.length);
+    $("galNote").innerHTML = miss && pairing !== "name"
+      ? miss + " of the " + all + " example genes have no tile under this pairing yet: their column-major images are built by <code>scripts/build_foci_dataset.py --only-gallery</code> (needs network access to IDR). Switch to “by IDR name” to see all of them."
+      : "";
+  }
+  function setPairing(p) {
+    p = L.normPairing(p);
+    if (p === pairing) return;
+    pairing = p;
+    try { localStorage.setItem("foci-pairing", p); } catch (e) { /* storage blocked */ }
+    syncPairingControls();
+    renderGallery();
+    if (cur && viewer && dlg.open) {                 // reload the open well under the new pairing
+      viewer.remove(1); $("cmpOff").hidden = true; $("dlgBody").classList.remove("cmp-on");
+      viewer.load(0, cur, curGene || "");
+      showWellMeta();
+      $("wellOutline").disabled = false; $("wellOutline").textContent = "Outline nuclei (live, Railway)";
     }
+  }
+  function syncPairingControls() {
+    document.querySelectorAll('input[name="pairSel"]').forEach(function (r) { r.checked = r.value === pairing; });
+    var s = $("pairSelDlg"); if (s) s.value = pairing;
+  }
+  function setupPairing() {
+    $("pairNote").innerHTML = pairNoteHtml();
+    syncPairingControls();
+    document.querySelectorAll('input[name="pairSel"]').forEach(function (r) { r.addEventListener("change", function () { if (r.checked) setPairing(r.value); }); });
+    $("pairSelDlg").addEventListener("change", function () { setPairing(this.value); });
   }
 
   function charts() {

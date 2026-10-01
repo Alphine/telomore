@@ -4,8 +4,12 @@
 //   /api/well.php?w=<Plate_Well>                 coloured composite JPEG (DNA blue, 53BP1 green)
 //   /api/well.php?w=<Plate_Well>&ch=dna|foci     one channel, 8-bit grey rendering, PNG
 //   /api/well.php?w=<Plate_Well>&info=1          JSON: size, pixel size, channel labels, IDR link
+//   ...&pair=colmajor|name                       how <Plate_Well> maps to an image (default colmajor):
+//       colmajor  w is an annotation row; its image is the one at IDR row (N-1)%12, column (N-1)//12 for the row's
+//                 Well Number N (empirically inferred, unconfirmed by IDR: docs/EXPERIMENT_PROTOCOL.md 15.4)
+//       name      w is an IDR well address; the image is the one at that address (by-name pairing / SCREEN mode)
 //
-// Only wells listed in ../data/well_index.json (IDR screen idr0010) are served,
+// Only wells listed in ../data/well_index.json / well_index_byname.json (IDR screen idr0010) are served,
 // so this cannot be used as an open proxy: the only remote host is IDR, the only
 // remote paths are fixed templates, and the only variable part is an integer image
 // id taken from that index. Each variant is fetched from IDR once (public session
@@ -57,7 +61,9 @@ if ($info !== null && $info !== '1') fail(400, 'bad info (use 1)');
 if ($ch !== null && $info !== null) fail(400, 'use either ch or info, not both');
 $variant = $info !== null ? 'info' : ($ch ?? 'composite');
 
-$index = load_well_index();
+$pair = $_GET['pair'] ?? 'colmajor';
+if (!is_string($pair) || !in_array($pair, ['colmajor', 'name'], true)) fail(400, 'bad pair (use colmajor or name)');
+$index = load_well_index($pair);
 if ($index === null) fail(500, 'index unavailable');
 if (!isset($index[$w]) || !is_int($index[$w]) || $index[$w] <= 0) fail(404, 'well not imaged in IDR');
 $iid = $index[$w];   // integer from our own index: the only variable in any path or URL below
@@ -119,6 +125,7 @@ function serve_info(string $file, string $cacheState): bool {
     if (!is_array($rec) || !isset($rec['image_id'], $rec['channels'])) fail(502, 'cached metadata unreadable');
     $out = [
         'well' => $GLOBALS['w'],
+        'pairing' => $GLOBALS['pair'],
         'image_id' => $rec['image_id'],
         'size_x' => $rec['size_x'],
         'size_y' => $rec['size_y'],

@@ -35,7 +35,22 @@ Honesty notes: 53BP1 foci are general DNA-break markers, not telomere-specific; 
 use the authors' numbers; our automatic counter does not reproduce them (Experiment L,
 `docs/EXPERIMENT_PROTOCOL.md` §15.2) and is labelled as an unvalidated illustration. A re-test on the raw data
 of one plate (§15.4, BioImage Archive S-BIAD885) found that bit depth is not the cause, and that the image-to-annotation
-pairing by IDR well name is very probably wrong (column-major numbering, Well Number = c*12+r+1, fits far better; 12 x 32 plates), so the image shown next to a well's numbers most likely belongs to another well; IDR/authors have not yet confirmed.
+pairing by IDR well name does not fit the authors' own cell counts, whereas column-major numbering does (annotation `Well Number` N goes with the image at IDR row (N-1) mod 12, column (N-1) div 12; 12 x 32 plates; Spearman 0.71 against 0.16 for nuclei vs cell count on 106 wells).
+
+**Pairing (image <-> annotation row).** Since this correction the site uses the **column-major pairing by default**, and
+says so wherever an image sits next to an annotation row: it is *empirically inferred and unconfirmed by IDR or the
+authors*. The original by-name pairing stays selectable ("Pairing: column-major (inferred) / by IDR name (as originally
+built)" on the gallery, in the well viewer and in plate mode; stored in the browser as `foci-pairing`, or `?pairing=name`).
+Experiment L was run under the by-name pairing and has not been re-run. Data files: `data/well_index_byname.json`
+(IDR well address -> image id, from the IDR API, the image grid) and `data/well_index.json` (annotation `Plate_Well` ->
+image id under the column-major rule; a pure permutation inside each plate, `scripts/build_foci_pairing.py`, no network:
+56,536 of 56,832 imaged wells point at a different image than before, 296 = 2 fixed wells per plate do not). The gallery
+has two sets (`summary.gallery` for the default pairing, `summary.gallery_byname`, files in `data/img/byname/`);
+`well.php?pair=colmajor|name` selects the pairing for images. Regression test:
+`tests/test_foci_pairing.py` with the fixture `foci/tests/fixtures/foci_pairing_nuclei.json`
+(`python scripts/build_foci_dataset.py --pairing-fixture OUT.json` rebuilds it from the image cache). Tiles of the
+default gallery that were not rebuilt (no IDR access was used for them) are missing under that pairing until
+`python scripts/build_foci_dataset.py --only-gallery` is run with network access.
 
 ## Site features (`foci/web/`)
 

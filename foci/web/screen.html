@@ -39,8 +39,8 @@
     <p class="lead">Choose one plate of the genome-wide 53BP1 screen (Doil et al. 2009). Your browser downloads that plate's wells from our cache, counts nuclei and foci with the Foci Lab engine, and lines the result up with the authors' own per-well numbers. <strong>Our server never runs the analysis</strong>; it only hands out images.</p>
 
     <div class="sc-banner sc-pair" role="note" id="pairNote">
-      <b>Open question: which annotation row belongs to which image?</b>
-      <p>The image grid of a plate and the authors' table number the wells differently. Matching them <em>by well name</em> (image A2 with row A2) and matching them by the annotation's <em>Well Number</em> with the image grid counted column by column (A1, B1, &hellip; L1, A2, &hellip;) give different pairs, and so different agreement. Experiment L2 found that the second rule agrees better with the authors' cell counts on plate 7-14, but that is indirect evidence; <b>the curators or the authors would have to confirm which is right, and this page does not claim either</b>. Both pairings are therefore shown side by side everywhere. See <code>docs/EXPERIMENT_PROTOCOL.md</code> &sect;15.4.</p>
+      <b>Pairing of images and annotation rows: inferred, unconfirmed.</b>
+      <p>The image grid of a plate and the authors' table number the wells differently. The default here is <b>column-major (inferred)</b>: the annotation row with Well Number N goes with the image at row (N&minus;1) mod 12, column (N&minus;1) div 12, i.e. the image grid is counted column by column (A1, B1, &hellip; L1, A2, &hellip;). The alternative, <b>by IDR name</b> (image A2 with row A2), is how the site was first built. The column-major rule fits the authors' own cell counts far better (plate 7-14: nuclei vs cells Spearman 0.56 against 0.07; foci per cell 0.30 against &minus;0.01), and so do lethal controls, but that is indirect evidence: <b>it is empirically inferred and unconfirmed by IDR or the authors</b>. Both pairings stay selectable and are shown side by side in the table and the comparison cards. See <a href="https://github.com/Alphine/telomore/blob/HEAD/docs/EXPERIMENT_PROTOCOL.md" rel="noopener">docs/EXPERIMENT_PROTOCOL.md &sect;15.4</a>.</p>
     </div>
     <div class="sc-banner" role="note">
       <b>Read this first.</b>
@@ -123,9 +123,9 @@
         </select>
       </div>
       <fieldset class="sc-seg">
-        <legend>Annotation pairing (marks and the authors' values)</legend>
-        <label><input type="radio" name="pairSel" value="name" checked> A: by well name</label>
-        <label><input type="radio" name="pairSel" value="colmajor"> B: by Well Number (column-major)</label>
+        <legend>Pairing (marks and the authors' values)</legend>
+        <label><input type="radio" name="pairSel" value="colmajor" checked> Pairing: column-major (inferred)</label>
+        <label><input type="radio" name="pairSel" value="name"> Pairing: by IDR name (as originally built)</label>
       </fieldset>
     </div>
     <div class="sc-heat-wrap">

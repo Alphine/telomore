@@ -228,6 +228,11 @@ svg.plot .lbl { font-size: 11.5px; font-weight: 600; }
 .vw-stage canvas { display: block; width: 100%; height: 100%; }
 .vw-status { min-height: 20px; margin: 4px 0 0; }
 .dlg-body.cmp-on { grid-template-columns: minmax(0, 1fr); }
+.pairing { border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px 10px; margin: 0 0 12px; min-width: 0; }
+.pairing legend { font-size: 13px; color: var(--muted); padding: 0 6px; }
+.pairing label { display: block; font-size: 14px; padding: 6px 0; cursor: pointer; }
+.pair-dlg { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 0; }
+.pair-dlg select { width: 100%; margin-top: 4px; }
 .cmp { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px 12px; margin: 14px 0 0; min-width: 0; }
 .cmp legend { font-size: 13px; color: var(--muted); padding: 0 6px; }
 .cmp label { display: block; font-size: 13px; color: var(--muted); margin: 8px 0 4px; }

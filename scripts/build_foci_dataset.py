@@ -14,15 +14,22 @@ Outputs (all under ``foci/web/data`` unless --out is given):
                           Ensembl IDs in the screen (HGNC, CC0) + a token lookup.
 * ``downloads/``      -- foci_genes.csv, foci_wells.csv, README_DATA.txt, manifest.json.
                           Formats: foci/DATA_FORMATS.md.
-* ``well_index.json`` -- Plate_Well -> IDR image id for every imaged well (used
-                          by the PHP image proxy and the Railway overlay endpoint).
-* ``img/*.jpg``       -- gallery: raw composite + our nucleus/foci overlay.
+* ``well_index_byname.json`` -- IDR well address (Plate_Well) -> IDR image id for every imaged well, straight from
+                          the IDR API: the image grid, and the "by IDR name" pairing as originally built.
+* ``well_index.json`` -- annotation row (Plate_Well) -> IDR image id under the chosen pairing (default column-major,
+                          empirically inferred, unconfirmed by IDR; scripts/build_foci_pairing.py). Used by the PHP
+                          image proxy and the Railway overlay endpoint.
+* ``img/*.jpg``       -- gallery for the default pairing: raw composite + our nucleus/foci overlay;
+                          ``img/byname/*.jpg`` the same for the by-name pairing (summary.gallery_byname).
 
 Experiment L re-runs our classical focus counter (telomere_lab.foci) on a fixed,
 stratified sample of wells and compares with the authors' per-well counts.
 
     python scripts/build_foci_dataset.py                # full build (~5-10 min, network)
     python scripts/build_foci_dataset.py --no-images    # tables only
+    python scripts/build_foci_dataset.py --only-gallery --gallery-keys RNF168,PSMA3 --max-requests 20
+                                                        # (re)build some gallery tiles only, with an IDR request cap
+    python scripts/build_foci_dataset.py --pairing name # annotation join and well_index.json as originally built
     python scripts/build_foci_dataset.py --refresh-hgnc # re-download the HGNC complete set (one request)
 """
 
@@ -47,6 +54,8 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from build_foci_pairing import DEFAULT_PAIRING, PAIRING_STATUS, diff_stats, dumps, paired_index  # noqa: E402
 from telomere_lab.foci import ATTRIBUTION, FociParams, IdrClient, count_foci, fetch_image_channels, overlay_rgb  # noqa: E402
 from telomere_lab.foci.stats import (LOW_CELLS, NORM_COL as NORM, Q_HIT, Z_SIRNA, gene_stats, r3,  # noqa: E402
                                      sample_well_table, sirna_concordance, truth_check, well_scores)
@@ -91,8 +100,26 @@ def load_table(path: Path | None = None) -> pd.DataFrame:
     return a
 
 
+class CountingClient(IdrClient):
+    """IdrClient that counts every HTTP request and refuses to exceed ``limit``."""
+
+    def __init__(self, limit: int | None = None, **kw):
+        super().__init__(**kw)
+        self.limit, self.requests = limit, 0
+
+    def _get(self, path: str) -> bytes:
+        if self.limit is not None and self.requests >= self.limit:
+            raise RuntimeError(f"IDR request cap {self.limit} reached")
+        self.requests += 1
+        return super()._get(path)
+
+
+CLIENT: CountingClient | None = None      # set by --max-requests; one session shared by every gallery fetch
+
+
 def build_index(out: Path) -> dict:
-    f = out / "well_index.json"
+    """IDR address -> image id (well_index_byname.json); fetched from IDR only when the file is absent."""
+    f = out / "well_index_byname.json"
     if f.exists():
         return json.loads(f.read_text())
     client = IdrClient()
@@ -168,6 +195,61 @@ def nucleus_check(a: pd.DataFrame) -> dict:
             "ratio_p90": r3(np.quantile(ratio, .9))}
 
 
+def nucleus_pairing_check(a: pd.DataFrame, byname: dict) -> dict:
+    """Our nucleus count vs the authors' Cell Count on every cached image, under both pairings (offline).
+
+    This is the headline number behind the pairing switch (docs/EXPERIMENT_PROTOCOL.md 15.4 (a)); the test fixture
+    tests/fixtures/foci_pairing_nuclei.json holds the same quantities.
+    """
+    from scipy.stats import spearmanr
+    out = {"status": PAIRING_STATUS}
+    for name in ("name", "colmajor"):
+        idx = paired_index(byname, name)
+        cells = {int(idx[k]): c for k, c in zip(a["Plate_Well"], a["Cell Count"]) if k in idx and c > 0}
+        ours, theirs = [], []
+        for f in sorted((CACHE / "img").glob("*.npz")):
+            if int(f.stem) in cells:
+                d = np.load(f)
+                ours.append(count_foci(d["dna"].astype(np.float32), d["foci"].astype(np.float32)).n_nuclei)
+                theirs.append(cells[int(f.stem)])
+        out[name] = {"n": len(ours), "nuclei_vs_cell_count_spearman": r3(spearmanr(ours, theirs)[0])}
+    return out
+
+
+def write_pairing_fixture(a: pd.DataFrame, byname: dict, summary: dict, dest: Path) -> int:
+    """foci/tests/fixtures/foci_pairing_nuclei.json: per cached image, our nucleus count and the authors' Cell Count of the
+    row paired by name and by column-major Well Number (regression test of the pairing; no images needed).
+    Images fetched for the default-pairing gallery after Experiment L's sample (summary.gallery) are left out."""
+    col = paired_index(byname, "colmajor")
+    inv_name, inv_col = {v: k for k, v in byname.items()}, {v: k for k, v in col.items()}
+    skip = {g["image_id"] for g in summary.get("gallery", [])}
+    t = a.set_index("Plate_Well")
+
+    def cells(k):
+        v = t.loc[k, "Cell Count"]
+        return None if pd.isna(v) else float(v)
+
+    rows = []
+    for f in sorted((CACHE / "img").glob("*.npz")):
+        i = int(f.stem)
+        if i in skip or i not in inv_name:
+            continue
+        d = np.load(f)
+        n = count_foci(d["dna"].astype(np.float32), d["foci"].astype(np.float32)).n_nuclei
+        nm, cm = inv_name[i], inv_col[i]
+        rows.append([i, nm, int(t.loc[nm, "Well Number"]), cells(nm), cm, int(t.loc[cm, "Well Number"]), cells(cm), int(n)])
+    dest.write_text(json.dumps({
+        "about": "idr0010 images cached by the Foci Lab build (Experiment L sample): our nucleus count "
+                 "(telomere_lab.foci.count_foci, default parameters) and the authors' Cell Count of the annotation row paired "
+                 "with the image by IDR name vs by column-major Well Number. Annotation numbers: "
+                 "idr0010-screenA-annotation.csv (Doil et al. 2009, IDR, CC BY 4.0). Written by "
+                 "scripts/build_foci_dataset.py --pairing-fixture.",
+        "columns": ["image_id", "idr_well", "name_row_well_number", "name_row_cells", "colmajor_row",
+                    "colmajor_row_well_number", "colmajor_row_cells", "nuclei"],
+        "rows": rows}, separators=(",", ":")), encoding="utf-8", newline="\n")
+    return len(rows)
+
+
 def fetch_cached(iid: int):
     f = CACHE / "img" / f"{iid}.npz"
     if f.exists():
@@ -176,10 +258,12 @@ def fetch_cached(iid: int):
     f.parent.mkdir(parents=True, exist_ok=True)
     for _ in range(3):
         try:
-            dna, foc, _ = fetch_image_channels(IdrClient(), iid)
+            dna, foc, _ = fetch_image_channels(CLIENT or IdrClient(), iid)
             np.savez_compressed(f, dna=dna.astype(np.uint8), foci=foc.astype(np.uint8))
             return dna, foc
-        except Exception:
+        except Exception as e:
+            if CLIENT is not None and CLIENT.limit is not None and CLIENT.requests >= CLIENT.limit:
+                raise
             time.sleep(3)
     raise RuntimeError(f"could not fetch image {iid}")
 
@@ -192,11 +276,15 @@ def composite(dna, foc):
     return (rgb * 255).astype(np.uint8)
 
 
-def build_gallery(ok: pd.DataFrame, out: Path) -> list:
+def build_gallery(ok: pd.DataFrame, out: Path, subdir: str = "", keys=None) -> list:
+    """Gallery tiles (one well per entry of GALLERY, or only ``keys``) written to out/img[/subdir]."""
     from PIL import Image
-    (out / "img").mkdir(parents=True, exist_ok=True)
+    rel = "img/" + (subdir + "/" if subdir else "")
+    (out / rel).mkdir(parents=True, exist_ok=True)
     items = []
     for key, desc, group in GALLERY:
+        if keys and key not in keys:
+            continue
         if key == "negative control":
             rows = ok[ok["Control Type"] == "negative control"]
         else:
@@ -210,15 +298,15 @@ def build_gallery(ok: pd.DataFrame, out: Path) -> list:
         dna, foc = fetch_cached(iid)
         res = count_foci(dna, foc)
         slug = key.replace(" ", "_")
-        Image.fromarray(composite(dna, foc)).save(out / "img" / f"{slug}_raw.jpg", quality=86)
-        Image.fromarray(overlay_rgb(dna, foc, res)).save(out / "img" / f"{slug}_overlay.jpg", quality=86)
+        Image.fromarray(composite(dna, foc)).save(out / rel / f"{slug}_raw.jpg", quality=86)
+        Image.fromarray(overlay_rgb(dna, foc, res)).save(out / rel / f"{slug}_overlay.jpg", quality=86)
         items.append({
             "key": key, "gene": None if key == "negative control" else key, "desc": desc, "group": group,
             "well": r["Plate_Well"], "image_id": iid,
             "authors": {"cells": r3(r["Cell Count"]), "foci": r3(r["53BP1 foci"]),
                         "fpc": r3(r["Foci Per Cell"]), "norm": r3(r["Foci Per Cell (Normalized)"])},
             "ours": {"nuclei": res.n_nuclei, "foci": res.n_foci, "fpc": r3(res.foci_per_cell)},
-            "raw": f"img/{slug}_raw.jpg", "overlay": f"img/{slug}_overlay.jpg",
+            "raw": f"{rel}{slug}_raw.jpg", "overlay": f"{rel}{slug}_overlay.jpg",
         })
         print(f"  gallery {key:<18} well {r['Plate_Well']:<12} ours {res.foci_per_cell:.2f}  authors {r['Foci Per Cell']:.2f}")
     return items
@@ -539,15 +627,48 @@ def main(argv=None) -> int:
     ap.add_argument("--annotation", default=None, help="annotation CSV (default .cache/idr0010/annotation.csv)")
     ap.add_argument("--hgnc", default=str(HGNC_CACHE), help="HGNC complete set TSV (downloaded once if absent)")
     ap.add_argument("--refresh-hgnc", action="store_true", help="download the HGNC complete set again")
+    ap.add_argument("--pairing", choices=["colmajor", "name"], default=DEFAULT_PAIRING,
+                    help="which image goes with which annotation row: column-major Well Number (default; empirically "
+                         "inferred, unconfirmed by IDR) or the IDR well of the same name (as originally built)")
+    ap.add_argument("--only-gallery", action="store_true",
+                    help="rebuild just the gallery tiles of the default pairing and merge them into summary.json")
+    ap.add_argument("--gallery-keys", default=None, help="comma-separated GALLERY keys for --only-gallery (default all)")
+    ap.add_argument("--pairing-fixture", default=None, metavar="OUT.json",
+                    help="write the pairing regression fixture from the cached images (offline) and exit")
+    ap.add_argument("--max-requests", type=int, default=None, help="hard cap on IDR requests made by gallery fetches")
     args = ap.parse_args(argv)
+    global CLIENT
+    if args.max_requests is not None:
+        CLIENT = CountingClient(limit=args.max_requests, timeout=60.0)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
     a = load_table(args.annotation)
-    idx = build_index(out)
+    byname = build_index(out)                       # IDR image grid: address -> image id
+    idx = paired_index(byname, args.pairing)        # annotation row -> image id
+    (out / "well_index.json").write_text(dumps(idx), encoding="utf-8", newline="\n")
     a["image_id"] = a["Plate_Well"].map(idx)
     ok = a[a["Quality Control"].isna()].copy()
-    print(f"{len(a)} wells, {len(ok)} pass QC, {len(idx)} imaged")
+    print(f"{len(a)} wells, {len(ok)} pass QC, {len(idx)} imaged, pairing {args.pairing}")
+
+    if args.pairing_fixture:
+        n = write_pairing_fixture(a, byname, json.loads((out / "summary.json").read_text()), Path(args.pairing_fixture))
+        print(f"{n} cached images -> {args.pairing_fixture}")
+        return 0
+    if args.only_gallery:
+        keys = set(args.gallery_keys.split(",")) if args.gallery_keys else None
+        f = out / "summary.json"
+        summary = json.loads(f.read_text())
+        items = {g["key"]: g for g in summary.get("gallery", [])}
+        try:
+            for g in build_gallery(ok, out, keys=keys):
+                items[g["key"]] = g
+        finally:                                   # keep what was fetched even if the request cap was hit
+            summary["gallery"] = [items[k] for k, _, _ in GALLERY if k in items]
+            f.write_text(json.dumps(summary, indent=1, default=float, allow_nan=False))
+            if CLIENT is not None:
+                print(f"IDR requests made: {CLIENT.requests}")
+        return 0
 
     s, ctl = well_scores(ok)
     t, null = gene_stats(s)
@@ -621,17 +742,28 @@ def main(argv=None) -> int:
     }
     old = out / "summary.json"
     prev = json.loads(old.read_text()) if old.exists() else {}
+    byname_ok = ok.assign(image_id=ok["Plate_Well"].map(byname))   # Experiment L and the old gallery: by-name pairing
     if not args.no_images:
         print("gallery:")
         summary["gallery"] = build_gallery(ok, out)
-        print("experiment L:")
-        summary["experiment_l"] = experiment_l(ok)
-        summary["experiment_l"]["nucleus_check"] = nucleus_check(a)
+        if args.pairing != "name":
+            print("gallery (by name):")
+            summary["gallery_byname"] = build_gallery(byname_ok, out, subdir="byname")
+        print("experiment L (by-name pairing, as originally run):")
+        summary["experiment_l"] = experiment_l(byname_ok)
+        summary["experiment_l"]["pairing"] = "name"
+        summary["experiment_l"]["nucleus_check"] = nucleus_check(a.assign(image_id=a["Plate_Well"].map(byname)))
+        summary["experiment_l"]["pairing_check"] = nucleus_pairing_check(a, byname)
         print("  nucleus check:", summary["experiment_l"]["nucleus_check"])
+        print("  pairing check:", summary["experiment_l"]["pairing_check"])
     else:                                    # keep the image-derived parts from the last full build
-        for k in ("gallery", "experiment_l"):
+        for k in ("gallery", "gallery_byname", "experiment_l"):
             if k in prev:
                 summary[k] = prev[k]
+    summary["pairing"] = {"default": args.pairing, "options": ["colmajor", "name"], "status": PAIRING_STATUS,
+                          "rule": "annotation Well Number N -> image at IDR row (N-1) % 12, column (N-1) // 12 (12 x 32 plates)",
+                          "protocol": "docs/EXPERIMENT_PROTOCOL.md#154-experiment-l2",
+                          "diff_vs_name": diff_stats(byname, paired_index(byname, "colmajor"))}
     summary["build"] = {"built_utc": built_utc, "git_commit": commit, "manifest": "downloads/manifest.json"}
     if sym:
         summary["symbols"] = symbol_stats(genes, sym)

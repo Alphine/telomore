@@ -29,7 +29,7 @@ from tests.test_foci_well_php import IMGDATA, PHP, WEB  # noqa: F401  (shared PH
 
 pytestmark = pytest.mark.skipif(PHP is None, reason="php with curl not available")
 
-INDEX = json.loads((WEB / "data" / "well_index.json").read_text())
+INDEX = json.loads((WEB / "data" / "well_index_byname.json").read_text())   # plate mode lists the IDR image grid
 NOISE = Image.frombytes("RGB", (64, 64), os.urandom(64 * 64 * 3))
 
 
@@ -129,7 +129,8 @@ def make_site(tmp_path, stub):
         (pub / "data").mkdir()
         for f in (WEB / "api").glob("*.php"):
             shutil.copy(f, pub / "api" / f.name)
-        shutil.copy(WEB / "data" / "well_index.json", pub / "data" / "well_index.json")
+        for n in ("well_index.json", "well_index_byname.json"):
+            shutil.copy(WEB / "data" / n, pub / "data" / n)
         e = dict(os.environ, FOCI_ALLOW_TEST_BASE="1", FOCI_IDR_BASE=f"http://127.0.0.1:{stub}")
         e.update({k: str(v) for k, v in (env or {}).items()})
         bases = []
@@ -252,32 +253,32 @@ def test_internal_files_are_not_endpoints(make_site):
 def test_hit_and_miss_headers_etag_304(make_site):
     s = make_site()
     w = "7-14_A1"
-    st, h, b1 = get(s["base"] + f"well.php?w={w}&ch=dna")
+    st, h, b1 = get(s["base"] + f"well.php?pair=name&w={w}&ch=dna")
     assert st == 200 and h["X-Foci-Cache"] == "MISS" and h["ETag"].startswith('"') and "misses-minute=" in h["X-Foci-Quota"]
-    st, h2, b2 = get(s["base"] + f"well.php?w={w}&ch=dna")
+    st, h2, b2 = get(s["base"] + f"well.php?pair=name&w={w}&ch=dna")
     assert st == 200 and h2["X-Foci-Cache"] == "HIT" and b1 == b2 and h2["ETag"] == h["ETag"]
     n = Stub.idr_count()
-    st, h3, b3 = get(s["base"] + f"well.php?w={w}&ch=dna", headers={"If-None-Match": h["ETag"]})
+    st, h3, b3 = get(s["base"] + f"well.php?pair=name&w={w}&ch=dna", headers={"If-None-Match": h["ETag"]})
     assert st == 304 and b3 == b"" and "immutable" in h3["Cache-Control"]
-    assert get(s["base"] + f"well.php?w={w}&ch=dna", headers={"If-None-Match": 'W/"nope", ' + h["ETag"]})[0] == 304
-    assert get(s["base"] + f"well.php?w={w}&ch=dna", headers={"If-None-Match": '"other"'})[0] == 200
-    assert get(s["base"] + f"well.php?w={w}&ch=dna", headers={"If-None-Match": "*"})[0] == 304
+    assert get(s["base"] + f"well.php?pair=name&w={w}&ch=dna", headers={"If-None-Match": 'W/"nope", ' + h["ETag"]})[0] == 304
+    assert get(s["base"] + f"well.php?pair=name&w={w}&ch=dna", headers={"If-None-Match": '"other"'})[0] == 200
+    assert get(s["base"] + f"well.php?pair=name&w={w}&ch=dna", headers={"If-None-Match": "*"})[0] == 304
     assert Stub.idr_count() == n
-    st, hi, bi = get(s["base"] + f"well.php?w={w}&info=1")
-    assert st == 200 and get(s["base"] + f"well.php?w={w}&info=1", headers={"If-None-Match": hi["ETag"]})[0] == 304
+    st, hi, bi = get(s["base"] + f"well.php?pair=name&w={w}&info=1")
+    assert st == 200 and get(s["base"] + f"well.php?pair=name&w={w}&info=1", headers={"If-None-Match": hi["ETag"]})[0] == 304
 
 
 def test_miss_rate_limit_429_and_hits_unaffected(make_site):
     s = make_site({"FOCI_MISS_PER_MIN": 4, "FOCI_MISS_PER_DAY": 1000, "FOCI_IDR_RATE": 1000, "FOCI_IDR_BURST": 1000})
     ws = wells_of("7-14")[:8]
-    codes = [get(s["base"] + f"well.php?w={w}&ch=dna")[0] for w in ws]
+    codes = [get(s["base"] + f"well.php?pair=name&w={w}&ch=dna")[0] for w in ws]
     assert codes[:4] == [200] * 4 and set(codes[4:]) == {429}
-    st, h, body = get(s["base"] + f"well.php?w={ws[4]}&ch=dna")
+    st, h, body = get(s["base"] + f"well.php?pair=name&w={ws[4]}&ch=dna")
     assert st == 429 and h["Cache-Control"] == "no-store" and int(h["Retry-After"]) >= 1 and int(h["Retry-After"]) <= 60
     # cached answers are still served, with no IDR traffic
     n = Stub.idr_count()
     for w in ws[:4]:
-        assert get(s["base"] + f"well.php?w={w}&ch=dna")[0] == 200
+        assert get(s["base"] + f"well.php?pair=name&w={w}&ch=dna")[0] == 200
     assert Stub.idr_count() == n
     # a refused miss did not reach IDR and left nothing behind
     assert not list(s["cache"].glob("*.tmp*"))
@@ -285,31 +286,31 @@ def test_miss_rate_limit_429_and_hits_unaffected(make_site):
 
 def test_daily_miss_limit(make_site):
     s = make_site({"FOCI_MISS_PER_MIN": 1000, "FOCI_MISS_PER_DAY": 3, "FOCI_IDR_RATE": 1000, "FOCI_IDR_BURST": 1000})
-    codes = [get(s["base"] + f"well.php?w={w}&ch=foci")[0] for w in wells_of("7-14")[:5]]
+    codes = [get(s["base"] + f"well.php?pair=name&w={w}&ch=foci")[0] for w in wells_of("7-14")[:5]]
     assert codes == [200, 200, 200, 429, 429]
-    st, h, _ = get(s["base"] + f"well.php?w={wells_of('7-14')[5]}&ch=foci")
+    st, h, _ = get(s["base"] + f"well.php?pair=name&w={wells_of('7-14')[5]}&ch=foci")
     assert int(h["Retry-After"]) > 1000            # one day-token back takes 86400/3 s
 
 
 def test_hit_rate_limit(make_site):
     s = make_site({"FOCI_HIT_PER_MIN": 6, "FOCI_MISS_PER_MIN": 100})
     w = "7-14_A1"
-    get(s["base"] + f"well.php?w={w}&ch=dna")        # miss: costs one response token as well
-    codes = [get(s["base"] + f"well.php?w={w}&ch=dna")[0] for _ in range(8)]
+    get(s["base"] + f"well.php?pair=name&w={w}&ch=dna")        # miss: costs one response token as well
+    codes = [get(s["base"] + f"well.php?pair=name&w={w}&ch=dna")[0] for _ in range(8)]
     assert codes.count(200) == 5 and codes.count(429) == 3
-    st, h, _ = get(s["base"] + f"well.php?w={w}&ch=dna")
+    st, h, _ = get(s["base"] + f"well.php?pair=name&w={w}&ch=dna")
     assert st == 429 and "Retry-After" in h
 
 
 def test_forwarded_for_is_ignored_unless_proxy_trusted(make_site):
     s = make_site({"FOCI_MISS_PER_MIN": 2, "FOCI_IDR_RATE": 1000, "FOCI_IDR_BURST": 1000})
     ws = wells_of("7-14")[:4]
-    codes = [get(s["base"] + f"well.php?w={w}&ch=dna", headers={"X-Forwarded-For": f"10.0.0.{i}"})[0] for i, w in enumerate(ws)]
+    codes = [get(s["base"] + f"well.php?pair=name&w={w}&ch=dna", headers={"X-Forwarded-For": f"10.0.0.{i}"})[0] for i, w in enumerate(ws)]
     assert codes == [200, 200, 429, 429]           # spoofed header did not create fresh quotas
     t = make_site({"FOCI_MISS_PER_MIN": 2, "FOCI_IDR_RATE": 1000, "FOCI_IDR_BURST": 1000, "FOCI_TRUSTED_PROXIES": "127.0.0.1"})
-    codes = [get(t["base"] + f"well.php?w={w}&ch=dna", headers={"X-Forwarded-For": f"10.0.0.{i // 2}"})[0] for i, w in enumerate(ws)]
+    codes = [get(t["base"] + f"well.php?pair=name&w={w}&ch=dna", headers={"X-Forwarded-For": f"10.0.0.{i // 2}"})[0] for i, w in enumerate(ws)]
     assert codes == [200, 200, 200, 200]           # behind a trusted proxy the client address is used
-    codes = [get(t["base"] + f"well.php?w={w}&ch=foci", headers={"X-Forwarded-For": "garbage, 10.9.9.9"})[0] for w in ws[:3]]
+    codes = [get(t["base"] + f"well.php?pair=name&w={w}&ch=foci", headers={"X-Forwarded-For": "garbage, 10.9.9.9"})[0] for w in ws[:3]]
     assert codes == [200, 200, 429]
 
 
@@ -319,7 +320,7 @@ def test_idr_concurrency_cap_503(make_site, stub):
     ws = wells_of("7-14")[:3]
 
     def one(i):
-        return get(s["bases"][i] + f"well.php?w={ws[i]}&ch=dna")
+        return get(s["bases"][i] + f"well.php?pair=name&w={ws[i]}&ch=dna")
 
     with ThreadPoolExecutor(3) as ex:
         res = list(ex.map(one, range(3)))
@@ -331,21 +332,21 @@ def test_idr_concurrency_cap_503(make_site, stub):
     assert Stub.peak <= 1                                        # never two simultaneous IDR fetches
     Stub.delay = 0.0
     # the refused ones succeed on retry
-    assert all(get(s["base"] + f"well.php?w={w}&ch=dna")[0] == 200 for w in ws)
+    assert all(get(s["base"] + f"well.php?pair=name&w={w}&ch=dna")[0] == 200 for w in ws)
 
 
 def test_idr_request_rate_cap_503(make_site):
     s = make_site({"FOCI_IDR_RATE": 0.2, "FOCI_IDR_BURST": 3, "FOCI_IDR_WAIT_MS": 0, "FOCI_MISS_PER_MIN": 4})
     # first miss needs 3 IDR calls (session cookie, imgData, render) = the whole burst
-    assert get(s["base"] + "well.php?w=7-14_A1&ch=dna")[0] == 200
+    assert get(s["base"] + "well.php?pair=name&w=7-14_A1&ch=dna")[0] == 200
     n = Stub.idr_count()
-    st, h, _ = get(s["base"] + "well.php?w=7-14_B1&ch=dna")
+    st, h, _ = get(s["base"] + "well.php?pair=name&w=7-14_B1&ch=dna")
     assert st == 503 and int(h["Retry-After"]) >= 1
     assert Stub.idr_count() == n                                  # nothing was sent to IDR
     assert not list(s["cache"].glob("7*.tmp*")) and not list(s["cache"].glob("*.tmp*"))
     # refused for OUR saturation: the visitor is not billed a miss for it (minute bucket: 4 - 1 spent on the first image)
     for w in ("7-14_C1", "7-14_D1", "7-14_E1"):
-        assert get(s["base"] + f"well.php?w={w}&ch=dna")[0] == 503
+        assert get(s["base"] + f"well.php?pair=name&w={w}&ch=dna")[0] == 503
     [f] = list((s["cache"] / "_rl").iterdir())
     _, resp, minute, day = (float(x) for x in f.read_text().split())
     assert 2.9 < minute <= 3.6 and day > 1990, f.read_text()   # 4 - 1 spent; the three refused attempts were refunded
@@ -354,7 +355,7 @@ def test_idr_request_rate_cap_503(make_site):
 def test_idr_upstream_429_becomes_503(make_site):
     s = make_site({"FOCI_IDR_RATE": 1000, "FOCI_IDR_BURST": 1000})
     Stub.mode = "429"
-    st, h, _ = get(s["base"] + "well.php?w=7-14_A1&ch=dna")
+    st, h, _ = get(s["base"] + "well.php?pair=name&w=7-14_A1&ch=dna")
     assert st == 503 and int(h["Retry-After"]) >= 1
     Stub.mode = "ok"
 
@@ -367,7 +368,7 @@ def test_burst_same_files_no_corruption_and_single_fetch(make_site):
 
     def one(j):
         k, (w, ch) = j
-        return get(s["bases"][k % 3] + f"well.php?w={w}&ch={ch}")
+        return get(s["bases"][k % 3] + f"well.php?pair=name&w={w}&ch={ch}")
 
     with ThreadPoolExecutor(12) as ex:
         res = list(ex.map(one, enumerate(jobs)))
@@ -427,19 +428,19 @@ def test_cleanup_triggered_by_misses_and_hit_refreshes_recency(make_site):
     s = make_site({"FOCI_CACHE_MAX_BYTES": 1, "FOCI_CLEANUP_PROB": 0, "FOCI_EVICT_GRACE_S": 0, "FOCI_MISS_PER_MIN": 1000, "FOCI_IDR_RATE": 1000, "FOCI_IDR_BURST": 1000})
     ws = wells_of("7-14")[:3]
     for w in ws:
-        assert get(s["base"] + f"well.php?w={w}&ch=dna")[0] == 200
+        assert get(s["base"] + f"well.php?pair=name&w={w}&ch=dna")[0] == 200
     iid = [INDEX[w] for w in ws]
     now = time.time()
     for i, n in enumerate(iid):                      # ages: first oldest
         f = s["cache"] / f"{n}.dna.png"
         os.utime(f, (now - 1000 + i * 10, now - 1000 + i * 10))
     old = (s["cache"] / f"{iid[0]}.dna.png").stat().st_mtime
-    assert get(s["base"] + f"well.php?w={ws[0]}&ch=dna")[0] == 200     # a hit on the oldest file refreshes it
+    assert get(s["base"] + f"well.php?pair=name&w={ws[0]}&ch=dna")[0] == 200     # a hit on the oldest file refreshes it
     assert (s["cache"] / f"{iid[0]}.dna.png").stat().st_mtime > old + 500
     # with cap = 1 byte and prob = 1, the next miss sweeps: everything except the newest goes, cookie jar stays
     s2 = make_site({"FOCI_CACHE_MAX_BYTES": 70000, "FOCI_CLEANUP_PROB": 1, "FOCI_EVICT_GRACE_S": 0, "FOCI_MISS_PER_MIN": 1000, "FOCI_IDR_RATE": 1000, "FOCI_IDR_BURST": 1000})
     for w in wells_of("7-14")[:12]:
-        assert get(s2["base"] + f"well.php?w={w}&ch=dna")[0] == 200
+        assert get(s2["base"] + f"well.php?pair=name&w={w}&ch=dna")[0] == 200
     time.sleep(0.5)
     size = sum(p.stat().st_size for p in s2["cache"].iterdir() if p.name[0].isdigit())
     assert size <= 70000 + 20000                                    # soft cap: within one response of the limit
@@ -449,24 +450,24 @@ def test_cleanup_triggered_by_misses_and_hit_refreshes_recency(make_site):
 def test_config_file_outside_web_root_and_env_precedence(make_site):
     s = make_site({"FOCI_MISS_PER_MIN": 3, "FOCI_IDR_RATE": 1000, "FOCI_IDR_BURST": 1000})
     (s["root"] / "focilab_config.php").write_text("<?php return ['miss_per_min' => 1, 'miss_per_day' => 7];")
-    codes = [get(s["base"] + f"well.php?w={w}&ch=dna")[0] for w in wells_of("7-14")[:5]]
+    codes = [get(s["base"] + f"well.php?pair=name&w={w}&ch=dna")[0] for w in wells_of("7-14")[:5]]
     assert codes == [200, 200, 200, 429, 429]       # env (3) beats the file (1)
     bad = make_site({"FOCI_MISS_PER_MIN": "abc", "FOCI_MISS_PER_DAY": "-5", "FOCI_IDR_RATE": "1e999", "FOCI_CACHE_MAX_BYTES": "99999999999999999999"})
-    assert get(bad["base"] + "well.php?w=7-14_A1&ch=dna")[0] == 200   # garbage values fall back to defaults/clamps
+    assert get(bad["base"] + "well.php?pair=name&w=7-14_A1&ch=dna")[0] == 200   # garbage values fall back to defaults/clamps
 
 
 def test_clock_skew_and_corrupt_limiter_state(make_site):
     s = make_site({"FOCI_MISS_PER_MIN": 2, "FOCI_IDR_RATE": 1000, "FOCI_IDR_BURST": 1000})
-    get(s["base"] + "well.php?w=7-14_A1&ch=dna")
+    get(s["base"] + "well.php?pair=name&w=7-14_A1&ch=dna")
     rl = s["cache"] / "_rl"
     [f] = list(rl.iterdir())
     f.write_text(f"{time.time() + 10**9:.4f} 0 0 0")          # timestamp a billion seconds ahead, empty buckets
-    st, h, _ = get(s["base"] + "well.php?w=7-14_B1&ch=dna")
+    st, h, _ = get(s["base"] + "well.php?pair=name&w=7-14_B1&ch=dna")
     assert st == 429 and 1 <= int(h["Retry-After"]) <= 100000   # no negative elapsed time, no overflow
     f.write_text("garbage \x00 nan inf")                         # corrupt state must not crash or bypass
-    assert get(s["base"] + "well.php?w=7-14_B1&ch=dna")[0] in (200, 429)
+    assert get(s["base"] + "well.php?pair=name&w=7-14_B1&ch=dna")[0] in (200, 429)
     f.write_text("")
-    assert get(s["base"] + "well.php?w=7-14_C1&ch=dna")[0] == 200
+    assert get(s["base"] + "well.php?pair=name&w=7-14_C1&ch=dna")[0] == 200
 
 
 @pytest.mark.parametrize("qs", ["?w=7-14_A1&ch=dna%00", "?w=7-14_A01", "?w=7-14_a1", "?w=7-14_Q1", "?w=7-14_A1%0d%0aSet-Cookie:x=1", "?w=7_14_A1", "?w=%2e%2e%2f7-14_A1"])

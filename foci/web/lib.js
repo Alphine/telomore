@@ -355,7 +355,46 @@
     return { um: best, px: best / umPerPx, label: (best >= 1 ? String(Math.round(best * 1000) / 1000) : String(best)) + " µm" };
   }
 
+  // --------------------------------------------------- image <-> annotation-row pairing
+  // idr0010 plates are 12 rows (A-L) x 32 columns. The authors' table numbers its rows row-major (Well Number =
+  // r*32 + c + 1). The image at IDR well (r, c) agrees with the annotation row whose Well Number is column-major,
+  // N = c*12 + r + 1 -- empirically inferred (docs/EXPERIMENT_PROTOCOL.md 15.4), unconfirmed by IDR or the authors.
+  // "colmajor" (default) = that rule; "name" = the image of the same-named IDR well, as the site was first built.
+  var PAIR_ROWS = 12, PAIR_COLS = 32, PAIRINGS = ["colmajor", "name"];
+  function normPairing(p) { return PAIRINGS.indexOf(p) >= 0 ? p : "colmajor"; }
+  function splitWellKey(key) {
+    var m = /^(.*)_([A-P])([0-9]{1,2})$/.exec(String(key));
+    return m ? { plate: m[1], r: m[2].charCodeAt(0) - 65, c: parseInt(m[3], 10) - 1 } : null;
+  }
+  function wellKey(plate, r, c) { return plate + "_" + String.fromCharCode(65 + r) + (c + 1); }
+  /** IDR well address ("7-14_B1") of the image shown with annotation row `key` under `pairing`; null if the key is not a well. */
+  function imageAddress(key, pairing) {
+    var k = splitWellKey(key);
+    if (!k || k.r >= PAIR_ROWS || k.c >= PAIR_COLS) return null;
+    if (normPairing(pairing) === "name") return key;
+    var n = k.r * PAIR_COLS + k.c;                         // Well Number - 1
+    return wellKey(k.plate, n % PAIR_ROWS, Math.floor(n / PAIR_ROWS));
+  }
+  /** Annotation row paired with the image at IDR address `addr` under the column-major rule (inverse of imageAddress). */
+  function annotationForImage(addr, pairing) {
+    var k = splitWellKey(addr);
+    if (!k || k.r >= PAIR_ROWS || k.c >= PAIR_COLS) return null;
+    if (normPairing(pairing) === "name") return addr;
+    var n = k.c * PAIR_ROWS + k.r;
+    return wellKey(k.plate, Math.floor(n / PAIR_COLS), n % PAIR_COLS);
+  }
+  /** Key to send to the Railway overlay endpoint, whose index is annotation row -> column-major image: the image
+   *  of annotation row `key` under `pairing` is reached with `key` itself (colmajor) or with the row whose
+   *  column-major image sits at address `key` (name). */
+  function overlayKey(key, pairing) { return normPairing(pairing) === "name" ? annotationForImage(key, "colmajor") : key; }
+  var PAIRING_LABEL = { colmajor: "column-major (inferred)", name: "by IDR name (as originally built)" };
+  var PAIRING_NOTE = "Which annotation row an image belongs to is an empirical inference, unconfirmed by IDR or the authors: " +
+    "the image numbered by IDR well name does not match the authors' cell counts (Spearman 0.16 on 106 wells), the image at the " +
+    "column-major position does (0.71). See docs/EXPERIMENT_PROTOCOL.md, section 15.4.";
+
   return {
+    PAIRINGS: PAIRINGS, PAIRING_LABEL: PAIRING_LABEL, PAIRING_NOTE: PAIRING_NOTE, normPairing: normPairing,
+    imageAddress: imageAddress, annotationForImage: annotationForImage, overlayKey: overlayKey, splitWellKey: splitWellKey,
     fmt: fmt, fz: fz, fq: fq, fp: fp, fBytes: fBytes, escHtml: escHtml, safeUrl: safeUrl,
     csvCell: csvCell, buildCsv: buildCsv, splitTokens: splitTokens, makeResolver: makeResolver,
     lgamma: lgamma, logChoose: logChoose, hypergeomSf: hypergeomSf, erfc: erfc, normSfTwoSided: normSfTwoSided, median: median,

@@ -11,6 +11,8 @@
 
   function create(opts) {
     var host = opts.panesEl, api = opts.api || "api/well.php";
+    // opts.pairing() -> "colmajor" | "name": how a Plate_Well key maps to an image (see api/well.php, "pair")
+    function wellUrl(well) { return api + "?w=" + encodeURIComponent(well) + (typeof opts.pairing === "function" ? "&pair=" + encodeURIComponent(opts.pairing()) : ""); }
     var mode = "merged", zoom = 1, cx = 0.5, cy = 0.5, panes = [];
     var chBtns = opts.channelsEl ? Array.prototype.slice.call(opts.channelsEl.querySelectorAll("button[data-mode]")) : [];
 
@@ -44,10 +46,10 @@
       return c;
     }
     function channel(well, ch) {
-      return fetchOk(api + "?w=" + encodeURIComponent(well) + "&ch=" + ch, /^image\/png/i).then(function (r) { return r.blob(); }).then(decode).then(readGrey);
+      return fetchOk(wellUrl(well) + "&ch=" + ch, /^image\/png/i).then(function (r) { return r.blob(); }).then(decode).then(readGrey);
     }
     function infoOf(well) {
-      return fetchOk(api + "?w=" + encodeURIComponent(well) + "&info=1", /json/i).then(function (r) { return r.json(); }).then(function (j) {
+      return fetchOk(wellUrl(well) + "&info=1", /json/i).then(function (r) { return r.json(); }).then(function (j) {
         if (!j || typeof j !== "object") throw new Error("bad info");
         return j;
       });
@@ -96,7 +98,7 @@
           p.offs = { merged: tinted(c[0], c[1], p.w, p.h, true, true), dna: tinted(c[0], c[1], p.w, p.h, true, false), foci: tinted(c[0], c[1], p.w, p.h, false, true) };
           return null;
         }
-        return loadImg(api + "?w=" + encodeURIComponent(well)).then(function (img) {
+        return loadImg(wellUrl(well)).then(function (img) {
           if (tok !== p.token) return;
           p.comp = img; p.w = img.naturalWidth; p.h = img.naturalHeight;
         });

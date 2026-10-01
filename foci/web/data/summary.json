@@ -904,7 +904,7 @@
    "desc": "Negative control (non-targeting siRNA)",
    "group": "control",
    "well": "155-45_C6",
-   "image_id": 3070944,
+   "image_id": 3071194,
    "authors": {
     "cells": 101.0,
     "foci": 150.0,
@@ -912,9 +912,9 @@
     "norm": 0.999
    },
    "ours": {
-    "nuclei": 95,
-    "foci": 769,
-    "fpc": 8.095
+    "nuclei": 118,
+    "foci": 878,
+    "fpc": 7.441
    },
    "raw": "img/negative_control_raw.jpg",
    "overlay": "img/negative_control_overlay.jpg"
@@ -925,7 +925,7 @@
    "desc": "Ubiquitin ligase that recruits 53BP1 to breaks",
    "group": "down",
    "well": "90-27_D17",
-   "image_id": 3099637,
+   "image_id": 3099722,
    "authors": {
     "cells": 77.0,
     "foci": 12.0,
@@ -933,33 +933,12 @@
     "norm": 0.078
    },
    "ours": {
-    "nuclei": 55,
-    "foci": 513,
-    "fpc": 9.327
+    "nuclei": 47,
+    "foci": 385,
+    "fpc": 8.191
    },
    "raw": "img/RNF168_raw.jpg",
    "overlay": "img/RNF168_overlay.jpg"
-  },
-  {
-   "key": "RNF8",
-   "gene": "RNF8",
-   "desc": "Ubiquitin ligase upstream of RNF168",
-   "group": "down",
-   "well": "107_E19",
-   "image_id": 3053300,
-   "authors": {
-    "cells": 56.0,
-    "foci": 43.0,
-    "fpc": 0.768,
-    "norm": 0.305
-   },
-   "ours": {
-    "nuclei": 143,
-    "foci": 1296,
-    "fpc": 9.063
-   },
-   "raw": "img/RNF8_raw.jpg",
-   "overlay": "img/RNF8_overlay.jpg"
   },
   {
    "key": "ATM",
@@ -967,7 +946,7 @@
    "desc": "Master kinase of the break response",
    "group": "repair",
    "well": "28-43_E24",
-   "image_id": 3078053,
+   "image_id": 3077974,
    "authors": {
     "cells": 138.0,
     "foci": 184.0,
@@ -975,33 +954,12 @@
     "norm": 0.803
    },
    "ours": {
-    "nuclei": 26,
-    "foci": 263,
-    "fpc": 10.115
+    "nuclei": 137,
+    "foci": 1043,
+    "fpc": 7.613
    },
    "raw": "img/ATM_raw.jpg",
    "overlay": "img/ATM_overlay.jpg"
-  },
-  {
-   "key": "H2AFX",
-   "gene": "H2AFX",
-   "desc": "Histone variant H2AX (gamma-H2AX)",
-   "group": "repair",
-   "well": "129-58_D1",
-   "image_id": 3062518,
-   "authors": {
-    "cells": 122.0,
-    "foci": 215.0,
-    "fpc": 1.762,
-    "norm": 0.952
-   },
-   "ours": {
-    "nuclei": 103,
-    "foci": 725,
-    "fpc": 7.039
-   },
-   "raw": "img/H2AFX_raw.jpg",
-   "overlay": "img/H2AFX_overlay.jpg"
   },
   {
    "key": "PSMA3",
@@ -1009,7 +967,7 @@
    "desc": "Proteasome subunit",
    "group": "up",
    "well": "2-60_A13",
-   "image_id": 3074356,
+   "image_id": 3074565,
    "authors": {
     "cells": 80.0,
     "foci": 1036.0,
@@ -1017,33 +975,12 @@
     "norm": 6.607
    },
    "ours": {
-    "nuclei": 157,
-    "foci": 662,
-    "fpc": 4.217
+    "nuclei": 151,
+    "foci": 606,
+    "fpc": 4.013
    },
    "raw": "img/PSMA3_raw.jpg",
    "overlay": "img/PSMA3_overlay.jpg"
-  },
-  {
-   "key": "PSMB2",
-   "gene": "PSMB2",
-   "desc": "Proteasome subunit",
-   "group": "up",
-   "well": "7-14_I4",
-   "image_id": 3090855,
-   "authors": {
-    "cells": 65.0,
-    "foci": 670.0,
-    "fpc": 10.308,
-    "norm": 5.824
-   },
-   "ours": {
-    "nuclei": 165,
-    "foci": 684,
-    "fpc": 4.145
-   },
-   "raw": "img/PSMB2_raw.jpg",
-   "overlay": "img/PSMB2_overlay.jpg"
   },
   {
    "key": "TERT",
@@ -1051,7 +988,7 @@
    "desc": "Telomerase reverse transcriptase",
    "group": "telomere",
    "well": "38-21_F3",
-   "image_id": 3082331,
+   "image_id": 3082283,
    "authors": {
     "cells": 108.0,
     "foci": 207.0,
@@ -1059,33 +996,12 @@
     "norm": 0.88
    },
    "ours": {
-    "nuclei": 95,
-    "foci": 770,
-    "fpc": 8.105
+    "nuclei": 142,
+    "foci": 1052,
+    "fpc": 7.408
    },
    "raw": "img/TERT_raw.jpg",
    "overlay": "img/TERT_overlay.jpg"
-  },
-  {
-   "key": "TERF1",
-   "gene": "TERF1",
-   "desc": "Shelterin: TRF1",
-   "group": "telomere",
-   "well": "120_A6",
-   "image_id": 3059041,
-   "authors": {
-    "cells": 179.0,
-    "foci": 406.0,
-    "fpc": 2.268,
-    "norm": 1.181
-   },
-   "ours": {
-    "nuclei": 152,
-    "foci": 1334,
-    "fpc": 8.776
-   },
-   "raw": "img/TERF1_raw.jpg",
-   "overlay": "img/TERF1_overlay.jpg"
   },
   {
    "key": "TERF2",
@@ -1093,7 +1009,7 @@
    "desc": "Shelterin: TRF2",
    "group": "telomere",
    "well": "99_E8",
-   "image_id": 3102897,
+   "image_id": 3102790,
    "authors": {
     "cells": 101.0,
     "foci": 145.0,
@@ -1101,54 +1017,12 @@
     "norm": 0.87
    },
    "ours": {
-    "nuclei": 103,
-    "foci": 525,
-    "fpc": 5.097
+    "nuclei": 134,
+    "foci": 928,
+    "fpc": 6.925
    },
    "raw": "img/TERF2_raw.jpg",
    "overlay": "img/TERF2_overlay.jpg"
-  },
-  {
-   "key": "POT1",
-   "gene": "POT1",
-   "desc": "Shelterin: POT1",
-   "group": "telomere",
-   "well": "65-12_C30",
-   "image_id": 3089323,
-   "authors": {
-    "cells": 82.0,
-    "foci": 289.0,
-    "fpc": 3.524,
-    "norm": 1.377
-   },
-   "ours": {
-    "nuclei": 140,
-    "foci": 1238,
-    "fpc": 8.843
-   },
-   "raw": "img/POT1_raw.jpg",
-   "overlay": "img/POT1_overlay.jpg"
-  },
-  {
-   "key": "TINF2",
-   "gene": "TINF2",
-   "desc": "Shelterin: TIN2",
-   "group": "telomere",
-   "well": "64-41_H15",
-   "image_id": 3088917,
-   "authors": {
-    "cells": 51.0,
-    "foci": 162.0,
-    "fpc": 3.176,
-    "norm": 1.69
-   },
-   "ours": {
-    "nuclei": 159,
-    "foci": 736,
-    "fpc": 4.629
-   },
-   "raw": "img/TINF2_raw.jpg",
-   "overlay": "img/TINF2_overlay.jpg"
   }
  ],
  "experiment_l": {
@@ -1644,6 +1518,18 @@
    "ratio_p10": 0.511,
    "ratio_median": 1.034,
    "ratio_p90": 1.746
+  },
+  "pairing": "name",
+  "pairing_check": {
+   "status": "empirically inferred, unconfirmed by IDR or the authors (docs/EXPERIMENT_PROTOCOL.md section 15.4)",
+   "name": {
+    "n": 106,
+    "nuclei_vs_cell_count_spearman": 0.158
+   },
+   "colmajor": {
+    "n": 106,
+    "nuclei_vs_cell_count_spearman": 0.712
+   }
   }
  },
  "build": {
@@ -1688,5 +1574,277 @@
   "lookup_tokens": 52771,
   "ambiguous_tokens": 1522,
   "note": "'missing' = the Ensembl ID is not attached to an approved gene in the HGNC complete set (retired, withdrawn or never assigned); the cases are not distinguishable here."
+ },
+ "gallery_byname": [
+  {
+   "key": "negative control",
+   "gene": null,
+   "desc": "Negative control (non-targeting siRNA)",
+   "group": "control",
+   "well": "155-45_C6",
+   "image_id": 3070944,
+   "authors": {
+    "cells": 101.0,
+    "foci": 150.0,
+    "fpc": 1.485,
+    "norm": 0.999
+   },
+   "ours": {
+    "nuclei": 95,
+    "foci": 769,
+    "fpc": 8.095
+   },
+   "raw": "img/byname/negative_control_raw.jpg",
+   "overlay": "img/byname/negative_control_overlay.jpg"
+  },
+  {
+   "key": "RNF168",
+   "gene": "RNF168",
+   "desc": "Ubiquitin ligase that recruits 53BP1 to breaks",
+   "group": "down",
+   "well": "90-27_D17",
+   "image_id": 3099637,
+   "authors": {
+    "cells": 77.0,
+    "foci": 12.0,
+    "fpc": 0.156,
+    "norm": 0.078
+   },
+   "ours": {
+    "nuclei": 55,
+    "foci": 513,
+    "fpc": 9.327
+   },
+   "raw": "img/byname/RNF168_raw.jpg",
+   "overlay": "img/byname/RNF168_overlay.jpg"
+  },
+  {
+   "key": "RNF8",
+   "gene": "RNF8",
+   "desc": "Ubiquitin ligase upstream of RNF168",
+   "group": "down",
+   "well": "107_E19",
+   "image_id": 3053300,
+   "authors": {
+    "cells": 56.0,
+    "foci": 43.0,
+    "fpc": 0.768,
+    "norm": 0.305
+   },
+   "ours": {
+    "nuclei": 143,
+    "foci": 1296,
+    "fpc": 9.063
+   },
+   "raw": "img/byname/RNF8_raw.jpg",
+   "overlay": "img/byname/RNF8_overlay.jpg"
+  },
+  {
+   "key": "ATM",
+   "gene": "ATM",
+   "desc": "Master kinase of the break response",
+   "group": "repair",
+   "well": "28-43_E24",
+   "image_id": 3078053,
+   "authors": {
+    "cells": 138.0,
+    "foci": 184.0,
+    "fpc": 1.333,
+    "norm": 0.803
+   },
+   "ours": {
+    "nuclei": 26,
+    "foci": 263,
+    "fpc": 10.115
+   },
+   "raw": "img/byname/ATM_raw.jpg",
+   "overlay": "img/byname/ATM_overlay.jpg"
+  },
+  {
+   "key": "H2AFX",
+   "gene": "H2AFX",
+   "desc": "Histone variant H2AX (gamma-H2AX)",
+   "group": "repair",
+   "well": "129-58_D1",
+   "image_id": 3062518,
+   "authors": {
+    "cells": 122.0,
+    "foci": 215.0,
+    "fpc": 1.762,
+    "norm": 0.952
+   },
+   "ours": {
+    "nuclei": 103,
+    "foci": 725,
+    "fpc": 7.039
+   },
+   "raw": "img/byname/H2AFX_raw.jpg",
+   "overlay": "img/byname/H2AFX_overlay.jpg"
+  },
+  {
+   "key": "PSMA3",
+   "gene": "PSMA3",
+   "desc": "Proteasome subunit",
+   "group": "up",
+   "well": "2-60_A13",
+   "image_id": 3074356,
+   "authors": {
+    "cells": 80.0,
+    "foci": 1036.0,
+    "fpc": 12.95,
+    "norm": 6.607
+   },
+   "ours": {
+    "nuclei": 157,
+    "foci": 662,
+    "fpc": 4.217
+   },
+   "raw": "img/byname/PSMA3_raw.jpg",
+   "overlay": "img/byname/PSMA3_overlay.jpg"
+  },
+  {
+   "key": "PSMB2",
+   "gene": "PSMB2",
+   "desc": "Proteasome subunit",
+   "group": "up",
+   "well": "7-14_I4",
+   "image_id": 3090855,
+   "authors": {
+    "cells": 65.0,
+    "foci": 670.0,
+    "fpc": 10.308,
+    "norm": 5.824
+   },
+   "ours": {
+    "nuclei": 165,
+    "foci": 684,
+    "fpc": 4.145
+   },
+   "raw": "img/byname/PSMB2_raw.jpg",
+   "overlay": "img/byname/PSMB2_overlay.jpg"
+  },
+  {
+   "key": "TERT",
+   "gene": "TERT",
+   "desc": "Telomerase reverse transcriptase",
+   "group": "telomere",
+   "well": "38-21_F3",
+   "image_id": 3082331,
+   "authors": {
+    "cells": 108.0,
+    "foci": 207.0,
+    "fpc": 1.917,
+    "norm": 0.88
+   },
+   "ours": {
+    "nuclei": 95,
+    "foci": 770,
+    "fpc": 8.105
+   },
+   "raw": "img/byname/TERT_raw.jpg",
+   "overlay": "img/byname/TERT_overlay.jpg"
+  },
+  {
+   "key": "TERF1",
+   "gene": "TERF1",
+   "desc": "Shelterin: TRF1",
+   "group": "telomere",
+   "well": "120_A6",
+   "image_id": 3059041,
+   "authors": {
+    "cells": 179.0,
+    "foci": 406.0,
+    "fpc": 2.268,
+    "norm": 1.181
+   },
+   "ours": {
+    "nuclei": 152,
+    "foci": 1334,
+    "fpc": 8.776
+   },
+   "raw": "img/byname/TERF1_raw.jpg",
+   "overlay": "img/byname/TERF1_overlay.jpg"
+  },
+  {
+   "key": "TERF2",
+   "gene": "TERF2",
+   "desc": "Shelterin: TRF2",
+   "group": "telomere",
+   "well": "99_E8",
+   "image_id": 3102897,
+   "authors": {
+    "cells": 101.0,
+    "foci": 145.0,
+    "fpc": 1.436,
+    "norm": 0.87
+   },
+   "ours": {
+    "nuclei": 103,
+    "foci": 525,
+    "fpc": 5.097
+   },
+   "raw": "img/byname/TERF2_raw.jpg",
+   "overlay": "img/byname/TERF2_overlay.jpg"
+  },
+  {
+   "key": "POT1",
+   "gene": "POT1",
+   "desc": "Shelterin: POT1",
+   "group": "telomere",
+   "well": "65-12_C30",
+   "image_id": 3089323,
+   "authors": {
+    "cells": 82.0,
+    "foci": 289.0,
+    "fpc": 3.524,
+    "norm": 1.377
+   },
+   "ours": {
+    "nuclei": 140,
+    "foci": 1238,
+    "fpc": 8.843
+   },
+   "raw": "img/byname/POT1_raw.jpg",
+   "overlay": "img/byname/POT1_overlay.jpg"
+  },
+  {
+   "key": "TINF2",
+   "gene": "TINF2",
+   "desc": "Shelterin: TIN2",
+   "group": "telomere",
+   "well": "64-41_H15",
+   "image_id": 3088917,
+   "authors": {
+    "cells": 51.0,
+    "foci": 162.0,
+    "fpc": 3.176,
+    "norm": 1.69
+   },
+   "ours": {
+    "nuclei": 159,
+    "foci": 736,
+    "fpc": 4.629
+   },
+   "raw": "img/byname/TINF2_raw.jpg",
+   "overlay": "img/byname/TINF2_overlay.jpg"
+  }
+ ],
+ "pairing": {
+  "default": "colmajor",
+  "options": [
+   "colmajor",
+   "name"
+  ],
+  "status": "empirically inferred, unconfirmed by IDR or the authors (docs/EXPERIMENT_PROTOCOL.md section 15.4)",
+  "rule": "annotation Well Number N -> image at IDR row (N-1) % 12, column (N-1) // 12 (12 x 32 plates)",
+  "protocol": "docs/EXPERIMENT_PROTOCOL.md#154-experiment-l2",
+  "diff_vs_name": {
+   "annotation_keys": 56832,
+   "imaged_by_name": 56832,
+   "changed_image": 56536,
+   "same_image": 296,
+   "plates": 148,
+   "fixed_wells_per_full_plate": 2
+  }
  }
 }

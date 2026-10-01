@@ -202,6 +202,22 @@ def _content_length(headers: List) -> Optional[int]:
     return None
 
 
+def route_template(scope) -> str:
+    """``/api/jobs/{job_id}`` for ``/api/jobs/abc``: the concrete values of
+    matched path parameters are swapped for their names (the request path is
+    never stored). Unrouted requests collapse to one bucket."""
+    if scope.get("route") is None:
+        return "(unmatched)"
+    segments = scope.get("path", "").split("/")
+    for name, value in reversed(list((scope.get("path_params") or {}).items())):
+        parts = str(value).split("/")
+        for i in range(len(segments) - len(parts), -1, -1):
+            if segments[i:i + len(parts)] == parts:
+                segments[i:i + len(parts)] = ["{%s}" % name]
+                break
+    return "/".join(segments)[:200]
+
+
 class UsageMiddleware:
     def __init__(self, app) -> None:
         self.app = app
@@ -240,8 +256,7 @@ class UsageMiddleware:
         finally:
             if log:
                 try:
-                    route = scope.get("route")
-                    endpoint = getattr(route, "path", None) or "(unmatched)"
+                    endpoint = route_template(scope)
                     headers = scope.get("headers", [])
                     record({
                         "ts": _db.utcnow(),

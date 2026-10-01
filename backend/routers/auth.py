@@ -99,7 +99,7 @@ def login(body: api_schemas.LoginRequest) -> api_schemas.TokenResponse:
             status.HTTP_403_FORBIDDEN,
             "Please verify your email before logging in. Check your inbox for a verification link.",
         )
-    if user.is_disabled:
+    if user.is_disabled and not _db.is_env_admin(user):  # env admins self-heal (anti lock-out)
         raise account_disabled_error()
     user = _db.record_login(user.id) or user
     if user.is_disabled:  # bootstrap never disables, but stay defensive

@@ -1,0 +1,355 @@
+{
+ "engine_version": "telomere_lab 0.1.0 (model 0.1.0, optimizer 0.1.0)",
+ "features": {
+  "active-learning": [
+   {
+    "bytes": 5195,
+    "description": "A Gaussian-process surrogate and Expected Improvement pick which configuration to simulate next, reaching good fitness with few real simulator runs. A small budget is used here for a quick demo. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/active-learning",
+    "file": "active-learning/stressed-culture.json",
+    "id": "stressed-culture",
+    "sha": "c0d0d3ca2fc50e21f50697316adf7b6c4f2a8f9fa9474ca4ea2fa0178407269f",
+    "title": "Active learning on a stressed culture",
+    "version": "c0d0d3ca2f"
+   },
+   {
+    "bytes": 5111,
+    "description": "Same method on a high-stress, low-repair baseline, where there is more room for the interventions to matter. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/active-learning",
+    "file": "active-learning/harsh-environment.json",
+    "id": "harsh-environment",
+    "sha": "35971b0fe7a0d2ea8a441fb9aad507c5f45d144a1bfa2c9b187d90694a810079",
+    "title": "Active learning in a harsh environment",
+    "version": "35971b0fe7"
+   },
+   {
+    "bytes": 5677,
+    "description": "The surrogate searches a two-phase time-varying protocol (schedule_phases = 2) rather than constant settings. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/active-learning",
+    "file": "active-learning/three-phase-protocol.json",
+    "id": "three-phase-protocol",
+    "sha": "1cb86c63329fb7345b573ce119f50f40f5e4e8075a29e4d1a69e94a5dea360ec",
+    "title": "Active learning of a two-phase protocol",
+    "version": "1cb86c6332"
+   }
+  ],
+  "compare": [
+   {
+    "bytes": 57998,
+    "description": "Three cultures that differ only in stress level, run with a common seed so differences are attributable to the parameter. Deltas are relative to the first scenario. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/compare",
+    "file": "compare/stress-levels.json",
+    "id": "stress-levels",
+    "sha": "4266fb57df00832d3e2359c2032dbd9f42df12135a793d5dbe2b151c9064869e",
+    "title": "Compare: low, medium and high stress",
+    "version": "4266fb57df"
+   },
+   {
+    "bytes": 119938,
+    "description": "A stressed baseline against a maintenance-only, a repair-only and a combined intervention, all with the same seed. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/compare",
+    "file": "compare/baseline-vs-interventions.json",
+    "id": "baseline-vs-interventions",
+    "sha": "848eea5edcbde483323cc8c52be2661a89fdedaae1804e82ca9189ede546377a",
+    "title": "Compare: baseline vs maintenance vs repair",
+    "version": "848eea5edc"
+   },
+   {
+    "bytes": 95930,
+    "description": "Four illustrative organ-chip culture-condition presets mapped to model parameters through the documented (assumption-based) chip adapter. The presets are not measurements of any real chip. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/compare",
+    "file": "compare/organ-chip-presets.json",
+    "id": "organ-chip-presets",
+    "sha": "eac63cf5a0924e6abd15b7aa40c9a7e80cae5cc035022437d44faa81226b3b4e",
+    "title": "Compare: illustrative organ-on-chip presets",
+    "version": "eac63cf5a0"
+   },
+   {
+    "bytes": 61038,
+    "description": "The same culture with the hard senescence threshold, the soft (logistic) hazard and heterogeneous shortening rates, to see what each optional mechanism changes. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/compare",
+    "file": "compare/mechanisms.json",
+    "id": "mechanisms",
+    "sha": "dad736e91383e84eef0071d0f819db8ff092870caa6ef50647d97d6b0f04b0a1",
+    "title": "Compare: model mechanisms on the same culture",
+    "version": "dad736e913"
+   }
+  ],
+  "evolve": [
+   {
+    "bytes": 8227,
+    "description": "A small genetic algorithm searches stress, maintenance and repair settings for a stressed baseline culture under the default weighted objective, and reports how the best candidate compares with the baseline. It is a search over a simulator, not a recommendation. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/evolve",
+    "file": "evolve/stressed-culture-balanced.json",
+    "id": "stressed-culture-balanced",
+    "sha": "e1add8fce14f26729a103e4d4a9fd75e1a6678554fa59707e08c9c869171e4ce",
+    "title": "Genetic algorithm on a stressed culture (balanced objective)",
+    "version": "e1add8fce1"
+   },
+   {
+    "bytes": 8233,
+    "description": "Same search, but the objective rewards proliferative survival and penalises intervention cost more strongly, so the optimiser trades off how much maintenance and repair it is willing to apply. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/evolve",
+    "file": "evolve/survival-heavy-low-cost.json",
+    "id": "survival-heavy-low-cost",
+    "sha": "9b6de829453143b328b2d453552b59f70d637d300754a339d7309bad4d5dbbf5",
+    "title": "Genetic algorithm weighted toward survival, cheap interventions",
+    "version": "9b6de82945"
+   },
+   {
+    "bytes": 9031,
+    "description": "Each free gene is split into three consecutive phases (schedule_phases = 3), so the genetic algorithm searches a time-varying protocol rather than a constant setting (docs/MODEL.md 2.1). Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/evolve",
+    "file": "evolve/three-phase-protocol.json",
+    "id": "three-phase-protocol",
+    "sha": "7e7c0742034bb1d0211805c79fd562a15c159dd6468a67674e440cd3e7bb2d2f",
+    "title": "Protocol search with three phases",
+    "version": "7e7c074203"
+   }
+  ],
+  "experiments": [
+   {
+    "bytes": 68057,
+    "description": "A read-only snapshot of the reproducibility ledger produced by building this demo cache: one entry per recorded precomputed run, with the full record (configuration, hash, versions, terminal metrics). Run ids, timestamps and file paths are normalised. Artifact downloads are not available in the demo. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/experiments",
+    "file": "experiments/demo-ledger.json",
+    "id": "demo-ledger",
+    "sha": "43911e6756abee4061c2320b75b482d721e8bedba2f0d6c74bba0480c5bf15e0",
+    "title": "Example experiment ledger",
+    "version": "43911e6756"
+   }
+  ],
+  "genome": [
+   {
+    "bytes": 6432,
+    "description": "The synthetic DNA -> RNA -> protein layer: the toy genes with their transcripts, proteins and substitution profiles, plus example point mutations classified as silent, missense or nonsense. Synthetic sequences only. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/sequence/genome + /sequence/mutate",
+    "file": "genome/toy-genome.json",
+    "id": "toy-genome",
+    "sha": "e242c96a83eee6b395610c96307446c85a9d466106891c4678ea779939ee4985",
+    "title": "Toy genome: genes and example mutations",
+    "version": "e242c96a83"
+   },
+   {
+    "bytes": 4582,
+    "description": "A normal lineage and one that starts with loss-of-function in the toy checkpoint and repair genes: the damaged lineage accumulates mutation burden faster. Toy model; Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/sequence/lineage",
+    "file": "genome/lineage-default.json",
+    "id": "lineage-default",
+    "sha": "999fd72cbaf26dd79bdd5d5f0cf6b1f8e2e7b9c3379dcf4e183c9af5d45c5853",
+    "title": "Normal vs damaged lineage (checkpoint + repair genes lost)",
+    "version": "999fd72cba"
+   },
+   {
+    "bytes": 4635,
+    "description": "Only TOY-CHK is lost, isolating the contribution of the checkpoint to burden and survival. Toy model; Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/sequence/lineage",
+    "file": "genome/lineage-checkpoint-only.json",
+    "id": "lineage-checkpoint-only",
+    "sha": "d2f04b1be4077ed43fa6e4afdfe76d638535ff8a06a1407cf82ee3ce0f9db4eb",
+    "title": "Lineage with only the checkpoint gene damaged",
+    "version": "d2f04b1be4"
+   },
+   {
+    "bytes": 4426,
+    "description": "A five-fold higher base mutation rate, comparing how quickly a normal and a damaged lineage cross the burden threshold. Toy model; Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/sequence/lineage",
+    "file": "genome/lineage-high-mutation.json",
+    "id": "lineage-high-mutation",
+    "sha": "fd81fb1cfc5781b38c1244786386ebd1ac1c2f9fb752861bd70e549966f1fce2",
+    "title": "Lineage under a high mutation rate",
+    "version": "fd81fb1cfc"
+   }
+  ],
+  "gxe": [
+   {
+    "bytes": 3008,
+    "description": "Three maintenance 'genotypes' are each run at three stress 'environments' as isolated simulations; crossing lines in the reaction norm mean the best genotype depends on the environment (re-ranking). 'Genotype' and 'environment' are model parameter bundles. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/gxe",
+    "file": "gxe/maintenance-by-stress.json",
+    "id": "maintenance-by-stress",
+    "sha": "a37438ebb3ccaf6a430298115a94ac3e6249be2325dfda9b1882a04c323a7e20",
+    "title": "Genotype x environment: maintenance vs stress",
+    "version": "a37438ebb3"
+   },
+   {
+    "bytes": 2202,
+    "description": "Checkpoint-competent and checkpoint-deficient genotypes across stress levels, scored with genome stability in the objective. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/gxe",
+    "file": "gxe/checkpoint-by-stress.json",
+    "id": "checkpoint-by-stress",
+    "sha": "7a13b6b6fdc3c3c0daf964d818c6078d0fc8cb1ef9be27dd9ca7957dc8e3903f",
+    "title": "Genotype x environment: apoptosis checkpoint vs stress",
+    "version": "7a13b6b6fd"
+   },
+   {
+    "bytes": 2277,
+    "description": "Low, medium and high repair genotypes across two stress levels; a small grid that is quick to read. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/gxe",
+    "file": "gxe/repair-by-stress.json",
+    "id": "repair-by-stress",
+    "sha": "231a3f136193aebbd929816e4f65ade1fcdb62ac460f993b669aeb4add132169",
+    "title": "Genotype x environment: repair vs stress",
+    "version": "231a3f1361"
+   }
+  ],
+  "pareto": [
+   {
+    "bytes": 13260,
+    "description": "NSGA-II returns the whole trade-off curve between proliferative survival (maximise) and intervention cost (minimise) instead of a single weighted winner. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/pareto",
+    "file": "pareto/survival-vs-cost.json",
+    "id": "survival-vs-cost",
+    "sha": "159e86062a2b5ffd54d9fd43f4b08398ed3650f054546bc805179c264b3654bf",
+    "title": "Pareto front: survival vs intervention cost",
+    "version": "159e86062a"
+   },
+   {
+    "bytes": 6237,
+    "description": "A three-objective front over survival, telomere reserve and final senescent fraction, showing which objectives conflict in this model. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/pareto",
+    "file": "pareto/survival-reserve-senescence.json",
+    "id": "survival-reserve-senescence",
+    "sha": "da9530d84f96134a03e4b537d955cc793d6a0f19e6ef91c1d6c13739056978dd",
+    "title": "Three objectives: survival, reserve, senescence",
+    "version": "da9530d84f"
+   },
+   {
+    "bytes": 6228,
+    "description": "With the genome-stability mechanism enabled, the front trades proliferative survival against the fraction of cells over the mutation threshold. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/pareto",
+    "file": "pareto/survival-vs-genome-instability.json",
+    "id": "survival-vs-genome-instability",
+    "sha": "8767272664585a95f1e29552d5ddfbdb6c55dc546c8391e3b0ebb4a9a5a98a22",
+    "title": "Survival vs genome instability",
+    "version": "8767272664"
+   }
+  ],
+  "sensitivity": [
+   {
+    "bytes": 2603,
+    "description": "Each parameter is nudged by 10% of its allowed range, one at a time, and the change in fitness is ranked (a tornado chart). It shows which model inputs matter most near this baseline, not which biological factors matter in vivo. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/sensitivity",
+    "file": "sensitivity/stressed-baseline.json",
+    "id": "stressed-baseline",
+    "sha": "4bbe5020c0a8cb9f998334d58115cd604e0075c9f4746d64dc2ce40ed9ac6f45",
+    "title": "One-at-a-time sensitivity around a stressed baseline",
+    "version": "4bbe5020c0"
+   },
+   {
+    "bytes": 2474,
+    "description": "The same analysis around a low-stress, moderately maintained culture, where the ranking of influential parameters differs from the stressed case. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/sensitivity",
+    "file": "sensitivity/mild-baseline.json",
+    "id": "mild-baseline",
+    "sha": "49860f1cf5c3194341e1064d633d77ca30a0f85e51131811d6d6d3153c65da24",
+    "title": "Sensitivity around a mild, well-maintained baseline",
+    "version": "49860f1cf5"
+   },
+   {
+    "bytes": 3324,
+    "description": "Genome stability is added to the objective, so parameters that change mutation burden show up in the ranking alongside telomere parameters. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/sensitivity",
+    "file": "sensitivity/genome-stability-weighted.json",
+    "id": "genome-stability-weighted",
+    "sha": "88630c4f1da5934eb161ff1d2dd85c95650fa5444de1635521648cf0e4f8bbcf",
+    "title": "Sensitivity with genome stability in the objective",
+    "version": "88630c4f1d"
+   }
+  ],
+  "simulate": [
+   {
+    "bytes": 22816,
+    "description": "A culture of telomerase-negative cells with mild stress and no maintenance: telomeres shorten with every division until the shortest one crosses the senescence threshold and the culture stops growing (a replicative-senescence curve). Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/simulate",
+    "file": "simulate/fibroblast-aging.json",
+    "id": "fibroblast-aging",
+    "sha": "a6c35818bdad2240b425000d615ad75888ee7b6b9ea7a855088d1ece1a068c3a",
+    "title": "Normal fibroblast aging (no telomerase)",
+    "version": "a6c35818bd"
+   },
+   {
+    "bytes": 20110,
+    "description": "High abstract stress with low repair accelerates telomere loss and mutation-burden accumulation; an apoptosis checkpoint culls high-burden cells and each cell's repair rate drifts heritably. Shows how the optional genome-stability mechanisms (docs/MODEL.md 2.3, 2.2.1) shape the trajectory. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/simulate",
+    "file": "simulate/high-oxidative-stress.json",
+    "id": "high-oxidative-stress",
+    "sha": "f0c752112ca378b8006fe922211346820c800af0dac81a711ae2d3ec3b279af0",
+    "title": "High oxidative stress, weak repair",
+    "version": "f0c752112c"
+   },
+   {
+    "bytes": 112337,
+    "description": "A high maintenance (telomerase-like) rate offsets end-replication loss, so telomeres are held above the senescence threshold and the culture keeps proliferating to the carrying capacity. The maintenance term is a phenomenological gain, not a kinetic model of telomerase. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/simulate",
+    "file": "simulate/telomerase-positive.json",
+    "id": "telomerase-positive",
+    "sha": "c20551fe38f2ccad0b51202dc617d1341caa41417076331f54e9f53c2edef261",
+    "title": "Telomerase-positive / immortalised-like culture",
+    "version": "c20551fe38"
+   },
+   {
+    "bytes": 109782,
+    "description": "Two genetically distinct sub-clones share one culture and one carrying capacity. The clone with higher maintenance and repair keeps dividing after the other senesces and takes over the culture (docs/MODEL.md 2.2). A mechanism illustration, not a calibrated claim. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/simulate",
+    "file": "simulate/subclone-competition.json",
+    "id": "subclone-competition",
+    "sha": "5950bdff0783a6824334e06f2a3cf221dc2e1d503f03828f6619c0b41f587291",
+    "title": "Sub-clone competition (resilient vs fragile)",
+    "version": "5950bdff07"
+   },
+   {
+    "bytes": 34644,
+    "description": "The newer stochastic mechanisms switched on together: a logistic (soft) senescence hazard, a small length-independent arrest rate, a heritable per-cell shortening-rate CV and a within-cell length spread (docs/MODEL.md 2.5-2.8). Cells enter senescence at different times, unlike the hard-threshold default. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/simulate",
+    "file": "simulate/stochastic-senescence.json",
+    "id": "stochastic-senescence",
+    "sha": "8d3ef9146a974fbe1fe3641b9966afce9b0e6a624b76dda01e6f7cb02c1110dd",
+    "title": "Stochastic senescence and heterogeneous shortening",
+    "version": "8d3ef9146a"
+   },
+   {
+    "bytes": 24415,
+    "description": "Stress alternates between a high and a low phase over six equal blocks (time-averaged stress 0.6), showing the scheduled-intervention feature of the model (docs/MODEL.md 2.1). A model scenario, not a clinical regimen. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/simulate",
+    "file": "simulate/alternating-stress-protocol.json",
+    "id": "alternating-stress-protocol",
+    "sha": "7b1972aac5ceb5ea971c2fb4f2da277094e540991063f30ebb55a59b12025cb0",
+    "title": "Time-varying stress protocol",
+    "version": "7b1972aac5"
+   },
+   {
+    "bytes": 36043,
+    "description": "The same no-telomerase culture re-run with eight different random seeds, showing the run-to-run spread (median and bands) in length, population size and senescent fraction. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/simulate/ensemble",
+    "file": "simulate/ensemble-fibroblast-aging.json",
+    "id": "ensemble-fibroblast-aging",
+    "sha": "c21f0c72dbda943a7f636cc344b9469d655e9c3c2ce52ec73b89d08d2ff038bb",
+    "title": "Ensemble: fibroblast aging across 8 seeds",
+    "version": "c21f0c72db"
+   },
+   {
+    "bytes": 36434,
+    "description": "Eight seeds of a high-maintenance culture: the bands stay tight because maintenance keeps telomeres above the threshold in every replicate. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/simulate/ensemble",
+    "file": "simulate/ensemble-telomerase-positive.json",
+    "id": "ensemble-telomerase-positive",
+    "sha": "24dc8927537b3b6567cae788cb161c857d9b6d58288a2247853aabc62aa01cac",
+    "title": "Ensemble: telomerase-positive culture across 8 seeds",
+    "version": "24dc892753"
+   },
+   {
+    "bytes": 39001,
+    "description": "Soft senescence hazard plus heterogeneous shortening rates widen the across-seed spread compared with the hard-threshold default. Precomputed example run of the Telomere Lab model with fixed seeds -- not patient data and not a prediction. Illustrative model behaviour only; see the Scientific scope page.",
+    "endpoint": "/simulate/ensemble",
+    "file": "simulate/ensemble-stochastic-senescence.json",
+    "id": "ensemble-stochastic-senescence",
+    "sha": "3b276f0fa590fd48d00643714a8e66ae912f75afea05479bfed2468bfdf7d172",
+    "title": "Ensemble: stochastic senescence across 8 seeds",
+    "version": "3b276f0fa5"
+   }
+  ]
+ },
+ "generated_at": "2026-10-01T12:24:22Z",
+ "version": 1
+}

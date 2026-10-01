@@ -25,11 +25,11 @@ def test_missing_demo_cache_is_404_not_spa_shell():
 
 def test_existing_rules_are_kept():
     assert "RewriteRule ^(telomore|foci)$ /$1/ [R=301,L]" in HT
-    assert "RewriteRule \.(py|sh|md|log|tmp|bat)$ - [F,L]" in HT
+    assert r"RewriteRule \.(py|sh|md|log|tmp|bat)$ - [F,L]" in HT
     assert 'Header set X-Content-Type-Options "nosniff"' in HT
-    assert '<FilesMatch "^index\.html$">' in HT
+    assert r'<FilesMatch "^index\.html$">' in HT
 
 
 def test_deploy_script_ships_dist_including_demo_cache():
-    assert 'xcopy /e /i /q /y "frontend\dist\*" "%STAGE%\telomore"' in BAT
-    assert "demo-cache\index.json" in BAT
+    assert r'xcopy /e /i /q /y "frontend\dist\*" "%STAGE%\telomore"' in BAT
+    assert r"demo-cache\index.json" in BAT

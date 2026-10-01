@@ -35,7 +35,7 @@ Honesty notes: 53BP1 foci are general DNA-break markers, not telomere-specific; 
 use the authors' numbers; our automatic counter does not reproduce them (Experiment L,
 `docs/EXPERIMENT_PROTOCOL.md` §15.2) and is labelled as an unvalidated illustration. A re-test on the raw data
 of one plate (§15.4, BioImage Archive S-BIAD885) found that bit depth is not the cause, and that the image-to-annotation
-pairing by IDR well name is uncertain, so the image shown next to a well's numbers may belong to another well.
+pairing by IDR well name is very probably wrong (column-major numbering, Well Number = c*12+r+1, fits far better; 12 x 32 plates), so the image shown next to a well's numbers most likely belongs to another well; IDR/authors have not yet confirmed.
 
 ## Site features (`foci/web/`)
 

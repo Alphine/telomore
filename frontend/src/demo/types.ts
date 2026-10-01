@@ -7,8 +7,11 @@ export interface DemoScenarioMeta {
   description: string
   /** Path of the scenario JSON, relative to <BASE>/demo-cache/. */
   file: string
+  endpoint?: string
   bytes?: number
   sha?: string
+  /** 10-hex prefix of sha; appended as ?v= so a CDN can cache scenario files as immutable. */
+  version?: string
 }
 
 export interface DemoIndex {
@@ -26,5 +29,9 @@ export interface DemoScenario<Req = unknown, Res = unknown> {
   feature: string
   request: Req
   response: Res
+  /** Which live endpoint produced this (e.g. /simulate, /simulate/ensemble, /sequence/lineage). */
+  endpoint?: string
   meta?: Record<string, unknown>
+  /** Feature-specific side data (experiments ledger: extra.details[run_id]). */
+  extra?: Record<string, unknown>
 }

@@ -6,6 +6,8 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
+const mockTarget = `http://127.0.0.1:${process.env.MOCK_API_PORT}`
+
 // https://vite.dev/config/
 export default defineConfig({
   // '/' for Railway (FastAPI serves the build at the root); '/telomore/' for
@@ -17,12 +19,18 @@ export default defineConfig({
     // (`uvicorn backend.main:app --port 8000`) so no CORS is involved.
     // Prod: FastAPI serves this build itself (backend/main.py), so the
     // frontend is same-origin and needs no proxy.
-    proxy: {
-      '/api': {
-        target: 'http://127.0.0.1:8000',
-        changeOrigin: true,
-      },
-    },
+    proxy: process.env.MOCK_API_PORT
+      ? // Dev mocks (frontend/dev-mocks/server.mjs): fake API + the static demo cache.
+        {
+          '/api': { target: mockTarget, changeOrigin: true },
+          '/demo-cache': { target: mockTarget, changeOrigin: true },
+        }
+      : {
+          '/api': {
+            target: 'http://127.0.0.1:8000',
+            changeOrigin: true,
+          },
+        },
     fs: {
       // The Docs page (pages/Docs/index.tsx) inlines the repo-root README.md
       // and docs/*.md via Vite's `?raw` import suffix, so the dev server

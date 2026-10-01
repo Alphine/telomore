@@ -104,7 +104,7 @@ function Picker() {
               <span className="font-heading text-sm font-semibold">{s.title}</span>
               {selected && <Badge tone="teal">Showing</Badge>}
             </span>
-            <span className="mt-1 block text-xs leading-relaxed text-slate-600 dark:text-slate-400">{s.description}</span>
+            <span title={s.description} className="mt-1 line-clamp-3 block text-xs leading-relaxed text-slate-600 dark:text-slate-400">{s.description}</span>
           </motion.button>
         )
       })}

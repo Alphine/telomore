@@ -49,7 +49,7 @@ export function getUser(id: number): Promise<AdminUserDetail> {
 
 export function patchUser(id: number, body: UserPatch): Promise<AdminUser> {
   // request()'s method union has no PATCH yet; it forwards the string to fetch unchanged.
-  return request<AdminUser>(`/admin/users/${id}`, { method: 'PATCH' as unknown as 'POST', body })
+  return request<AdminUser>(`/admin/users/${id}`, { method: 'PATCH', body })
 }
 
 export function createUser(body: CreateUserBody): Promise<CreateUserResult> {

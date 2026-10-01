@@ -139,7 +139,7 @@ export function GenomeExplorer() {
     if (!demoSc) return
     const res = demoSc.response
     const lin = (res && typeof res === 'object' && 'lineage' in res ? (res as { lineage: LineageResponse }).lineage : res) as LineageResponse
-    if (lin && typeof lin === 'object' && 'model_bridge' in lin) setLineage(lin)
+    setLineage(lin && typeof lin === 'object' && 'model_bridge' in lin ? lin : null)
     if (demoSc.request?.mutation_rate !== undefined) setRate(demoSc.request.mutation_rate)
     if (demoSc.request?.generations !== undefined) setGens(demoSc.request.generations)
   }, [demoSc, setLineage, setRate, setGens])
@@ -147,8 +147,8 @@ export function GenomeExplorer() {
   useEffect(() => {
     getToyGenome()
       .then(setGenome)
-      .catch((e) => setError(errMsg(e)))
-  }, [])
+      .catch((e) => setError(demo ? null : errMsg(e)))
+  }, [demo, setGenome])
 
   async function onRun() {
     setBusy(true)
@@ -181,7 +181,7 @@ export function GenomeExplorer() {
 
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">1. DNA → RNA → protein</h2>
-        {!genome && !error && <p className="text-sm text-slate-500">Loading genome…</p>}
+        {!genome && !error && (demo ? <p className="text-sm text-slate-500">The DNA → RNA → protein viewer is part of the "toy genome" example; pick it above to explore the precomputed mutations.</p> : <p className="text-sm text-slate-500">Loading genome…</p>)}
         {genome && gene && (
           <>
             <div className="flex gap-2" role="tablist">

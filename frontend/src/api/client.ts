@@ -79,7 +79,7 @@ export const PRO_REQUIRED_EVENT = 'tel:pro-required'
 // locally with a 403 `demo_mode` error before any network traffic.
 export const demoHooks: {
   active: boolean
-  replay: ((method: string, path: string) => { hit: true; value: unknown } | { hit: false }) | null
+  replay: ((method: string, path: string, body?: unknown) => { hit: true; value: unknown } | { hit: false }) | null
 } = { active: false, replay: null }
 
 const COMPUTE_PREFIXES = [
@@ -103,7 +103,7 @@ function isComputePath(path: string): boolean {
 }
 
 export interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   body?: unknown
   query?: Record<string, string | number | boolean | undefined>
   /** Explicit token override; defaults to the stored one. */
@@ -112,7 +112,7 @@ export interface RequestOptions {
 
 export async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   if (demoHooks.active && isComputePath(path)) {
-    const hit = demoHooks.replay?.(opts.method ?? 'GET', path)
+    const hit = demoHooks.replay?.(opts.method ?? 'GET', path, opts.body)
     if (hit?.hit) return hit.value as T
     throw new ApiError(403, {
       code: 'demo_mode',

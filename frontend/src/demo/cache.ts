@@ -47,7 +47,8 @@ export function fetchDemoIndex(): Promise<DemoIndex> {
 export function fetchDemoScenario(meta: DemoScenarioMeta): Promise<DemoScenario> {
   let p = scenarioPromises.get(meta.id)
   if (!p) {
-    p = getJson(demoUrl(meta.file))
+    const v = meta.version ?? meta.sha?.slice(0, 10)
+    p = getJson(demoUrl(meta.file) + (v ? `?v=${v}` : ''))
       .then((raw) => {
         const sc = raw as Partial<DemoScenario> | null
         if (!sc || typeof sc !== 'object' || !('response' in sc)) throw new Error('The demo scenario is malformed.')
@@ -58,7 +59,9 @@ export function fetchDemoScenario(meta: DemoScenarioMeta): Promise<DemoScenario>
           feature: sc.feature ?? '',
           request: sc.request ?? null,
           response: sc.response,
+          endpoint: sc.endpoint ?? meta.endpoint,
           meta: sc.meta,
+          extra: sc.extra,
         }
         loadedScenarios.set(meta.id, full)
         return full

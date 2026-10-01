@@ -1,5 +1,5 @@
 <?php
-// List of imaged idr0010 plates with their well counts, from data/well_index.json only (no IDR access).
+// List of imaged idr0010 plates with their well counts, from data/well_index_byname.json only (the IDR image grid; no IDR access).
 //   /api/plates.php -> {"plates":[{"plate":"7-14","wells":384},...],"n":148}
 // Sorted by plate name in natural order (5-12 before 100-27). Contract: docs/API.md ("Plate endpoint (plate.php)").
 
@@ -9,7 +9,7 @@ define('FOCI_API', 1);
 require __DIR__ . '/_lib.php';
 
 require_get_head();
-$idx = load_well_index();
+$idx = load_well_index('name');
 if ($idx === null) fail(500, 'index unavailable');
 $counts = [];
 foreach ($idx as $k => $iid) {
@@ -21,7 +21,7 @@ uksort($counts, 'strnatcmp');
 $plates = [];
 foreach ($counts as $p => $n) $plates[] = ['plate' => (string) $p, 'wells' => $n];
 $body = (string) json_encode(['plates' => $plates, 'n' => count($plates)], JSON_UNESCAPED_SLASHES);
-$etag = '"l' . substr(sha1((string) @filemtime(__DIR__ . '/../data/well_index.json') . $body), 0, 20) . '"';
+$etag = '"l' . substr(sha1((string) @filemtime(__DIR__ . '/../data/well_index_byname.json') . $body), 0, 20) . '"';
 header('ETag: ' . $etag);
 header('Cache-Control: public, max-age=86400');
 header('X-Content-Type-Options: nosniff');

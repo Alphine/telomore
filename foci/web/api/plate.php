@@ -1,5 +1,5 @@
 <?php
-// Wells of one idr0010 plate, from data/well_index.json only (no IDR access).
+// Wells of one idr0010 plate, from data/well_index_byname.json only (the IDR image grid; no IDR access).
 //
 //   /api/plate.php?plate=7-14  ->  {"plate","wells":[{"well":"A1","plate_well":"7-14_A1","image_id":N},...],"n","rows","cols","quota":{...}}
 //
@@ -16,7 +16,7 @@ require __DIR__ . '/_lib.php';
 require_get_head();
 $plate = $_GET['plate'] ?? null;
 if (!valid_plate_name($plate)) fail(400, 'bad plate');
-$idx = load_well_index();
+$idx = load_well_index('name');   // image grid: keys are IDR well addresses, not annotation rows
 if ($idx === null) fail(500, 'index unavailable');
 
 $prefix = $plate . '_';
@@ -51,7 +51,7 @@ $out = [
     ],
 ];
 $body = (string) json_encode($out, JSON_UNESCAPED_SLASHES);
-$etag = '"p' . substr(sha1($plate . '|' . (string) @filemtime(__DIR__ . '/../data/well_index.json') . '|' . $body), 0, 20) . '"';
+$etag = '"p' . substr(sha1($plate . '|' . (string) @filemtime(__DIR__ . '/../data/well_index_byname.json') . '|' . $body), 0, 20) . '"';
 header('ETag: ' . $etag);
 header('Cache-Control: public, max-age=3600');
 header('X-Content-Type-Options: nosniff');

@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "foci" / "web"
 IMGDATA = (ROOT / "tests" / "fixtures" / "idr_imgdata_1922019.json").read_text()
 NOISE = Image.frombytes("RGB", (64, 64), os.urandom(64 * 64 * 3))
-WELL = "100-27_A1"  # -> image 1922019 in well_index.json
+WELL = "100-27_A1"  # -> image 1922019 under both pairings (A1: Well Number 1 is a fixed point of the permutation)
 
 
 def _php_cmd():
@@ -108,7 +108,8 @@ def site(tmp_path_factory):
     (pub / "data").mkdir()
     for f in (WEB / "api").glob("*.php"):   # well.php now requires _lib.php
         shutil.copy(f, pub / "api" / f.name)
-    shutil.copy(WEB / "data" / "well_index.json", pub / "data" / "well_index.json")
+    for n in ("well_index.json", "well_index_byname.json"):
+        shutil.copy(WEB / "data" / n, pub / "data" / n)
     sp, pp = free_port(), free_port()
     srv = HTTPServer(("127.0.0.1", sp), Stub)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
@@ -153,12 +154,26 @@ def test_composite_channels_and_info(site):
     j = json.loads(body)
     assert st == 200 and h["Content-Type"].startswith("application/json")
     assert j == {
-        "well": WELL, "image_id": 1922019, "size_x": 696, "size_y": 520, "pixel_size_um": 0.465,
+        "well": WELL, "pairing": "colmajor", "image_id": 1922019, "size_x": 696, "size_y": 520, "pixel_size_um": 0.465,
         "pixel_size_source": "idr0010 study protocol (IDR reports the nominal default 1.0)",
         "channels": ["Hoechst 33258", "Alexa488/53BP1"],
         "idr_url": "https://idr.openmicroscopy.org/webclient/?show=image-1922019",
     }
     assert "max-age" in h["Cache-Control"] and "immutable" not in h["Cache-Control"]
+
+
+def test_pairing_param_selects_the_image(site):
+    """Default = column-major (annotation row -> image of the column-major address); pair=name = IDR address as is."""
+    byname = json.loads((WEB / "data" / "well_index_byname.json").read_text())
+    colmaj = json.loads((WEB / "data" / "well_index.json").read_text())
+    key = "100-27_B1"                      # row 2, column 1: Well Number 33 -> image at IDR I3
+    assert byname[key] != colmaj[key] and colmaj[key] == byname["100-27_I3"]
+    for pair, want in (("name", byname[key]), ("colmajor", colmaj[key]), (None, colmaj[key])):
+        st, h, body = get(site, f"?w={key}&info=1" + (f"&pair={pair}" if pair else ""))
+        j = json.loads(body)
+        assert st == 200 and j["image_id"] == want and j["pairing"] == (pair or "colmajor"), (pair, j)
+    for bad in ("pair=", "pair=other", "pair[]=name", "pair=NAME"):
+        assert get(site, f"?w={key}&info=1&{bad}")[0] == 400, bad
 
 
 def test_second_request_is_served_from_cache(site):

@@ -49,6 +49,10 @@ Per visitor (client address, `REMOTE_ADDR`; `X-Forwarded-For` is ignored unless 
 | Responses that need IDR | 60 / min | `FOCI_MISS_PER_MIN` | one uncached plate takes about 13 minutes, so one visitor cannot burst IDR |
 | Same, per day | 2000 (token bucket) | `FOCI_MISS_PER_DAY` | about 2.6 plates per day per visitor; walking the whole screen from one address would take weeks |
 
+**Check on the real host that `REMOTE_ADDR` is the visitor.** If the site sits behind a CDN or reverse proxy, every visitor looks like
+the proxy and all of them share ONE allowance (the plate page would then hit 429 almost at once): list the proxy's addresses in
+`FOCI_TRUSTED_PROXIES` so that `X-Forwarded-For` is used. This could not be verified here (no access to the host).
+
 Whole site, towards IDR: **3 requests per second** (burst 6, `FOCI_IDR_RATE`, `FOCI_IDR_BURST`) and **3 simultaneous
 fetches** (`FOCI_IDR_CONCURRENCY`). A first-time well costs up to three IDR requests (session cookie once an hour, image
 metadata once per image, the render), a second channel one more. When saturated the proxy answers `503` with `Retry-After`;

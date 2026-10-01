@@ -231,7 +231,7 @@ def analyse(mapping, A, ws, q_ws, l_ws, args, p):
 def idr_png_mapping_check():
     """Optional, offline: the ~100 cached IDR PNGs of Experiment L (all plates). Our nucleus count vs the authors'
     Cell Count under the two assignments. Skipped (None) when the cache / well index is absent."""
-    idx_f, cache, ann_f = ROOT / "foci" / "web" / "data" / "well_index.json", ROOT / ".cache" / "idr0010" / "img", DEFAULT_ANNOTATION
+    idx_f, cache, ann_f = ROOT / "foci" / "web" / "data" / "well_index_byname.json", ROOT / ".cache" / "idr0010" / "img", DEFAULT_ANNOTATION
     if not (idx_f.exists() and cache.exists() and ann_f.exists()):
         return None
     inv = {v: k for k, v in json.loads(idx_f.read_text()).items()}

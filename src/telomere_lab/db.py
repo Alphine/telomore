@@ -193,6 +193,36 @@ def _normalized_database_url() -> str:
     return f"sqlite:///{db_path.as_posix()}"
 
 
+def column_ddl(table, col, dialect) -> List[str]:
+    """DDL statements that add ``col`` to an existing ``table`` for ``dialect``.
+
+    Pure (no connection) so it can be rendered and checked against the
+    PostgreSQL dialect in tests. Identifiers are quoted through the dialect's
+    preparer (so reserved words are safe), boolean/string defaults are emitted
+    as valid literals, and on PostgreSQL ``ADD COLUMN IF NOT EXISTS`` makes the
+    sync idempotent when two replicas boot at once.
+    """
+    quote = dialect.identifier_preparer.quote
+    tbl, name = quote(table.name), quote(col.name)
+    if_not_exists = "IF NOT EXISTS " if dialect.name == "postgresql" else ""
+    ddl = f"ALTER TABLE {tbl} ADD COLUMN {if_not_exists}{name} {col.type.compile(dialect=dialect)}"
+    default = col.default.arg if col.default is not None else None
+    if default is not None and not callable(default):
+        if isinstance(default, bool):
+            literal = "TRUE" if default else "FALSE"
+        elif isinstance(default, (int, float)):
+            literal = repr(default)
+        else:
+            literal = "'" + str(default).replace("'", "''") + "'"
+        ddl += " DEFAULT " + literal
+    out = [ddl]
+    if col.unique or col.index:
+        kind = "UNIQUE INDEX" if col.unique else "INDEX"
+        idx = quote(f"ix_{table.name}_{col.name}")
+        out.append(f"CREATE {kind} IF NOT EXISTS {idx} ON {tbl} ({name})")
+    return out
+
+
 def _add_missing_columns(engine) -> List[str]:
     """Additive schema sync: add model columns missing from existing tables.
 
@@ -213,14 +243,8 @@ def _add_missing_columns(engine) -> List[str]:
             for col in table.columns:
                 if col.name in existing:
                     continue
-                ddl = f"ALTER TABLE {table.name} ADD COLUMN {col.name} {col.type.compile(dialect=engine.dialect)}"
-                default = col.default.arg if col.default is not None else None
-                if default is not None and not callable(default):
-                    ddl += " DEFAULT " + ("TRUE" if default is True else "FALSE" if default is False else repr(default))
-                conn.execute(text(ddl))
-                if col.unique or col.index:
-                    kind = "UNIQUE INDEX" if col.unique else "INDEX"
-                    conn.execute(text(f"CREATE {kind} IF NOT EXISTS ix_{table.name}_{col.name} ON {table.name} ({col.name})"))
+                for stmt in column_ddl(table, col, engine.dialect):
+                    conn.execute(text(stmt))
                 added.append(f"{table.name}.{col.name}")
     return added
 
@@ -521,8 +545,11 @@ def admin_identifiers() -> set:
 
 
 def is_env_admin(user: User) -> bool:
+    """Listed in ``TELOMERE_ADMIN_USERS`` *and* email-verified. Requiring a
+    verified address stops someone from squatting a listed username (or an
+    email they do not control) to become an admin."""
     ids = admin_identifiers()
-    return bool(ids) and (user.username.lower() in ids or user.email.lower() in ids)
+    return bool(ids) and user.is_verified and (user.username.lower() in ids or user.email.lower() in ids)
 
 
 def effective_plan(user: User, now: Optional[_dt.datetime] = None) -> str:
@@ -552,7 +579,8 @@ def apply_admin_bootstrap(session: Optional[Session] = None) -> int:
     try:
         users = db.execute(
             select(User).where(
-                (func.lower(User.username).in_(ids)) | (func.lower(User.email).in_(ids))
+                User.is_verified.is_(True),
+                (func.lower(User.username).in_(ids)) | (func.lower(User.email).in_(ids)),
             )
         ).scalars().all()
         changed = 0

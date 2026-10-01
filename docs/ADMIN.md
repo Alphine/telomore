@@ -9,11 +9,12 @@ and the `Authorization` header).
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `TELOMERE_ADMIN_USERS` | empty | Comma-separated usernames **or emails** (case-insensitive). Matching accounts get `is_admin=true`, `plan=pro` at server startup and on every login. This is the **only** way to create an admin. Env-listed admins can never be demoted or disabled through the API. |
+| `TELOMERE_ADMIN_USERS` | empty | Comma-separated usernames **or emails** (case-insensitive). Matching **email-verified** accounts get `is_admin=true`, `plan=pro` at server startup and on every login (an unverified account that merely squats a listed username is never promoted; prefer listing emails). This is the **only** way to create an admin. Env-listed admins can never be demoted or disabled through the API. |
 | `TELOMERE_REQUIRE_PRO` | `1` | `0` turns the plan check off (tests, cache generator). The disabled-account check stays on. |
 | `TELOMERE_USAGE_RETENTION_DAYS` | `90` | Usage events older than this are deleted at startup. `0` = keep forever. |
 | `TELOMERE_USAGE_LOG` | `on` | `off` disables usage logging entirely. |
 | `TELOMERE_IP_SALT` | derived from `SECRET_KEY` | Salt for the IP hash. |
+| `TELOMERE_TRUSTED_HOPS` | `0` | Number of trusted proxies that append to `X-Forwarded-For`. `0` reads the first (client-controlled) entry; `1` reads the right-most entry, which a caller cannot forge. Affects rate limits and `ip_hash`. |
 
 ## Privacy statement
 

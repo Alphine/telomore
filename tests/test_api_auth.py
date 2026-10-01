@@ -66,10 +66,12 @@ def test_register_duplicate_username_conflicts(client):
     assert resp.status_code == 409
 
 
-def test_register_duplicate_email_conflicts(client):
+def test_register_duplicate_email_does_not_leak_existence(client):
     _register(client, username="carol1", email="carol@example.com")
     resp = _register(client, username="carol2", email="carol@example.com")
-    assert resp.status_code == 409
+    # no enumeration: same status/message shape as a fresh sign-up, but no dev link
+    assert resp.status_code == 201
+    assert not resp.json().get("dev_verification_link")
 
 
 def _verify_token(link: str) -> str:

@@ -1,0 +1,31 @@
+name: Refresh Foci Lab samples
+
+# Manual only: fetches the Foci Lab gallery wells from the public IDR (idr0010, CC BY 4.0) on a GitHub runner,
+# so nothing is downloaded to a laptop, and opens a pull request with foci/web/samples/ (a few MB).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  samples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install numpy pillow
+      - run: python scripts/fetch_foci_samples.py --max-mb 50
+      - uses: peter-evans/create-pull-request@v6
+        with:
+          branch: chore/foci-samples
+          commit-message: "Foci Lab: refresh sample wells from IDR idr0010 (CC BY 4.0)"
+          title: "Foci Lab: refresh sample wells"
+          body: |
+            Sample wells re-fetched from the public IDR by `scripts/fetch_foci_samples.py`.
+            Attribution and licence (CC BY 4.0) are in `foci/web/samples/manifest.json` and `README.md`.
+          add-paths: foci/web/samples/

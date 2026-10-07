@@ -1,0 +1,99 @@
+{
+ "version": 1,
+ "built_utc": "2026-10-07T13:01:35Z",
+ "licence": "CC BY 4.0",
+ "attribution": "Image Data Resource, study idr0010 (https://idr.openmicroscopy.org/webclient/?show=screen-1351). Doil et al., Cell 2009, doi:10.1016/j.cell.2008.12.041. Licence CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Images re-rendered by the IDR as 8-bit greyscale PNGs (linear window from the channel minimum to the curators' display maximum); no other change.",
+ "pairing": "column-major (inferred, unconfirmed)",
+ "items": [
+  {
+   "key": "negative_control",
+   "label": "negative control",
+   "description": "Negative control (non-targeting siRNA)",
+   "group": "control",
+   "well": "155-45_C6",
+   "image_id": 3071194,
+   "size_x": 696,
+   "size_y": 520,
+   "files": {
+    "dna": "negative_control_dna.png",
+    "foci": "negative_control_foci.png"
+   },
+   "idr_url": "https://idr.openmicroscopy.org/webclient/?show=image-3071194"
+  },
+  {
+   "key": "rnf168",
+   "label": "RNF168",
+   "description": "Ubiquitin ligase that recruits 53BP1 to breaks",
+   "group": "down",
+   "well": "90-27_D17",
+   "image_id": 3099722,
+   "size_x": 696,
+   "size_y": 520,
+   "files": {
+    "dna": "rnf168_dna.png",
+    "foci": "rnf168_foci.png"
+   },
+   "idr_url": "https://idr.openmicroscopy.org/webclient/?show=image-3099722"
+  },
+  {
+   "key": "atm",
+   "label": "ATM",
+   "description": "Master kinase of the break response",
+   "group": "repair",
+   "well": "28-43_E24",
+   "image_id": 3077974,
+   "size_x": 696,
+   "size_y": 520,
+   "files": {
+    "dna": "atm_dna.png",
+    "foci": "atm_foci.png"
+   },
+   "idr_url": "https://idr.openmicroscopy.org/webclient/?show=image-3077974"
+  },
+  {
+   "key": "psma3",
+   "label": "PSMA3",
+   "description": "Proteasome subunit",
+   "group": "up",
+   "well": "2-60_A13",
+   "image_id": 3074565,
+   "size_x": 696,
+   "size_y": 520,
+   "files": {
+    "dna": "psma3_dna.png",
+    "foci": "psma3_foci.png"
+   },
+   "idr_url": "https://idr.openmicroscopy.org/webclient/?show=image-3074565"
+  },
+  {
+   "key": "tert",
+   "label": "TERT",
+   "description": "Telomerase reverse transcriptase",
+   "group": "telomere",
+   "well": "38-21_F3",
+   "image_id": 3082283,
+   "size_x": 696,
+   "size_y": 520,
+   "files": {
+    "dna": "tert_dna.png",
+    "foci": "tert_foci.png"
+   },
+   "idr_url": "https://idr.openmicroscopy.org/webclient/?show=image-3082283"
+  },
+  {
+   "key": "terf2",
+   "label": "TERF2",
+   "description": "Shelterin: TRF2",
+   "group": "telomere",
+   "well": "99_E8",
+   "image_id": 3102790,
+   "size_x": 696,
+   "size_y": 520,
+   "files": {
+    "dna": "terf2_dna.png",
+    "foci": "terf2_foci.png"
+   },
+   "idr_url": "https://idr.openmicroscopy.org/webclient/?show=image-3102790"
+  }
+ ]
+}

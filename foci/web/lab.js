@@ -190,6 +190,89 @@
     }
   }
 
+  // ------------------------------------------------------------------ sample images (same-origin <img> elements only)
+  // Wells of IDR idr0010 (CC BY 4.0), files in samples/ (see samples/manifest.json). They are decoded by the browser as ordinary
+  // images, so the page's Content-Security-Policy stays connect-src 'none'; the pixels are re-wrapped as an 8-bit greyscale PNG.
+  var SAMPLES = [
+    { key: "negative_control", label: "Negative control (non-targeting siRNA), well 155-45_C6" },
+    { key: "rnf168", label: "RNF168 siRNA (fewer foci expected), well 90-27_D17" },
+    { key: "atm", label: "ATM siRNA, well 28-43_E24" },
+    { key: "psma3", label: "PSMA3 siRNA (more foci expected), well 2-60_A13" },
+    { key: "tert", label: "TERT siRNA, well 38-21_F3" },
+    { key: "terf2", label: "TERF2 siRNA, well 99_E8" }
+  ];
+  var CRC_T = null;
+  function crc32(b) {
+    if (!CRC_T) { CRC_T = new Uint32Array(256); for (var n = 0; n < 256; n++) { var c0 = n; for (var k = 0; k < 8; k++) c0 = (c0 & 1) ? (0xEDB88320 ^ (c0 >>> 1)) : (c0 >>> 1); CRC_T[n] = c0 >>> 0; } }
+    var c = 0xFFFFFFFF; for (var i = 0; i < b.length; i++) c = CRC_T[(c ^ b[i]) & 255] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+  function pngChunk(type, data) {
+    var out = new Uint8Array(12 + data.length), dv = new DataView(out.buffer);
+    dv.setUint32(0, data.length);
+    for (var i = 0; i < 4; i++) out[4 + i] = type.charCodeAt(i);
+    out.set(data, 8);
+    dv.setUint32(8 + data.length, crc32(out.subarray(4, 8 + data.length)));
+    return out;
+  }
+  function grayPng(w, ht, px) {                          // 8-bit greyscale PNG, zlib "stored" blocks (no compression needed)
+    var row = w + 1, raw = new Uint8Array(row * ht), y;
+    for (y = 0; y < ht; y++) raw.set(px.subarray(y * w, (y + 1) * w), y * row + 1);
+    var nb = Math.ceil(raw.length / 65535), z = new Uint8Array(2 + raw.length + nb * 5 + 4), p = 2, o = 0, a = 1, s = 0, i;
+    z[0] = 0x78; z[1] = 0x01;
+    while (o < raw.length) {
+      var len = Math.min(65535, raw.length - o);
+      z[p++] = o + len >= raw.length ? 1 : 0; z[p++] = len & 255; z[p++] = len >> 8; z[p++] = (~len) & 255; z[p++] = ((~len) >> 8) & 255;
+      z.set(raw.subarray(o, o + len), p); p += len; o += len;
+    }
+    for (i = 0; i < raw.length; i++) { a = (a + raw[i]) % 65521; s = (s + a) % 65521; }
+    new DataView(z.buffer).setUint32(p, ((s << 16) | a) >>> 0);
+    var ihdr = new Uint8Array(13), dv = new DataView(ihdr.buffer);
+    dv.setUint32(0, w); dv.setUint32(4, ht); ihdr[8] = 8;   // bit depth 8, colour type 0 (grey), no interlace
+    var parts = [new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]), pngChunk("IHDR", ihdr), pngChunk("IDAT", z), pngChunk("IEND", new Uint8Array(0))];
+    var out = new Uint8Array(parts.reduce(function (n, q) { return n + q.length; }, 0)), at = 0;
+    parts.forEach(function (q) { out.set(q, at); at += q.length; });
+    return out;
+  }
+  function sampleFile(url, name) {
+    return new Promise(function (resolve, reject) {
+      var im = new Image();
+      im.onload = function () {
+        try {
+          var w = im.naturalWidth, ht = im.naturalHeight, c = document.createElement("canvas");
+          if (!w || !ht || w * ht > DEFAULT_PX) throw new Error("unexpected image size");
+          c.width = w; c.height = ht;
+          var ctx = c.getContext("2d", { willReadFrequently: true }); ctx.drawImage(im, 0, 0);
+          var rgba = ctx.getImageData(0, 0, w, ht).data, g = new Uint8Array(w * ht);
+          for (var i = 0; i < g.length; i++) g[i] = rgba[i * 4];
+          resolve(new File([grayPng(w, ht, g)], name, { type: "image/png", lastModified: 1 }));
+        } catch (e) { reject(e); }
+      };
+      im.onerror = function () { reject(new Error("could not load " + url)); };
+      im.src = url;
+    });
+  }
+  async function addSamples(keys) {
+    if (S.running) { say("Wait for the current run to finish (or cancel it) before adding files.", "err"); return; }
+    say("Loading sample image" + (keys.length > 1 ? "s" : "") + "…");
+    try {
+      var list = [];
+      for (var i = 0; i < keys.length; i++) {
+        var k = keys[i];
+        list.push({ file: await sampleFile("samples/" + k + "_dna.png", k + "_Hoechst.png"), path: k + "_Hoechst.png" });
+        list.push({ file: await sampleFile("samples/" + k + "_foci.png", k + "_53BP1.png"), path: k + "_53BP1.png" });
+      }
+      addEntries(list);
+      say("Added " + keys.length + " sample well" + (keys.length > 1 ? "s" : "") + " (IDR idr0010, CC BY 4.0). Press Analyse in step 4.", "ok");
+    } catch (e) { say("Could not load the sample images: " + errMsg(e), "err"); }
+  }
+  (function buildSamples() {
+    var sel = $("sampleSel"); if (!sel) return;
+    SAMPLES.forEach(function (sm) { sel.appendChild(h("option", { value: sm.key, text: sm.label })); });
+    $("addSample").addEventListener("click", function () { addSamples([sel.value]); });
+    $("addDemo").addEventListener("click", function () { addSamples(["negative_control", "rnf168"]); });
+  })();
+
   function addEntries(list) {
     if (S.running) { say("Wait for the current run to finish (or cancel it) before adding files.", "err"); return; }
     var added = 0, skipped = [];
@@ -464,7 +547,7 @@
     var ready = !!Eng && !!S.defaults && !S.running && !S.scanning && S.sets.some(function (s) { return s.include && !setProblem(s); }) && !!readParams(false);
     $("runBtn").disabled = !ready;
     $("cancelBtn").hidden = !S.running;
-    ["pickFiles", "pickFolder", "repair", "addSet", "bulkApply"].forEach(function (id) { $(id).disabled = S.running || (id === "addSet" && !S.files.some(function (f) { return f.status === "ok"; })); });
+    ["pickFiles", "pickFolder", "repair", "addSet", "bulkApply", "addSample", "addDemo"].forEach(function (id) { $(id).disabled = S.running || (id === "addSet" && !S.files.some(function (f) { return f.status === "ok"; })); });
     $("clearFiles").disabled = S.running || !S.files.length;
     $("mode").disabled = $("pool").disabled = $("pipeline").disabled = S.running;
   }

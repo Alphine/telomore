@@ -41,7 +41,7 @@
       <ul>
         <li>This is a <b>classical counter and exploratory</b>. It is <b>not validated against manual counts</b> (Experiments L and L2 in the project record). Tune the parameters on your own positive and negative controls before trusting a number.</li>
         <li>53BP1 and gamma-H2AX foci mark DNA double-strand breaks anywhere in the genome; they are <b>not telomere-specific</b>.</li>
-        <li><b>Your files never leave your machine.</b> This page is not allowed to make network requests: a Content-Security-Policy in the page header blocks them, and a test checks that the code contains none. Only fonts and the page's own scripts are loaded.</li>
+        <li><b>Your files never leave your machine.</b> This page is not allowed to make network requests: a Content-Security-Policy in the page header blocks them, and a test checks that the code contains none. Only fonts and the page's own scripts are loaded; the sample-image buttons below load pictures from this site like any <code>&lt;img&gt;</code>, and only when you press them.</li>
         <li>Large images need a lot of memory (16 megapixels per channel is the limit). If a tab runs out of memory, use smaller images or a pool size of 1.</li>
       </ul>
     </div>
@@ -60,6 +60,15 @@
       </div>
       <input type="file" id="fileInput" class="sr" multiple accept=".png,.tif,.tiff,.jpg,.jpeg,.zip,image/png,image/tiff,image/jpeg,application/zip" tabindex="-1" aria-label="Choose image files">
       <input type="file" id="folderInput" class="sr" webkitdirectory multiple tabindex="-1" aria-label="Choose a folder of images">
+      <div class="samples" id="sampleBox">
+        <p class="note"><b>No images at hand?</b> Add a sample well from the public IDR study idr0010 (Doil et al., <i>Cell</i> 2009, doi:10.1016/j.cell.2008.12.041, licence <a href="https://creativecommons.org/licenses/by/4.0/" rel="noopener">CC BY 4.0</a>; <a href="https://idr.openmicroscopy.org/webclient/?show=screen-1351" rel="noopener">screen 1351</a>). Each sample is a Hoechst (nuclei) and a 53BP1 image, 8-bit greyscale as rendered by the IDR. The files are served from this site and read here like any picture, so this page still makes no network request of its own; the browser re-wraps the pixels as a PNG, so the provenance SHA-256 is that of the re-wrapped file, not of the original in <code>samples/</code>. Image-to-annotation pairing of these wells is inferred and unconfirmed (see the Foci Lab home page).</p>
+        <div class="actions">
+          <label class="sr" for="sampleSel">Sample well</label>
+          <select id="sampleSel"></select>
+          <button type="button" class="btn" id="addSample">Add sample pair</button>
+          <button type="button" class="btn ghost" id="addDemo">Add control + RNF168</button>
+        </div>
+      </div>
       <p class="note" id="fileSummary" role="status" aria-live="polite">No files yet.</p>
       <div class="tbl" id="fileTblWrap" hidden>
         <table id="fileTbl">

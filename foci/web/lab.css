@@ -114,3 +114,6 @@ dl.used dd { margin: 0; font-family: "IBM Plex Mono", monospace; overflow-wrap: 
   .tbl td.fname { max-width: 180px; }
   .chan svg.hist { max-width: 100%; }
 }
+
+.samples { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); text-align: left; }
+.samples select { max-width: 100%; min-width: 220px; font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: inherit; }

@@ -1,134 +1,156 @@
-# Kaggle Writeup (DRAFT): AI4S Open Innovation: AI for Life Science
+# Kaggle Writeup: AI4S Open Innovation: AI for Life Science
 
-> Draft for pasting into the Kaggle form. Every number below is taken from `README.md`, `foci/README.md` or
-> `docs/EXPERIMENT_PROTOCOL.md`. Items in [BRACKETS] must be filled in or checked before submitting.
+Structure follows the competition's recommended layout (category first, demo video, code repository, 200-300 word summary,
+technical report, optional demo link, team). Every number comes from `README.md`, `foci/README.md` or
+`docs/EXPERIMENT_PROTOCOL.md`.
 
 ## Title
 
-Telomere Evolution Lab and Foci Lab: an AI-for-science lab that reports what did not work
+Telomere Evolution Lab and Foci Lab: a transparent AI-for-science lab that reports what did not work
 
-## Subtitle (one line)
+## Submission category
 
-An evolutionary search over a telomere-dynamics model, plus a browser-only tool for real DNA-damage microscopy, built to be checked rather than believed.
+**End-to-End System**
 
-## Links
+## Demo video
 
-- Live: https://studylab.id/ (landing), https://studylab.id/telomore/ (Telomere Evolution Lab), https://studylab.id/foci/ (Foci Lab)
-- Code (MIT): https://github.com/Alphine/telomore
-- Demo video: (link to be added once the video is uploaded)
+https://youtu.be/YDKOISImczQ
 
-## Summary
+## Public code repository
+
+https://github.com/Alphine/telomore (MIT licence)
+
+## Optional demo links (no login needed)
+
+- Landing page for both labs: https://studylab.id/
+- Telomere Evolution Lab (anonymous visitors see precomputed example runs, clearly labelled): https://studylab.id/telomore/
+- Foci Lab (real IDR microscopy, in-browser analysis, sample images built in): https://studylab.id/foci/ and https://studylab.id/foci/lab.html
+
+## Project summary
 
 Telomeres shorten each time a cell divides, and a cell whose shortest telomere falls below a threshold stops dividing.
-We built two connected tools around that idea.
+Long-term cultures, such as the in vitro systems used in organ-on-a-chip work, are shaped by this process, but choosing
+which culture conditions to test is a costly search. We built an end-to-end system with two parts.
 
-**Telomere Evolution Lab** is a simulator of telomere dynamics (cells x telomeres, per cell cycle) with an AI layer on top.
-A genetic algorithm, an NSGA-II multi-objective search and a surrogate-model active learner look for virtual intervention
-settings (maintenance, repair, stress) that maximise an explicit, user-weighted objective. It runs on a laptop CPU, with no GPU.
+**Telomere Evolution Lab** is a telomere-dynamics simulator with an AI search layer: a genetic algorithm, an NSGA-II
+multi-objective search and a Gaussian-process active learner propose maintenance, repair and stress settings that optimise an
+explicit, user-weighted objective. An optional organ-on-chip condition mapper turns chip culture conditions into model
+parameters. Every run is written to a reproducibility ledger (seed, configuration hash, code version).
 
-**Foci Lab** is a companion site built on real data: a published genome-wide siRNA screen of 53BP1 DNA-damage foci
-(IDR idr0010, Doil et al., *Cell* 2009, CC BY 4.0), with 17,536 genes and 56,832 wells with images. Users can explore the
-authors' results, and analyse their own microscopy images **inside the browser**, without uploading them.
+**Foci Lab** connects the model to real data: the published idr0010 genome-wide siRNA screen of 53BP1 DNA-damage foci
+(17,536 genes, 56,832 imaged wells), plus a browser-only image analyser. Your microscopy images never leave your machine; a
+Content-Security-Policy and a test enforce it.
 
-This is a computational research prototype. It makes no clinical, diagnostic or anti-ageing claim.
+The distinctive part is honesty: fourteen documented experiments, including negative results, an unvalidated foci counter
+labelled as such, and a data-pairing finding stated as "strongly supported, not confirmed". It runs on a laptop CPU.
+No clinical claim is made.
 
-## What we built
+## Technical report
 
-### 1. Simulate, evolve, compare
+### 1. Problem and application scenario
 
-- **Simulate**: every model parameter is editable; interactive charts of length trajectories, senescence and population;
-  a 3D telomere view (an illustration rebuilt from summary statistics, not a measured cell).
-- **Evolve**: a genetic algorithm with a visible fitness curve. Fitness is
-  `0.40 survival + 0.30 telomere reserve - 0.20 senescence - 0.10 instability - 0.30 intervention cost`,
-  with the weights configurable. Every candidate is averaged over several simulator seeds.
-- **Pareto**: because any weighting is a choice, NSGA-II returns the whole trade-off front, for example survival versus
-  intervention cost.
-- **Sensitivity and Active Learning**: a one-at-a-time tornado analysis, and a Gaussian-process surrogate with Expected
-  Improvement that picks which configuration to test next.
-- **Experiments ledger**: every run records its seed, configuration hash, model version and git commit, so it can be repeated.
+Cell cultures with limited replicative lifespan are central to in vitro life systems. Their behaviour depends on telomere
+shortening, maintenance, repair and stress. Experimenters need a way to rank virtual conditions worth testing at the bench
+first, and a way to look at DNA-damage readouts in real images without sending the images away. This is a computational
+research prototype, not a diagnostic or predictive clinical tool.
 
-### 2. Foci Lab: real microscopy, private by design
+### 2. Data, licences and compliance
 
-- Gene explorer, a gene-list test (hypergeometric over-representation and a rank-sum test), a well viewer, and plate mode.
-- **Browser compute**: the analysis engine is plain JavaScript (a CPU reference path that is bit-exact with our Python
-  counter, plus optional WebGPU with automatic CPU fallback). Images are never uploaded and the server never runs the
-  analysis. A Content-Security-Policy with `connect-src 'none'` and a test enforce that no file leaves the machine.
-- Results export as CSV together with a provenance JSON (engine version, parameters, SHA-256 of every file).
+- Telomere Lab: no external data; defaults are within literature ranges and are **not fitted** to data.
+- Foci Lab: IDR idr0010, Doil et al., *Cell* 2009 (doi:10.1016/j.cell.2008.12.041), licence **CC BY 4.0**, attributed on
+  the site and in `foci/web/samples/manifest.json`. Gene symbols: HGNC (CC0).
+- No personal, clinical or restricted data. Usage logs of the hosted site keep no request bodies and no raw IP addresses.
 
-### 3. Access model
+### 3. Methods and system architecture
 
-Anonymous visitors see precomputed example runs, clearly labelled "Precomputed example - not live compute". Live compute is
-for Pro accounts approved by an admin, so a public site cannot be used as free compute. Usage logs keep no request bodies and
-no raw IP addresses.
+Per cell cycle every proliferative cell divides; each replicated telomere loses a base amount plus stress-dependent loss
+scaled by (1 - repair) plus noise, and gains a telomerase-like amount directed to the shortest telomere. A cell becomes
+senescent when its shortest telomere falls below a threshold.
 
-## Results, including the negative ones
+```
+objective -> parameter genome -> telomere simulation -> outcomes -> fitness -> mutation/selection -> next generation
+fitness = 0.40 survival + 0.30 reserve - 0.20 senescence - 0.10 instability - 0.30 intervention cost
+```
 
-We treat negative results as results. Fourteen experiments (A to N, plus a re-test L2) are documented in
-`docs/EXPERIMENT_PROTOCOL.md`, with the commands to rerun them.
+- Optimisers: genetic algorithm; NSGA-II (Pareto fronts); one-at-a-time sensitivity; Gaussian-process surrogate with
+  Expected Improvement. Each candidate is averaged over several simulator seeds.
+- Stack: Python (NumPy, SciPy, pandas, scikit-learn), FastAPI backend, React + Vite + TypeScript frontend with WebGL and
+  Plotly. Foci Lab is plain JavaScript with a CPU reference path (bit-exact with the Python counter) and optional WebGPU.
+- Deployment: anonymous visitors see precomputed JSON scenarios from static hosting (no server compute); live compute is
+  limited to approved accounts.
 
-- **Experiment A**: with stress free to evolve, the genetic algorithm moves fitness from -0.13 to +0.63.
-- **Experiment B**: the NSGA-II front shows that A's answer overspends on intervention cost to gain reserve, not survival.
-- **Experiment C**: with stress **locked** (a stressor the experimenter cannot remove, the more realistic case), the front
-  shows a genuine maintenance/repair trade-off, and locking recovers 84 % of A's improvement using only real interventions.
-- **Experiment D**: a structural, model-to-model comparison with the published yeast model `anais-rat/telomeres`. It is
-  explicitly **not** a validation against data.
-- **Experiment E (negative)**: letting the optimiser time its interventions as a 6-phase protocol, with stress locked, buys
-  essentially nothing. The best protocol beats the best constant by +0.0001 +/- 0.001 on five held-out seeds (within seed
-  noise) at 64 % more simulator evaluations. This is "no benefit found at this budget", not "no benefit exists".
-- **Experiment J (negative)**: we expected the Gaussian-process active learner to degrade faster than the genetic algorithm
-  as the search space grows. It did not. Across 3 to 31 genes at a fixed budget of 144 simulator calls, the learner's
-  variance was the lowest at every level, and the genetic algorithm was the less robust method once per-phase schedule genes
-  were added. Only 3 optimizer seeds per cell, so this shows a pattern, not precise curves.
-- **Experiment L (negative)**: our automatic foci counter does **not** reproduce the authors' published counts. We label it
-  an unvalidated illustration and say so on the site.
+### 4. Experiments and results
 
-### A data-pairing observation (strongly supported, not confirmed)
+All fourteen experiments (A to N, plus a re-test L2) are in `docs/EXPERIMENT_PROTOCOL.md` with the commands to rerun them.
 
-In idr0010 the image of a well agrees with the authors' cell counts only when the image grid is numbered column-major and
-joined by `Well Number`, not by well name. On 106 wells the Spearman correlation between our nucleus counts and the authors'
-cell counts is 0.71 under column-major pairing, against 0.16 under pairing by IDR well name. Three independent checks
-support this. **IDR has not confirmed it**, and it may be a convention we missed. The site therefore defaults to the
-column-major pairing, says it is inferred, and keeps the by-name pairing selectable everywhere. Report:
-`docs/IDR_PAIRING_REPORT.md`.
+- **A**: with stress free to evolve, fitness moves from -0.13 to +0.63.
+- **B**: the NSGA-II front shows that A's answer overspends on intervention cost to gain reserve, not survival.
+- **C**: with stress locked (a stressor that cannot be removed), a genuine maintenance/repair trade-off appears and locking
+  recovers 84 % of A's improvement using only real interventions.
+- **D**: a structural model-to-model comparison with the published yeast model `anais-rat/telomeres`; explicitly not a
+  validation against data.
+- **E (negative)**: a 6-phase scheduled protocol buys essentially nothing over a constant intervention at locked stress:
+  +0.0001 +/- 0.001 on five held-out seeds, within seed noise, at 64 % more simulator evaluations. This is "no benefit found
+  at this budget", not "no benefit exists".
+- **J (negative)**: we expected the Gaussian-process learner to degrade faster than the genetic algorithm as the search
+  space grows. It did not. From 3 to 31 genes at a fixed budget of 144 simulator calls its variance was lowest at every level,
+  and the genetic algorithm was the less robust method once per-phase genes were added (3 optimiser seeds per cell).
+- **L (negative)**: our automatic foci counter does not reproduce the authors' published counts. It is labelled an
+  unvalidated illustration on the site.
 
-### Screen statistics
+**Screen statistics (Foci Lab).** Per-gene results use the authors' table, deterministically: robust per-well scores,
+Stouffer combined z per gene and q-values from an empirical null (the N(0,1) null would call about 1,400 genes, the empirical
+one 39). A supported hit needs at least two distinct siRNAs with |z| > 2 in the same direction and q < 0.05: 4 decreases
+and 25 increases. Single-well genes (4,206) are never called. Two siRNAs against one gene correlate only weakly (Spearman
+about 0.11).
 
-Per-gene results come from the authors' table, deterministically: a robust per-well score, a Stouffer combined z per gene,
-and q-values from an empirical null (the N(0,1) null would call about 1,400 genes, the empirical one 39). A **supported hit**
-needs at least two distinct siRNAs, each with |z| > 2 in the same direction, and q < 0.05. That gives 4 decreases and 25
-increases. Genes with a single well (4,206) are never called. Two siRNAs against one gene correlate only weakly (Spearman
-about 0.11), and the site says so.
+**Pairing observation (strongly supported, not confirmed).** In idr0010 the image of a well agrees with the authors' cell
+counts only when the image grid is numbered column-major and joined by `Well Number`, not by well name. On 106 wells the
+Spearman correlation between our nucleus counts and the authors' cell counts is 0.71 under column-major pairing against 0.16
+under pairing by IDR well name. IDR has not confirmed this and it may be a convention we missed, so the site defaults to the
+inferred pairing, says so, and keeps both selectable (`docs/IDR_PAIRING_REPORT.md`).
 
-## Why this fits "AI for Life Science"
+### 5. Reliability analysis and limitations
 
-- The AI is used to propose experiments worth testing at the bench first, under an explicit and inspectable objective, not to
-  claim biological truth. "Fitness is not biological truth" is stated in the app.
-- Reproducibility is built in: a ledger, golden outputs and seeds. About 1,149 automated tests (639 pytest, 251 Vitest,
-  259 Node tests for Foci Lab, counted 2026-10-01 per the README) [RE-COUNT before submitting].
-- Honesty about limits: no medical advice, no fitting to patient data, an unvalidated counter, and an unconfirmed pairing
-  finding, each stated where the result is shown.
-
-## Limitations
-
-- Abstract population model. "Stress", "repair" and "maintenance" are scalar abstractions, not assayed quantities.
+- Abstract population model; "stress", "repair" and "maintenance" are scalar abstractions, not assayed quantities.
 - The organ-on-chip mapping is a documented assumption with uncalibrated coefficients.
-- No bring-your-own-data import and no parameter fitting yet (see `docs/ROADMAP.md`).
+- No bring-your-own-data import and no parameter fitting yet (`docs/ROADMAP.md`).
 - 53BP1 foci mark DNA breaks in general, not telomeres specifically.
-- The foci counter is unvalidated. The optimiser optimises the chosen objective and nothing else.
+- The foci counter is unvalidated; the optimiser optimises the chosen objective and nothing else.
+- Reproducibility: seeds, configuration hashes and golden outputs; about 1,149 automated tests (639 pytest, 251 Vitest,
+  259 Node tests for Foci Lab, counted 2026-10-01 per the README). The backend pytest suite passed on a clean install.
 
-## Tech stack
+### 6. Potential scientific or practical impact
 
-Python (NumPy, SciPy, pandas, scikit-learn), FastAPI, React + Vite + TypeScript with Plotly and WebGL, a plain-JavaScript
-analysis engine with WebGPU, Railway (backend) and Hostinger (static sites). CPU-only, laptop-friendly.
+A transparent way to rank candidate culture conditions before bench work, a teaching tool, and a template for AI-for-science
+projects that publish negative results next to positive ones.
 
-## Data and licences
+### 7. Reproduction instructions
 
-Code: MIT. Foci Lab data: IDR idr0010, Doil et al., *Cell* 2009 (doi:10.1016/j.cell.2008.12.041), CC BY 4.0, with
-attribution on the site. Gene symbols: HGNC (CC0).
+Python 3.11+ and Node 22, no GPU, no paid service.
 
-## Checklist before submitting
+```bash
+pip install -e ".[dev]"
+python scripts/run_simulation.py --config configs/demo.yaml --seed 42
+python scripts/run_evolution.py  --config configs/evolution.yaml --seed 7
+python scripts/run_pareto.py     --config configs/pareto.yaml --seed 7
+python scripts/run_protocol_experiment.py --seed 7        # Experiment E
+python -m pytest
+node --test "foci/tests/*.test.mjs"                       # Foci Lab
+```
 
-- [ ] Fill in the video link and check the Kaggle form's required fields, track and deadline.
-- [ ] Re-count the tests (`python -m pytest`, `cd frontend && npx vitest run`, `node --test "foci/tests/*.test.mjs"`).
-- [ ] Open the live site logged out and confirm the demo banner reads "Precomputed example - not live compute".
-- [ ] Make sure no real emails, tokens or `.env` values appear in the video or screenshots.
+Web app: `uvicorn backend.main:app --port 8000` and `cd frontend && npm install && npm run dev`. Foci Lab is static: serve
+`foci/web/` with any static server (no PHP needed for the explorer and the Browser lab; the sample images are in
+`foci/web/samples/`).
+
+### 8. Sources and licences of external components
+
+- Code: MIT. Data: IDR idr0010 (CC BY 4.0), HGNC (CC0).
+- Libraries: NumPy, SciPy, pandas, scikit-learn, FastAPI, React, Vite, Plotly (their own open-source licences).
+- Reference model for Experiment D: `anais-rat/telomeres` (GPLv3), run in an isolated environment so licences never mix.
+- AI tools: the code was developed with assistance from Claude Code (Anthropic).
+
+## Team
+
+[TO CONFIRM BY THE TEAM LEADER: names, roles, and whether the team covers both AI/CS and biology expertise (declare it in the
+report to be eligible for the +0.5 interpretability bonus). Do not claim expertise that is not there.]
